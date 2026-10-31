@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using HDREZKA.Core.Api;
@@ -31,7 +31,7 @@ public static class PosterCache
 
     private static string Dir => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "HDREZKA", "postercache");
+        "HDREZKA-Anime4K-Motion", "postercache");
 
     static PosterCache()
     {

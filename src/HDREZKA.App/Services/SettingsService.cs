@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace HDREZKA.App.Services;
 
@@ -13,7 +13,7 @@ public sealed class SettingsService
     public static SettingsService Instance { get; } = new();
 
     private static readonly string Dir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA-Anime4K-Motion");
 
     private static readonly string FilePath = Path.Combine(Dir, "settings.json");
 
@@ -43,6 +43,9 @@ public sealed class SettingsService
     public bool UseAndroidHeaders { get; set; } = true;
     public int Volume { get; set; } = 100;
     public double Speed { get; set; } = 1.0;
+    public string Anime4KMode { get; set; } = "Off";
+    public int OpeningSkipSeconds { get; set; } = 85;
+    public int SmoothFps { get; set; }
 
     /// <summary>Login (email or username) typed at the last successful sign-in.</summary>
     public string AccountLogin { get; set; } = "";
@@ -177,6 +180,9 @@ public sealed class SettingsService
             DefaultQuality = loaded.DefaultQuality;
             UseAndroidHeaders = loaded.UseAndroidHeaders;
             Volume = loaded.Volume;
+            Anime4KMode = loaded.Anime4KMode is "A" or "B" or "C" or "Light" ? loaded.Anime4KMode : "Off";
+            OpeningSkipSeconds = loaded.OpeningSkipSeconds is >= 1 and <= 600 ? loaded.OpeningSkipSeconds : 85;
+            SmoothFps = loaded.SmoothFps is 60 or 120 or 165 ? loaded.SmoothFps : 0;
             Speed = loaded.Speed is > 0 and <= 4 ? loaded.Speed : 1.0;
             PosterSize = loaded.PosterSize is >= 80 and <= 256 ? loaded.PosterSize : 132;
             AccountLogin = loaded.AccountLogin ?? "";

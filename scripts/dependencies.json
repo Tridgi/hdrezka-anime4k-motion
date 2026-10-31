@@ -1,0 +1,6 @@
+[
+  {"name":"mpv","file":"mpv-dev.7z","url":"https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261021/mpv-dev-x86_64-20261021-git-e471496c56.7z","sha256":"efc719eff3dc5954b4a5efc800632808bcec01cc9034940dd14e5eb7fe9ea633"},
+  {"name":"python","file":"python.zip","url":"https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip","sha256":"4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"},
+  {"name":"vapoursynth","file":"vapoursynth.zip","url":"https://github.com/vapoursynth/vapoursynth/releases/download/R81/VapourSynth64-Portable-R81.zip","sha256":"6d625bd3b4d68697a7664a886f3a5e2f1df1a4744b4811bf77bd944baed63436"},
+  {"name":"svpflow","file":"svpflow.zip","url":"https://github.com/Z1xus/open-svpflow/releases/download/nightly-20261024-deadbad2201d/x86_64-pc-windows-msvc.zip","sha256":"0d1a5879455e38ac13b79ffb4b10e317009717f534d1fb5b178998db7f7fcc71"}
+]

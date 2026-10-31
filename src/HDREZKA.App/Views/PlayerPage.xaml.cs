@@ -1,3 +1,6 @@
+﻿using MediaPlayer = HDREZKA.App.Services.MpvPlayer;
+using MediaPlaybackSession = HDREZKA.App.Services.MpvSession;
+using MediaPlayerFailedEventArgs = HDREZKA.App.Services.MpvFailure;
 using System.Diagnostics;
 using HDREZKA.App.Services;
 using HDREZKA.Core.Api;
@@ -20,8 +23,8 @@ public sealed partial class PlayerPage : Page
     private static readonly double[] Speeds = { 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0 };
 
     private MediaPlayer? _player;
-    private MediaPlaybackItem? _playbackItem;
-    private MediaSource? _currentSource;
+    private string? _playbackItem;
+    private string? _currentSource;
     private volatile bool _tearingDown;
     private readonly List<MovieSubtitle> _attachedSubtitles = new();
     private bool _mediaOpened;
@@ -164,7 +167,7 @@ public sealed partial class PlayerPage : Page
         try
         {
             // Detach player from UI element BEFORE disposing to avoid rendering crashes
-            PlayerElement.SetMediaPlayer(null);
+            // The swap chain is detached by MpvPlayer.Dispose().
 
             if (_player != null)
             {
@@ -206,8 +209,10 @@ public sealed partial class PlayerPage : Page
         if (_player != null) return;
 
         _tearingDown = false;
-        _player = new MediaPlayer();
-        PlayerElement.SetMediaPlayer(_player);
+        _player = new MediaPlayer(PlayerElement);
+        _player.ShaderFailed += OnShaderFailed;
+        BuildAnimeMenu();
+        BuildSmoothMenu();
         var volume = Math.Clamp(SettingsService.Instance.Volume, 0, 100);
         _player.Volume = volume / 100.0;
         VolumeSlider.Value = volume;
@@ -401,7 +406,8 @@ public sealed partial class PlayerPage : Page
     {
         if (_launch == null) return;
 
-        SetupPlayer();
+        try { SetupPlayer(); }
+        catch (Exception ex) { App.TryLog(ex); ShowStatus("Не удалось запустить видеодвижок: " + ex.Message); return; }
         if (_player == null) return;
 
         _switching = true;
@@ -551,22 +557,7 @@ public sealed partial class PlayerPage : Page
         var (quality, url) = _candidates[_candidateIndex];
         try
         {
-            MediaSource source;
-            if (url.EndsWith(".m3u8", StringComparison.OrdinalIgnoreCase))
-            {
-                var hls = await AdaptiveMediaSource.CreateFromUriAsync(new Uri(url));
-                if (hls.Status != AdaptiveMediaSourceCreationStatus.Success || hls.MediaSource == null)
-                {
-                    throw new RezkaException(RezkaError.Parse, "HLS failed: " + hls.Status);
-                }
-
-                source = MediaSource.CreateFromAdaptiveMediaSource(hls.MediaSource);
-            }
-            else
-            {
-                source = MediaSource.CreateFromUri(new Uri(url));
-            }
-
+            var source = url;
             if (_tearingDown || _player == null) return;
 
             _currentSource = source;
@@ -575,7 +566,7 @@ public sealed partial class PlayerPage : Page
             SyncQualitySelection();
             var gen = ++_loadGen;
 
-            _playbackItem = new MediaPlaybackItem(source);
+            _playbackItem = source;
             _player.Source = _playbackItem;
             // Setting Source resets PlaybackRate to 1x: re-apply saved speed,
             // otherwise UI shows 2x while video plays at 1x.
@@ -617,23 +608,12 @@ public sealed partial class PlayerPage : Page
 
         _pendingSeekMs = seekToSaved ? GetSavedPositionMs() : 0;
 
-        MediaSource source;
-        try
-        {
-            source = MediaSource.CreateFromUri(new Uri(path));
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(ex);
-            ShowStatus(Loc.Get("Details.NoVideo"));
-            return;
-        }
-
+        var source = path;
         _currentSource = source;
         _mediaOpened = false;
         var gen = ++_loadGen;
 
-        _playbackItem = new MediaPlaybackItem(source);
+        _playbackItem = source;
         var player = _player;
         if (player == null) return;
         player.Source = _playbackItem;
@@ -643,37 +623,10 @@ public sealed partial class PlayerPage : Page
         await Task.CompletedTask;
     }
 
-    private void BuildSubtitles(MediaSource source, MovieVideo video)
+    private void BuildSubtitles(string source, MovieVideo video)
     {
         _attachedSubtitles.Clear();
-        foreach (var sub in video.Subtitles)
-        {
-            if (!Uri.TryCreate(sub.Link, UriKind.Absolute, out var uri)) continue;
-            try
-            {
-                var tts = TimedTextSource.CreateFromUri(uri);
-                tts.Resolved += (s, e) =>
-                {
-                    if (e.Error != null)
-                    {
-                        App.TryLog(new Exception("[Player] Subtitle resolve failed: " + sub.Name));
-                    }
-                    else
-                    {
-                        foreach (var track in e.Tracks)
-                        {
-                            track.Label = sub.Name;
-                        }
-                    }
-                };
-                source.ExternalTimedTextSources.Add(tts);
-                _attachedSubtitles.Add(sub);
-            }
-            catch (Exception ex)
-            {
-                App.TryLog(new Exception("[Player] Subtitle attach failed: " + ex.Message));
-            }
-        }
+        _attachedSubtitles.AddRange(video.Subtitles);
     }
 
     private long GetSavedPositionMs()
@@ -893,30 +846,9 @@ public sealed partial class PlayerPage : Page
 
     private void SubtitlesBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_playbackItem == null) return;
-        if (SubtitlesBox.SelectedItem is not ComboBoxItem selected) return;
-
-        try
-        {
-            var tracks = _playbackItem.TimedMetadataTracks;
-            for (var i = 0; i < tracks.Count; i++)
-            {
-                tracks.SetPresentationMode((uint)i, TimedMetadataTrackPresentationMode.Disabled);
-            }
-
-            if (selected.Tag is MovieSubtitle sub)
-            {
-                var idx = _attachedSubtitles.FindIndex(s => s.Link == sub.Link);
-                if (idx >= 0 && idx < tracks.Count)
-                {
-                    tracks.SetPresentationMode((uint)idx, TimedMetadataTrackPresentationMode.PlatformPresented);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(new Exception("[Player] Subtitle select failed: " + ex.Message));
-        }
+        if (_player == null || ! _player.IsLoaded) return;
+        try { _player.SelectSubtitle((SubtitlesBox.SelectedItem as ComboBoxItem)?.Tag as MovieSubtitle); }
+        catch (Exception ex) { App.TryLog(ex); }
     }
 
     // ---------- playback events ----------
@@ -976,7 +908,7 @@ public sealed partial class PlayerPage : Page
 
     private static string PlaybackMarkerPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "HDREZKA", "playback_active.txt");
+        "HDREZKA-Anime4K-Motion", "playback_active.txt");
 
     private static void WritePlaybackMarker(string title)
     {
@@ -1256,6 +1188,7 @@ public sealed partial class PlayerPage : Page
         {
             if (_tearingDown) return;
 
+            if (TryRecoverWithoutSmoothness()) return;
             // Битая или заблокированная CDN-ссылка: сначала пробуем остальные
             // ссылки/качества, и только потом показываем ошибку.
             if (TryNextCandidate()) return;
@@ -1652,7 +1585,7 @@ public sealed partial class PlayerPage : Page
     private void ZoomButton_Click(object sender, RoutedEventArgs e)
     {
         _zoomIndex = (_zoomIndex + 1) % ZoomModes.Length;
-        PlayerElement.Stretch = ZoomModes[_zoomIndex];
+        _player?.SetZoom(_zoomIndex);
         ZoomText.Text = ZoomLabels[_zoomIndex];
         App.TryLog(new Exception("[Player] Zoom: " + ZoomLabels[_zoomIndex]));
     }
@@ -1661,8 +1594,24 @@ public sealed partial class PlayerPage : Page
 
     private void RootGrid_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
+        _pointerInsidePlayer = true;
         ShowControls();
-        _hideTimer.Start();
+    }
+
+    private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        _pointerInsidePlayer = true;
+        ShowControls();
+    }
+
+    private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(RootGrid).Position;
+        if (point.X < 0 || point.Y < 0 || point.X >= RootGrid.ActualWidth || point.Y >= RootGrid.ActualHeight)
+        {
+            _pointerInsidePlayer = false;
+            ShowSystemCursor();
+        }
     }
 
     private void TapCatcher_Tapped(object sender, TappedRoutedEventArgs e)
@@ -1698,11 +1647,17 @@ public sealed partial class PlayerPage : Page
 
     private void ShowControls()
     {
+        RefreshOpeningSkipLabel();
         TopBar.IsHitTestVisible = true;
         BottomBar.IsHitTestVisible = true;
-        FadeElement(TopBar, show: true);
-        FadeElement(BottomBar, show: true);
+        if (!_controlsVisible)
+        {
+            FadeElement(TopBar, show: true);
+            FadeElement(BottomBar, show: true);
+            _controlsVisible = true;
+        }
         ShowSystemCursor();
+        _hideTimer.Stop();
         if (!IsPlaying()) return;
         _hideTimer.Start();
     }
@@ -1716,21 +1671,35 @@ public sealed partial class PlayerPage : Page
         // Invisible bars must not swallow taps: TapCatcher below handles them.
         TopBar.IsHitTestVisible = false;
         BottomBar.IsHitTestVisible = false;
-        if (_isFullscreen) HideSystemCursor();
+        _controlsVisible = false;
+        HideSystemCursor();
     }
 
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    private static extern int ShowCursor(bool bShow);
-
-    private static void HideSystemCursor()
+    private bool _controlsVisible = true;
+    internal void RestoreCursorOnDeactivate()
     {
-        // ShowCursor is counter-based: force below zero (capped).
-        try { for (var i = 0; i < 16 && ShowCursor(false) >= 0; i++) { } } catch { }
+        _pointerInsidePlayer = false;
+        ShowSystemCursor();
+    }
+    private bool _cursorHidden;
+    private bool _pointerInsidePlayer;
+    private int _cursorHideCalls;
+    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "ShowCursor")]
+    private static extern int SetCursorVisible([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)] bool visible);
+
+    private void HideSystemCursor()
+    {
+        if (_cursorHidden || !_pointerInsidePlayer) return;
+        // Balance exactly the calls we make; pointer movement must never grow
+        // the Win32 display counter and prevent subsequent hiding.
+        do { _cursorHideCalls++; } while (SetCursorVisible(false) >= 0);
+        _cursorHidden = true;
     }
 
-    private static void ShowSystemCursor()
+    private void ShowSystemCursor()
     {
-        try { for (var i = 0; i < 16 && ShowCursor(true) < 0; i++) { } } catch { }
+        while (_cursorHideCalls > 0) { SetCursorVisible(true); _cursorHideCalls--; }
+        _cursorHidden = false;
     }
 
     private void ToggleFullscreen()

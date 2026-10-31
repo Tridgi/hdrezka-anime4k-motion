@@ -1,4 +1,4 @@
-using HDREZKA.Core.Api;
+﻿using HDREZKA.Core.Api;
 
 namespace HDREZKA.App.Services;
 
@@ -36,7 +36,7 @@ public sealed class RezkaService
     public void RaiseAuthChanged() => AuthStateChanged?.Invoke();
 
     private static string CookiePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA", "cookies.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA-Anime4K-Motion", "cookies.json");
 
     public void RestoreSession()
     {

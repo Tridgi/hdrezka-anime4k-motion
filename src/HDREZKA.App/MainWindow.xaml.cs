@@ -26,7 +26,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
 
-        Title = "HDREZKA";
+        Title = "HDREZKA Anime4K Motion v2";
         ExtendsContentIntoTitleBar = true;
         SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
 

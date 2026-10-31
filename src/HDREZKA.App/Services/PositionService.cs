@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace HDREZKA.App.Services;
 
@@ -19,7 +19,7 @@ public sealed record WatchPosition(
 public sealed class PositionService
 {
     private static readonly string Dir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA-Anime4K-Motion");
 
     private static readonly string FilePath = Path.Combine(Dir, "positions.json");
     private static readonly string WatchedFilePath = Path.Combine(Dir, "watched.json");

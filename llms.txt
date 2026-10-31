@@ -1,0 +1,11 @@
+# HDREZKA Anime4K Motion
+
+> Unofficial open-source Windows HDREZKA client with Anime4K image processing and independent OpenCL motion interpolation in the integrated player.
+
+- [Russian README](README.md): Features, requirements, setup, tested hardware and limitations.
+- [English README](README.en.md): English overview.
+- [Build](docs/BUILD.md): Dependency hashes and Windows x64 build instructions.
+- [Licenses](THIRD_PARTY.md): Upstream attribution and dependency source references.
+- [Releases](https://github.com/Tridgi/hdrezka-anime4k-motion/releases): Portable binaries and source packages.
+
+Facts: Anime4K A/B/C/Light; independent 60/120/165 FPS targets; 165 experimental; opening skip default 85 seconds; cursor auto-hide after 3 seconds. Tested on P106-100, not all GPUs. Not NVIDIA DLSS or RIFE. No bundled accounts or media. No guaranteed performance, search ranking or endorsement.

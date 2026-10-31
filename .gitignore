@@ -35,3 +35,23 @@ Desktop.ini
 
 # Crash dumps
 *.dmp
+
+# Native dependencies restored by scripts/bootstrap.ps1
+/src/HDREZKA.App/Native/
+/src/HDREZKA.App/runtime/
+/.dependencies/
+/artifacts/
+/release/
+*.pdb
+*.pyc
+__pycache__/
+cookies.json
+settings.json
+positions.json
+tracked-series.json
+protocol-pending.txt
+*.db
+*.sqlite*
+*.mp4
+*.mkv
+*.dmp

@@ -61,6 +61,12 @@
                     <TextBlock x:Name="QualityHeader" FontWeight="SemiBold" Margin="0,4,0,0"/>
                     <ComboBox x:Name="QualityBox" MinWidth="220" SelectionChanged="QualityBox_SelectionChanged"/>
                     <CheckBox x:Name="DirectPlayCheck" Margin="0,8,0,0" Checked="DirectPlayCheck_Changed" Unchecked="DirectPlayCheck_Changed"/>
+                    <TextBlock Text="Пропуск опенинга" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                    <NumberBox x:Name="OpeningSkipBox" Header="Перемотка вперёд, секунд" Minimum="1" Maximum="600"
+                               SmallChange="5" LargeChange="30" SpinButtonPlacementMode="Inline"
+                               Width="240" HorizontalAlignment="Left" ValueChanged="OpeningSkipBox_ValueChanged"/>
+                    <TextBlock Text="По умолчанию 85 секунд (1:25). Кнопка находится в нижней панели плеера."
+                               FontSize="12" TextWrapping="Wrap" MaxWidth="640" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
             </Expander>
 

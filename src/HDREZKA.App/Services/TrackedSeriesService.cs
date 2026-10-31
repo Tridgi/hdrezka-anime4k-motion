@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using HDREZKA.Core.Api;
 using Microsoft.Windows.AppNotifications;
 
@@ -39,7 +39,7 @@ public static class TrackedSeriesService
     private const int MaxStoredUpdates = 30;
 
     private static readonly string Dir = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA-Anime4K-Motion");
 
     private static readonly string FilePath = Path.Combine(Dir, "tracked.json");
     private static readonly string UpdatesFilePath = Path.Combine(Dir, "updates.json");

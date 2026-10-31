@@ -1,4 +1,4 @@
-<Project>
+﻿<Project>
 
   <!--
     Единственный источник версии приложения.
@@ -10,12 +10,13 @@
     и README.md — они не умеют читать MSBuild-свойства.
   -->
   <PropertyGroup>
-    <Version>1.8.0</Version>
-    <FileVersion>1.8.0.0</FileVersion>
-    <AssemblyVersion>1.8.0.0</AssemblyVersion>
-    <InformationalVersion>1.8.0</InformationalVersion>
-    <Product>HDREZKA for Windows</Product>
-    <Company>eddinwork</Company>
+    <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
+    <Version>2.0.0</Version>
+    <FileVersion>2.0.0.0</FileVersion>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <InformationalVersion>2.0.0</InformationalVersion>
+    <Product>HDREZKA Anime4K Motion v2</Product>
+    <Company>HDREZKA Anime4K Motion contributors</Company>
     <Copyright>Copyright (c) 2026. Portions based on HDrezka for macOS, MIT License (c) 2025 voidboost.</Copyright>
   </PropertyGroup>
 

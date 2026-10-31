@@ -1,4 +1,4 @@
-using HDREZKA.App.Views;
+﻿using HDREZKA.App.Views;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Windows.Graphics;
@@ -57,6 +57,11 @@ public sealed partial class PlayerWindow : Window
         }
 
         Closed += OnClosed;
+        Activated += (_, args) =>
+        {
+            if (args.WindowActivationState == WindowActivationState.Deactivated && PlayerFrame.Content is PlayerPage page)
+                page.RestoreCursorOnDeactivate();
+        };
         ApplyChromePolicy();
     }
 

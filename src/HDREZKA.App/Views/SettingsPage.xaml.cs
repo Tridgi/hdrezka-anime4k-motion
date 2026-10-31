@@ -1,4 +1,4 @@
-using HDREZKA.App.Services;
+﻿using HDREZKA.App.Services;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -26,6 +26,7 @@ public sealed partial class SettingsPage : Page
         if (_initialized) return;
 
         var settings = SettingsService.Instance;
+        OpeningSkipBox.Value = settings.OpeningSkipSeconds;
         MirrorBox.Text = settings.Mirror;
 
         LanguageBox.Items.Clear();
@@ -62,7 +63,7 @@ public sealed partial class SettingsPage : Page
         DirectPlayCheck.IsChecked = settings.PlayFromHomeDirectly;
         DonorBox.Text = settings.DonorCode;
         SeriesToggle.IsOn = settings.SeriesUpdatesEnabled;
-        VersionText.Text = $"HDREZKA for Windows · {UpdateService.CurrentVersion}";
+        VersionText.Text = $"HDREZKA Anime4K Motion · {UpdateService.CurrentVersion}";
 
         DonateAddressText.Text = DonateAddress;
         try
@@ -98,6 +99,13 @@ public sealed partial class SettingsPage : Page
     private void OnLanguageChanged()
     {
         DispatcherQueue.TryEnqueue(ApplyLocalization);
+    }
+
+    private void OpeningSkipBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        if (!_initialized || !double.IsFinite(args.NewValue)) return;
+        SettingsService.Instance.OpeningSkipSeconds = (int)Math.Clamp(Math.Round(args.NewValue), 1, 600);
+        SettingsService.Instance.Save();
     }
 
     private void ApplyLocalization()
@@ -464,35 +472,7 @@ public sealed partial class SettingsPage : Page
 
     private async void CheckUpdatesButton_Click(object sender, RoutedEventArgs e)
     {
-        CheckUpdatesButton.IsEnabled = false;
-        UpdateStatusText.Text = Loc.Get("Settings.Checking");
-        try
-        {
-            var latest = await UpdateService.GetLatestAsync();
-            if (latest == null)
-            {
-                UpdateStatusText.Text = Loc.Get("Error.Network");
-            }
-            else if (UpdateService.IsNewer(latest.Version, UpdateService.CurrentVersion))
-            {
-                UpdateStatusText.Text = Loc.Get("Settings.UpdateAvailable", latest.Version);
-                if (App.MainWindow != null)
-                {
-                    await UpdateService.ShowUpdateDialogAsync(App.MainWindow, latest);
-                }
-            }
-            else
-            {
-                UpdateStatusText.Text = Loc.Get("Settings.UpToDate");
-            }
-
-            SettingsService.Instance.LastUpdateCheckUtc = DateTime.UtcNow;
-            SettingsService.Instance.Save();
-        }
-        finally
-        {
-            CheckUpdatesButton.IsEnabled = true;
-        }
+        await Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/Tridgi/hdrezka-anime4k-motion/releases"));
     }
 
     private async void LogoutButton_Click(object sender, RoutedEventArgs e)

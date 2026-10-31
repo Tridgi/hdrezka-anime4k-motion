@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 
 namespace HDREZKA.App.Services;
 
@@ -14,7 +14,7 @@ public static class Log
     private const long MaxBytes = 1024 * 1024;
 
     private static string Dir => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA-Anime4K-Motion");
 
     public static string InfoPath => Path.Combine(Dir, "app.log");
 

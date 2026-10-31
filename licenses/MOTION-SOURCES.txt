@@ -1,0 +1,17 @@
+open-svpflow (Apache-2.0):
+https://github.com/Z1xus/open-svpflow/tree/deadbad2201d77056173c05c2380758d88612019
+https://github.com/Z1xus/open-svpflow/releases/tag/nightly-20261024-deadbad2201d
+Asset: x86_64-pc-windows-msvc.zip
+SHA-256: 0d1a5879455e38ac13b79ffb4b10e317009717f534d1fb5b178998db7f7fcc71
+Original runtime LICENSE and CRATES.txt are retained in runtime/open-svpflow.
+
+VapourSynth R81 (LGPL-2.1-or-later):
+https://github.com/vapoursynth/vapoursynth/releases/tag/R81
+https://github.com/vapoursynth/vapoursynth/tree/R81
+Package: vapoursynth-81-cp312-abi3-win_amd64.whl, extracted from official portable archive.
+COPYING.LESSER and package metadata are retained under runtime/python/Lib/site-packages.
+
+Python 3.12.10 embeddable x64 (PSF license):
+https://www.python.org/downloads/release/python-31210/
+https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip
+LICENSE.txt is retained under runtime/python.

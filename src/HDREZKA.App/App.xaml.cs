@@ -1,4 +1,4 @@
-using HDREZKA.App.Services;
+﻿using HDREZKA.App.Services;
 using Microsoft.UI.Xaml;
 using System;
 using System.IO;
@@ -32,7 +32,7 @@ public partial class App : Application
     {
         try
         {
-            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA");
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HDREZKA-Anime4K-Motion");
             Directory.CreateDirectory(dir);
             var file = Path.Combine(dir, "crash.log");
             var sb = new StringBuilder();
@@ -63,11 +63,12 @@ public partial class App : Application
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         SettingsService.Instance.Load();
-        Services.ProtocolService.Register();
+        if (TryLaunchLocalFile()) return;
+        // Experimental copy does not change the installed URL handler.
 
         // Single instance: a second process (e.g. toast protocol click)
         // forwards activation to the running one and exits.
-        var keyInstance = Microsoft.Windows.AppLifecycle.AppInstance.FindOrRegisterForKey("HDREZKA-main");
+        var keyInstance = Microsoft.Windows.AppLifecycle.AppInstance.FindOrRegisterForKey("HDREZKA-Anime4K-Motion-v2-main");
         if (!keyInstance.IsCurrent)
         {
             try
@@ -105,7 +106,7 @@ public partial class App : Application
         }
 
         // Update check on every launch (notifies at most once per version).
-        _ = Services.UpdateService.CheckAndNotifyAsync(MainWindow);
+        // Keep this custom build; upstream installers would replace it.
 
         // First-launch mirror autopick + health check of the saved mirror
         // (geo-blocks change; a dead mirror must not require manual picking).
@@ -152,7 +153,7 @@ public partial class App : Application
 
     private static string PendingProtocolPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "HDREZKA", "protocol-pending.txt");
+        "HDREZKA-Anime4K-Motion", "protocol-pending.txt");
 
     private static void WritePendingProtocolUri()
     {

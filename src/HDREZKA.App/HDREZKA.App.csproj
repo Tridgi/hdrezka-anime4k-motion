@@ -10,6 +10,7 @@
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <UseWinUI>true</UseWinUI>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -44,4 +45,10 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="Native\libmpv-2.dll" Link="libmpv-2.dll" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="shaders\*.glsl" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="motion\*.vpy" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="runtime\**\*" Exclude="runtime\**\*.pdb;runtime\**\__pycache__\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

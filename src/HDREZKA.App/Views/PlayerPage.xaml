@@ -7,7 +7,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Background="Black"
-    RequestedTheme="Dark">
+    RequestedTheme="Dark"
+    KeyboardAcceleratorPlacementMode="Hidden">
 
     <!-- Global shortcuts: work regardless of which control has focus -->
     <Page.KeyboardAccelerators>
@@ -28,6 +29,8 @@
           IsTabStop="True"
           UseSystemFocusVisuals="False"
           PointerMoved="RootGrid_PointerMoved"
+          PointerEntered="RootGrid_PointerEntered"
+          PointerExited="RootGrid_PointerExited"
           KeyDown="RootGrid_KeyDown">
 
         <!-- Adaptive controls: tiny window keeps only Play/Pause + fullscreen,
@@ -77,12 +80,8 @@
 
         <Border Background="Black" BorderThickness="0" Margin="0" Padding="0"/>
 
-        <MediaPlayerElement x:Name="PlayerElement" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                       AutoPlay="False" AreTransportControlsEnabled="False" Stretch="Uniform"
-                       Background="Black" BorderBrush="Black" BorderThickness="0" Margin="0" Padding="0"
-                       IsTabStop="False" UseSystemFocusVisuals="False"
-                       FocusVisualPrimaryThickness="0" FocusVisualSecondaryThickness="0"
-                       CornerRadius="0"/>
+        <SwapChainPanel x:Name="PlayerElement" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsHitTestVisible="False"/>
+
 
         <Border x:Name="TapCatcher"
                 Background="Transparent"
@@ -134,6 +133,10 @@
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                    <ComboBox x:Name="AnimeBox" SelectionChanged="AnimeBox_SelectionChanged"
+                              MinWidth="146" Padding="8,4" Foreground="White" Background="#33000000"
+                              BorderBrush="#4DFFFFFF" VerticalAlignment="Center"
+                              ToolTipService.ToolTip="Anime4K: улучшение аниме на GPU. Качество источника остаётся прежним."/>
                     <ComboBox x:Name="QualityBox" SelectionChanged="QualityBox_SelectionChanged"
                               MinWidth="118" MaxWidth="180" Padding="8,4"
                               Foreground="White" Background="#33000000" BorderBrush="#4DFFFFFF"
@@ -228,6 +231,15 @@
                                 CornerRadius="8" Padding="10,5" Margin="8,0,0,0">
                             <TextBlock x:Name="ZoomText" Text="Auto" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
                         </Button>
+                        <Button x:Name="SkipOpeningButton" Click="SkipOpeningButton_Click" Background="#33FFFFFF" BorderThickness="0"
+                                CornerRadius="8" Padding="10,5" Margin="8,0,0,0"
+                                ToolTipService.ToolTip="Перемотать вперёд на время, заданное в настройках">
+                            <TextBlock x:Name="SkipOpeningText" Text="Опенинг +1:25" Foreground="White" FontSize="12"/>
+                        </Button>
+                        <ComboBox x:Name="SmoothBox" SelectionChanged="SmoothBox_SelectionChanged"
+                                  MinWidth="146" MaxWidth="170" Padding="8,4" Margin="8,0,0,0"
+                                  Foreground="White" Background="#33000000" BorderBrush="#4DFFFFFF"
+                                  ToolTipService.ToolTip="Отдельное повышение FPS по движению. Не меняет режим Anime4K."/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="12,0,0,0">
