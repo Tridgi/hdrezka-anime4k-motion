@@ -19,16 +19,36 @@
                 <ColumnDefinition x:Name="RightInsetColumn" Width="0"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock x:Name="AppTitleText" Grid.Column="1" Text="HDREZKA"
-                       VerticalAlignment="Center" Margin="16,0,0,0" FontSize="12"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <!-- Navigation actions belong to the title bar, not the side pane. -->
+            <StackPanel x:Name="TitleBarActions" Grid.Column="1" Orientation="Horizontal"
+                        Spacing="2" Margin="8,0,0,0" VerticalAlignment="Center">
+                <Button x:Name="AppBackButton" Width="30" Height="28"
+                        BorderThickness="0" Background="Transparent" Padding="0"
+                        Click="AppBackButton_Click" IsEnabled="False"
+                        ToolTipService.ToolTip="Назад" AutomationProperties.Name="Назад">
+                    <FontIcon Glyph="&#xE72A;" FontSize="15"/>
+                </Button>
+                <Button x:Name="AppPaneButton" Width="30" Height="28"
+                        BorderThickness="0" Background="Transparent" Padding="0"
+                        Click="AppPaneButton_Click"
+                        ToolTipService.ToolTip="Скрыть или показать меню"
+                        AutomationProperties.Name="Скрыть или показать меню">
+                    <FontIcon Glyph="&#xE700;" FontSize="15"/>
+                </Button>
+            </StackPanel>
+            <Grid x:Name="TitleBarDragRegion" Grid.Column="2" Background="Transparent">
+                <TextBlock x:Name="AppTitleText" Text="HDREZKA" VerticalAlignment="Center"
+                           Margin="12,0,0,0" FontSize="12"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </Grid>
         </Grid>
 
         <NavigationView
             x:Name="NavView"
             Grid.Row="1"
             IsSettingsVisible="False"
-            IsBackButtonVisible="Auto"
+            IsBackButtonVisible="Collapsed"
+            IsPaneToggleButtonVisible="False"
             IsBackEnabled="{x:Bind ContentFrame.CanGoBack, Mode=OneWay}"
             IsTitleBarAutoPaddingEnabled="False"
             SelectionChanged="NavView_SelectionChanged"

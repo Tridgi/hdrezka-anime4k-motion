@@ -26,6 +26,8 @@ jobs:
           $errors = $null
           [System.Management.Automation.Language.Parser]::ParseFile('src/HDREZKA.App/Updater/InstallUpdate.ps1', [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count -gt 0) { throw ($errors | Out-String) }
+      - name: Verify SVPflow dimensions on low-resolution streams
+        run: python scripts/test-motion-resolutions.py
       - name: Test core
         run: dotnet test tests/HDREZKA.Tests/HDREZKA.Tests.csproj -c Release
       - name: Publish self-contained player
