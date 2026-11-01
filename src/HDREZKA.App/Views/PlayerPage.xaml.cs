@@ -161,6 +161,7 @@ public sealed partial class PlayerPage : Page
         ShowSystemCursor();
         ClearPlaybackMarker();
         SavePosition();
+        StopPlaybackStats();
         _saveTimer.Stop();
         _hideTimer.Stop();
 
@@ -219,6 +220,7 @@ public sealed partial class PlayerPage : Page
         UpdateMuteIcon();
         SubscribePlayerEvents();
         ApplySpeed();
+        StartPlaybackStats();
         _saveTimer.Start();
         Log.Info("[Player] Native backend ready");
     }

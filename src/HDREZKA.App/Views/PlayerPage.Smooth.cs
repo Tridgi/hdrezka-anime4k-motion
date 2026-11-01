@@ -31,7 +31,7 @@ public sealed partial class PlayerPage
             var savedFps = SettingsService.Instance.SmoothFps;
             SmoothBox.SelectedIndex = savedFps == 165 ? 3 : savedFps == 120 ? 2 : savedFps == 60 ? 1 : 0;
             _player?.ApplySmoothness(savedFps);
-            ToolTipService.SetToolTip(SmoothBox, "Повышение FPS по движению (OpenCL), отдельно от Anime4K.\nНа этой системе рекомендуются 120 FPS + лёгкий Anime4K или 60 FPS + A/B/C.\n165 FPS — экспериментальный режим: возможны пропуски кадров.");
+            ToolTipService.SetToolTip(SmoothBox, "Повышение FPS по движению (OpenCL), отдельно от Anime4K.\nПроверяйте пропуски кадров в статистике: на слабой графике даже 60 FPS могут тормозить.\n165 FPS — экспериментальный режим.");
         }
         finally { _smoothMenuBuilding = false; }
     }

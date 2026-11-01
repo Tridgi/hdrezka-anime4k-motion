@@ -42,6 +42,21 @@ public sealed partial class PlayerPage
         }
         menu.Items.Add(anime);
 
+        var smooth = new MenuFlyoutSubItem { Text = "Плавность" };
+        foreach (var comboOption in SmoothBox.Items.OfType<ComboBoxItem>())
+        {
+            var option = new ToggleMenuFlyoutItem
+            {
+                Text = comboOption.Content?.ToString() ?? "—",
+                IsChecked = ReferenceEquals(SmoothBox.SelectedItem, comboOption),
+                IsEnabled = comboOption.IsEnabled
+            };
+            option.Click += (_, _) => SmoothBox.SelectedItem = comboOption;
+            smooth.Items.Add(option);
+        }
+        smooth.IsEnabled = smooth.Items.Count > 0;
+        menu.Items.Add(smooth);
+
         var quality = new MenuFlyoutSubItem { Text = Loc.Get("Common.Quality") };
         foreach (var comboOption in QualityBox.Items.OfType<ComboBoxItem>())
         {
@@ -59,6 +74,14 @@ public sealed partial class PlayerPage
         menu.Items.Add(quality);
 
         menu.Items.Add(new MenuFlyoutSeparator());
+
+        var statistics = new ToggleMenuFlyoutItem
+        {
+            Text = "Статистика воспроизведения",
+            IsChecked = StatsButton.IsChecked == true
+        };
+        statistics.Click += (_, _) => SetPlaybackStatsVisible(statistics.IsChecked);
+        menu.Items.Add(statistics);
 
         var pin = new ToggleMenuFlyoutItem
         {

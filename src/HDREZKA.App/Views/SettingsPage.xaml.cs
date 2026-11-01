@@ -60,6 +60,7 @@ public sealed partial class SettingsPage : Page
         PosterSizeBox.SelectedIndex = posterIndex >= 0 ? posterIndex : 1;
 
         HeadersToggle.IsOn = settings.UseAndroidHeaders;
+        ShowPlaybackStatsCheck.IsChecked = settings.ShowPlaybackStats;
         DirectPlayCheck.IsChecked = settings.PlayFromHomeDirectly;
         DonorBox.Text = settings.DonorCode;
         SeriesToggle.IsOn = settings.SeriesUpdatesEnabled;
@@ -318,6 +319,13 @@ public sealed partial class SettingsPage : Page
         SettingsService.Instance.UseAndroidHeaders = HeadersToggle.IsOn;
         SettingsService.Instance.Save();
         RezkaService.Instance.ApplySettings();
+    }
+
+    private void ShowPlaybackStatsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_initialized) return;
+        SettingsService.Instance.ShowPlaybackStats = ShowPlaybackStatsCheck.IsChecked == true;
+        SettingsService.Instance.Save();
     }
 
     private void DirectPlayCheck_Changed(object sender, RoutedEventArgs e)

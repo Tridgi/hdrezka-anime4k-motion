@@ -83,6 +83,7 @@
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
                         <Setter Target="AnimeBox.Visibility" Value="Collapsed"/>
+                        <Setter Target="SmoothBox.Visibility" Value="Collapsed"/>
                         <Setter Target="QualityBox.Visibility" Value="Collapsed"/>
                         <Setter Target="PinButton.Visibility" Value="Collapsed"/>
                         <Setter Target="MinimizeButton.Visibility" Value="Collapsed"/>
@@ -92,10 +93,11 @@
                 </VisualState>
                 <VisualState x:Name="FullHeader">
                     <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="980"/>
+                        <AdaptiveTrigger MinWindowWidth="1140"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
                         <Setter Target="AnimeBox.Visibility" Value="Visible"/>
+                        <Setter Target="SmoothBox.Visibility" Value="Visible"/>
                         <Setter Target="QualityBox.Visibility" Value="Visible"/>
                         <Setter Target="PinButton.Visibility" Value="Visible"/>
                         <Setter Target="MinimizeButton.Visibility" Value="Visible"/>
@@ -175,10 +177,23 @@
                               MinWidth="146" Padding="8,4" Foreground="White" Background="#33000000"
                               BorderBrush="#4DFFFFFF" VerticalAlignment="Center"
                               ToolTipService.ToolTip="Anime4K: улучшение аниме на GPU. Качество источника остаётся прежним."/>
+                    <ComboBox x:Name="SmoothBox" SelectionChanged="SmoothBox_SelectionChanged"
+                              MinWidth="146" MaxWidth="170" Padding="8,4"
+                              Foreground="White" Background="#33000000" BorderBrush="#4DFFFFFF"
+                              ToolTipService.ToolTip="Повышение FPS по движению. Не меняет режим Anime4K."/>
                     <ComboBox x:Name="QualityBox" SelectionChanged="QualityBox_SelectionChanged"
                               MinWidth="118" MaxWidth="180" Padding="8,4"
                               Foreground="White" Background="#33000000" BorderBrush="#4DFFFFFF"
                               VerticalAlignment="Center"/>
+                    <TextBlock x:Name="PlaybackWarningText" Text="⚠ Пропуски" Foreground="#FFFF7070"
+                               FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
+                               Visibility="Collapsed" Margin="0,0,2,0"/>
+                    <ToggleButton x:Name="StatsButton" Click="StatsButton_Click" Padding="8"
+                                  Background="Transparent" BorderThickness="0"
+                                  ToolTipService.ToolTip="Статистика воспроизведения"
+                                  AutomationProperties.Name="Статистика воспроизведения">
+                        <FontIcon Glyph="&#xE946;" Foreground="White" FontSize="15"/>
+                    </ToggleButton>
                     <Button x:Name="TopBarMoreButton" Click="TopBarMoreButton_Click" Visibility="Collapsed"
                             Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8"
                             ToolTipService.ToolTip="Меню плеера" AutomationProperties.Name="Меню плеера">
@@ -203,6 +218,20 @@
                             BorderBrush="#B3FFFFFF" BorderThickness="2" Padding="0" Opacity="1">
                         <FontIcon x:Name="BigPlayIcon" Glyph="&#xE768;" Foreground="White" FontSize="40"/>
                     </Button>
+                <Border x:Name="PlaybackStatsPanel" Visibility="Collapsed" IsHitTestVisible="False"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8,10,16,0"
+                        Background="#D9000000" CornerRadius="8" Padding="12,9" MaxWidth="310">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Статистика воспроизведения" Foreground="White"
+                                   FontWeight="SemiBold" FontSize="12"/>
+                        <TextBlock x:Name="StatsFpsText" Text="Отрисовка: —" Foreground="#FF9FE6A0"
+                                   FontFamily="Consolas" FontSize="12"/>
+                        <TextBlock x:Name="StatsDroppedText" Text="Пропуски: —" Foreground="White"
+                                   FontFamily="Consolas" FontSize="12"/>
+                        <TextBlock x:Name="StatsDetailText" Text="Ожидание воспроизведения" Foreground="#FFDDDDDD"
+                                   FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" MaxWidth="285"/>
+                    </StackPanel>
+                </Border>
                 </StackPanel>
             </Grid>
 
@@ -275,14 +304,15 @@
                             <TextBlock x:Name="ZoomText" Text="Auto" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
                         </Button>
                         <Button x:Name="SkipOpeningButton" Click="SkipOpeningButton_Click" Background="#33FFFFFF" BorderThickness="0"
-                                CornerRadius="8" Padding="10,5" Margin="8,0,0,0"
-                                ToolTipService.ToolTip="Перемотать вперёд на время, заданное в настройках">
-                            <TextBlock x:Name="SkipOpeningText" Text="Опенинг +1:25" Foreground="White" FontSize="12"/>
+                                CornerRadius="8" Padding="8,5" Margin="8,0,0,0"
+                                ToolTipService.ToolTip="Пропустить опенинг (интервал задаётся в настройках)"
+                                AutomationProperties.Name="Пропустить опенинг">
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE111;" Foreground="White" FontSize="15"/>
+                                <TextBlock x:Name="SkipOpeningText" Text="+1:25" Foreground="White"
+                                           FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
                         </Button>
-                        <ComboBox x:Name="SmoothBox" SelectionChanged="SmoothBox_SelectionChanged"
-                                  MinWidth="146" MaxWidth="170" Padding="8,4" Margin="8,0,0,0"
-                                  Foreground="White" Background="#33000000" BorderBrush="#4DFFFFFF"
-                                  ToolTipService.ToolTip="Отдельное повышение FPS по движению. Не меняет режим Anime4K."/>
                     </StackPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="12,0,0,0">
