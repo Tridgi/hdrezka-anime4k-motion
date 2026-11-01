@@ -28,7 +28,6 @@ public sealed partial class PlayerPage
         _previousStatsTime = DateTime.MinValue;
         _dropWarningUntil = DateTime.MinValue;
         PlaybackWarningText.Visibility = Visibility.Collapsed;
-        StatsButton.IsChecked = SettingsService.Instance.ShowPlaybackStats;
         PlaybackStatsPanel.Visibility = SettingsService.Instance.ShowPlaybackStats ? Visibility.Visible : Visibility.Collapsed;
         _playbackStatsTimer.Start();
     }
@@ -43,12 +42,8 @@ public sealed partial class PlayerPage
         PlaybackStatsPanel.Visibility = Visibility.Collapsed;
     }
 
-    private void StatsButton_Click(object sender, RoutedEventArgs e)
-        => SetPlaybackStatsVisible(StatsButton.IsChecked == true);
-
     private void SetPlaybackStatsVisible(bool enabled)
     {
-        StatsButton.IsChecked = enabled;
         PlaybackStatsPanel.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         SettingsService.Instance.ShowPlaybackStats = enabled;
         SettingsService.Instance.Save();
