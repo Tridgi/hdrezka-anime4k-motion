@@ -53,7 +53,6 @@
                         <Setter Target="SpeedButton.Visibility" Value="Collapsed"/>
                         <Setter Target="ZoomButton.Visibility" Value="Collapsed"/>
                         <Setter Target="ExternalButton.Visibility" Value="Collapsed"/>
-                        <Setter Target="TitleText.MaxWidth" Value="180"/>
                     </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="WideLayout">
@@ -72,7 +71,36 @@
                         <Setter Target="SpeedButton.Visibility" Value="Visible"/>
                         <Setter Target="ZoomButton.Visibility" Value="Visible"/>
                         <Setter Target="ExternalButton.Visibility" Value="Visible"/>
-                        <Setter Target="TitleText.MaxWidth" Value="560"/>
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+            <!-- Separate breakpoints for the header: at high Windows DPI even a
+                 physically large window can have fewer than 980 logical pixels. -->
+            <VisualStateGroup x:Name="HeaderSizeStates">
+                <VisualState x:Name="CompactHeader">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="AnimeBox.Visibility" Value="Collapsed"/>
+                        <Setter Target="QualityBox.Visibility" Value="Collapsed"/>
+                        <Setter Target="PinButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="MinimizeButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="EpisodeChipHost.Visibility" Value="Collapsed"/>
+                        <Setter Target="TopBarMoreButton.Visibility" Value="Visible"/>
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="FullHeader">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="980"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="AnimeBox.Visibility" Value="Visible"/>
+                        <Setter Target="QualityBox.Visibility" Value="Visible"/>
+                        <Setter Target="PinButton.Visibility" Value="Visible"/>
+                        <Setter Target="MinimizeButton.Visibility" Value="Visible"/>
+                        <Setter Target="EpisodeChipHost.Visibility" Value="Visible"/>
+                        <Setter Target="TopBarMoreButton.Visibility" Value="Collapsed"/>
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
@@ -123,14 +151,24 @@
                     <FontIcon Glyph="&#xE72B;" Foreground="White" FontSize="16"/>
                 </Button>
 
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" Margin="10,0,0,0" VerticalAlignment="Center">
-                    <TextBlock x:Name="TitleText" Foreground="White" FontSize="15" FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis" MaxWidth="560" VerticalAlignment="Center"/>
-                    <Border x:Name="EpisodeChip" Background="#33FFFFFF" CornerRadius="10" Padding="10,3" VerticalAlignment="Center"
-                            Visibility="Collapsed">
-                        <TextBlock x:Name="EpisodeText" Foreground="#E6FFFFFF" FontSize="12" VerticalAlignment="Center"/>
-                    </Border>
-                </StackPanel>
+                <!-- A grid constrains the title to available width; a horizontal StackPanel
+                     previously let long titles / season chips overlap header actions. -->
+                <Grid Grid.Column="1" Margin="10,0,8,0" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="TitleText" Grid.Column="0" Foreground="White" FontSize="15" FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxWidth="560" Margin="0,0,6,0"
+                               VerticalAlignment="Center" HorizontalAlignment="Stretch"/>
+                    <Grid x:Name="EpisodeChipHost" Grid.Column="1" VerticalAlignment="Center">
+                        <Border x:Name="EpisodeChip" Background="#33FFFFFF" CornerRadius="10" Padding="10,3"
+                                Visibility="Collapsed">
+                            <TextBlock x:Name="EpisodeText" Foreground="#E6FFFFFF" FontSize="12"
+                                       TextTrimming="CharacterEllipsis" MaxWidth="200" VerticalAlignment="Center"/>
+                        </Border>
+                    </Grid>
+                </Grid>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                     <ComboBox x:Name="AnimeBox" SelectionChanged="AnimeBox_SelectionChanged"
@@ -141,6 +179,11 @@
                               MinWidth="118" MaxWidth="180" Padding="8,4"
                               Foreground="White" Background="#33000000" BorderBrush="#4DFFFFFF"
                               VerticalAlignment="Center"/>
+                    <Button x:Name="TopBarMoreButton" Click="TopBarMoreButton_Click" Visibility="Collapsed"
+                            Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8"
+                            ToolTipService.ToolTip="Меню плеера" AutomationProperties.Name="Меню плеера">
+                        <FontIcon Glyph="&#xE712;" Foreground="White" FontSize="17"/>
+                    </Button>
                     <ToggleButton x:Name="PinButton" Click="PinButton_Click" Background="Transparent" BorderThickness="0" Padding="8">
                         <FontIcon x:Name="PinIcon" Glyph="&#xE718;" Foreground="White" FontSize="15"/>
                     </ToggleButton>
