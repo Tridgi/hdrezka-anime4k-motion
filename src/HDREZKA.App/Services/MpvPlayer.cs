@@ -159,7 +159,17 @@ internal sealed unsafe class MpvPlayer : IDisposable
     private void Resize()
     {
         if (_disposed || _surface == null) return;
-        try { _surface.Resize((int)Math.Max(16, _panel.ActualWidth * _panel.CompositionScaleX), (int)Math.Max(16, _panel.ActualHeight * _panel.CompositionScaleY)); QueueRender(); }
+        try
+        {
+            var scaleX = _panel.CompositionScaleX;
+            var scaleY = _panel.CompositionScaleY;
+            if (!float.IsFinite(scaleX) || scaleX <= 0) scaleX = 1f;
+            if (!float.IsFinite(scaleY) || scaleY <= 0) scaleY = 1f;
+            var width = (int)Math.Max(16, Math.Round(_panel.ActualWidth * scaleX));
+            var height = (int)Math.Max(16, Math.Round(_panel.ActualHeight * scaleY));
+            _surface.Resize(width, height, scaleX, scaleY);
+            QueueRender();
+        }
         catch (Exception ex) { MediaFailed?.Invoke(this, new MpvFailure(ex.Message, ex.HResult)); }
     }
     private void QueueRender()
