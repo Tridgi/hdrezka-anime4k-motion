@@ -218,6 +218,7 @@
                             BorderBrush="#B3FFFFFF" BorderThickness="2" Padding="0" Opacity="1">
                         <FontIcon x:Name="BigPlayIcon" Glyph="&#xE768;" Foreground="White" FontSize="40"/>
                     </Button>
+                </StackPanel>
                 <Border x:Name="PlaybackStatsPanel" Visibility="Collapsed" IsHitTestVisible="False"
                         HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8,10,16,0"
                         Background="#D9000000" CornerRadius="8" Padding="12,9" MaxWidth="310">
@@ -232,7 +233,6 @@
                                    FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" MaxWidth="285"/>
                     </StackPanel>
                 </Border>
-                </StackPanel>
             </Grid>
 
             <Grid x:Name="BottomBar" Grid.Row="2" Padding="16,10,16,10" Background="#B3000000">
