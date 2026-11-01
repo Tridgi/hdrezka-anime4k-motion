@@ -26,14 +26,22 @@
                         BorderThickness="0" Background="Transparent" Padding="0"
                         Click="AppBackButton_Click" IsEnabled="False"
                         ToolTipService.ToolTip="Назад" AutomationProperties.Name="Назад">
-                    <FontIcon Glyph="&#xE72A;" FontSize="15"/>
+                    <!-- Explicit left-pointing arrow: no dependency on ambiguous Segoe glyphs. -->
+                    <Path Data="M 18,10 L 4,10 M 10,4 L 4,10 L 10,16"
+                          Width="22" Height="20" Stretch="None"
+                          Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.7"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                 </Button>
                 <Button x:Name="AppPaneButton" Width="30" Height="28"
                         BorderThickness="0" Background="Transparent" Padding="0"
                         Click="AppPaneButton_Click"
-                        ToolTipService.ToolTip="Скрыть или показать меню"
+                        ToolTipService.ToolTip="Боковая панель"
                         AutomationProperties.Name="Скрыть или показать меню">
-                    <FontIcon Glyph="&#xE700;" FontSize="15"/>
+                    <!-- Compact split-pane icon, similar to modern editor sidebars. -->
+                    <Path Data="M 4,3 L 18,3 Q 20,3 20,5 L 20,15 Q 20,17 18,17 L 4,17 Q 2,17 2,15 L 2,5 Q 2,3 4,3 Z M 8,3 L 8,17"
+                          Width="22" Height="20" Stretch="None" Fill="Transparent"
+                          Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.5"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
                 </Button>
             </StackPanel>
             <Grid x:Name="TitleBarDragRegion" Grid.Column="2" Background="Transparent">

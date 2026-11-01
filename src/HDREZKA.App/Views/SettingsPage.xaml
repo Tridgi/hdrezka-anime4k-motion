@@ -48,7 +48,23 @@
 
                     <TextBlock x:Name="HomeHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>
                     <TextBlock x:Name="HomeHint" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxWidth="640"/>
-                    <StackPanel x:Name="HomeSectionsList" Spacing="4" Margin="0,8,0,0" MaxWidth="480" HorizontalAlignment="Left"/>
+                    <ListView x:Name="HomeSectionsList" Margin="0,8,0,0" MaxWidth="480"
+                              HorizontalAlignment="Stretch" Padding="0" BorderThickness="0"
+                              SelectionMode="None" AllowDrop="True" CanDragItems="True"
+                              CanReorderItems="True"
+                              ScrollViewer.VerticalScrollMode="Disabled"
+                              ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                              ScrollViewer.HorizontalScrollMode="Disabled"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="MinHeight" Value="44"/>
+                                <Setter Property="Padding" Value="5,2"/>
+                                <Setter Property="Margin" Value="0,2,0,2"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                    </ListView>
                 </StackPanel>
             </Expander>
 
@@ -140,21 +156,10 @@
                     <Border CornerRadius="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                             Padding="16" Margin="0,8,0,0" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal" Spacing="28">
-                            <StackPanel Spacing="8" VerticalAlignment="Top">
-                                <Image x:Name="DonateQrImage" Width="150" Height="150" Stretch="Uniform"/>
-                                <TextBlock x:Name="DonateAddressText" FontFamily="Consolas" FontSize="12"
-                                           TextWrapping="Wrap" IsTextSelectionEnabled="True" MaxWidth="220"/>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Button x:Name="DonateCopyButton" Click="DonateCopyButton_Click" Style="{ThemeResource AccentButtonStyle}"/>
-                                    <TextBlock x:Name="DonateCopiedText" VerticalAlignment="Center" FontSize="12"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="Collapsed"/>
-                                </StackPanel>
-                            </StackPanel>
-                            <StackPanel Spacing="8" VerticalAlignment="Top">
-                                <Image x:Name="BoostyQrImage" Width="150" Height="150" Stretch="Uniform" ImageFailed="BoostyQrImage_ImageFailed"/>
-                                <Button x:Name="BoostyButton" Click="BoostyButton_Click" Style="{ThemeResource AccentButtonStyle}"/>
-                            </StackPanel>
+                        <StackPanel Spacing="10" VerticalAlignment="Top" HorizontalAlignment="Left">
+                            <Image x:Name="BoostyQrImage" Width="132" Height="132" Stretch="Uniform" ImageFailed="BoostyQrImage_ImageFailed"/>
+                            <Button x:Name="BoostyButton" Click="BoostyButton_Click"
+                                    Style="{ThemeResource AccentButtonStyle}" HorizontalAlignment="Left"/>
                         </StackPanel>
                     </Border>
                     <TextBlock x:Name="DonorHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>

@@ -12,12 +12,15 @@ public sealed partial class SettingsPage : Page
     private ChannelRelease? _pendingUpdate;
     private CancellationTokenSource? _downloadCancellation;
 
-    private const string DonateAddress = "UQBNd1gXEZi4oahqNeJEy18KCUXfVvmBnPgXlokPpzU_PbFQ";
     private static readonly Uri BoostyUrl = new("https://boosty.to/tridgi");
 
     public SettingsPage()
     {
         InitializeComponent();
+        // Native ListView reorder updates the visual order. Save it only when
+        // a drag completes, so checkbox clicks never rewrite the ordering.
+        HomeSectionsList.DragItemsCompleted += (_, _) =>
+            DispatcherQueue.TryEnqueue(PersistHomeSectionsOrder);
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -72,17 +75,6 @@ public sealed partial class SettingsPage : Page
         InstalledBuildText.Text = "Установлено: " + ChannelUpdateService.CurrentDescription;
         UpdateStatusText.Text = "Выбери канал и проверь доступные сборки.";
 
-        DonateAddressText.Text = DonateAddress;
-        try
-        {
-            DonateQrImage.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
-                new Uri(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "donate-qr.png")));
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(ex);
-        }
-
         try
         {
             BoostyQrImage.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
@@ -136,8 +128,6 @@ public sealed partial class SettingsPage : Page
         AutoMirrorButton.Content = Loc.Get("Settings.AutoMirror");
         DonateHeader.Text = Loc.Get("Settings.Donate");
         DonateHint.Text = Loc.Get("Settings.DonateHint");
-        DonateCopyButton.Content = Loc.Get("Common.Copy");
-        DonateCopiedText.Visibility = Visibility.Collapsed;
         BoostyButton.Content = Loc.Get("Settings.DonateBoosty");
         DonorHeader.Text = Loc.Get("Settings.DonorCode");
         DonorHint.Text = Loc.Get("Settings.DonorHint");
@@ -255,68 +245,87 @@ public sealed partial class SettingsPage : Page
 
     private void BuildHomeSectionsList()
     {
-        HomeSectionsList.Children.Clear();
+        HomeSectionsList.Items.Clear();
         var sections = SettingsService.Instance.HomeSections;
-        for (var i = 0; i < sections.Count; i++)
+        // The outer settings ScrollViewer handles scrolling; keep all rows
+        // visible, so a second scrollbar does not interfere with drag/drop.
+        HomeSectionsList.Height = sections.Count * 52 + 10;
+
+        foreach (var section in sections)
         {
-            var index = i;
-            var row = new Grid { ColumnSpacing = 4 };
+            // The stable ID stays on the item during a reorder. Capturing an
+            // integer index would toggle the wrong row after drag-and-drop.
+            var row = new Grid
+            {
+                Tag = section.Id,
+                ColumnSpacing = 8,
+                MinHeight = 40,
+            };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(30) });
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            var grip = new FontIcon
+            {
+                Glyph = "\uE700", // Three horizontal lines: drag handle.
+                FontSize = 15,
+                Opacity = 0.55,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            ToolTipService.SetToolTip(grip, "Перетащите строку, чтобы изменить порядок");
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(grip, "Перетащить блок");
+            row.Children.Add(grip);
 
             var check = new CheckBox
             {
-                Content = HomeSectionName(sections[index].Id),
-                IsChecked = sections[index].Visible,
+                Content = HomeSectionName(section.Id),
+                IsChecked = section.Visible,
                 VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                MinHeight = 34,
             };
-            check.Checked += (_, _) => SetHomeSectionVisible(index, true);
-            check.Unchecked += (_, _) => SetHomeSectionVisible(index, false);
+            var id = section.Id;
+            check.Checked += (_, _) => SetHomeSectionVisible(id, true);
+            check.Unchecked += (_, _) => SetHomeSectionVisible(id, false);
+            Grid.SetColumn(check, 1);
             row.Children.Add(check);
 
-            var up = new Button
-            {
-                Content = new FontIcon { Glyph = "\uE96D", FontSize = 12 },
-                MinWidth = 0,
-                Padding = new Thickness(10, 6, 10, 6),
-                IsEnabled = index > 0,
-            };
-            up.Click += (_, _) => MoveHomeSection(index, -1);
-            Grid.SetColumn(up, 1);
-            row.Children.Add(up);
-
-            var down = new Button
-            {
-                Content = new FontIcon { Glyph = "\uE96E", FontSize = 12 },
-                MinWidth = 0,
-                Padding = new Thickness(10, 6, 10, 6),
-                IsEnabled = index < sections.Count - 1,
-            };
-            down.Click += (_, _) => MoveHomeSection(index, 1);
-            Grid.SetColumn(down, 2);
-            row.Children.Add(down);
-
-            HomeSectionsList.Children.Add(row);
+            HomeSectionsList.Items.Add(row);
         }
     }
 
-    private static void SetHomeSectionVisible(int index, bool visible)
+    private void PersistHomeSectionsOrder()
     {
-        var list = SettingsService.Instance.HomeSections;
-        if (index < 0 || index >= list.Count) return;
-        list[index] = list[index] with { Visible = visible };
+        var ids = HomeSectionsList.Items.OfType<Grid>()
+            .Select(item => item.Tag as string)
+            .ToList();
+        var sections = SettingsService.Instance.HomeSections;
+        if (ids.Count != sections.Count || ids.Any(string.IsNullOrWhiteSpace))
+            return;
+
+        var byId = sections.ToDictionary(s => s.Id, StringComparer.OrdinalIgnoreCase);
+        if (ids.Any(id => !byId.ContainsKey(id!)) ||
+            ids.Distinct(StringComparer.OrdinalIgnoreCase).Count() != ids.Count)
+            return;
+
+        var next = ids.Select(id => byId[id!]).ToList();
+        if (sections.Select(s => s.Id).SequenceEqual(next.Select(s => s.Id),
+            StringComparer.OrdinalIgnoreCase))
+            return;
+
+        sections.Clear();
+        sections.AddRange(next);
         SettingsService.Instance.Save();
+        Log.Info("[Settings] Home sections reordered: " + string.Join(", ", ids));
     }
 
-    private void MoveHomeSection(int index, int delta)
+    private static void SetHomeSectionVisible(string id, bool visible)
     {
-        var list = SettingsService.Instance.HomeSections;
-        var j = index + delta;
-        if (index < 0 || index >= list.Count || j < 0 || j >= list.Count) return;
-        (list[index], list[j]) = (list[j], list[index]);
+        var sections = SettingsService.Instance.HomeSections;
+        var index = sections.FindIndex(s => s.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        if (index < 0 || sections[index].Visible == visible) return;
+        sections[index] = sections[index] with { Visible = visible };
         SettingsService.Instance.Save();
-        BuildHomeSectionsList();
     }
 
     private void HeadersToggle_Toggled(object sender, RoutedEventArgs e)
@@ -376,22 +385,6 @@ public sealed partial class SettingsPage : Page
         finally
         {
             CheckSeriesButton.IsEnabled = true;
-        }
-    }
-
-    private void DonateCopyButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
-            package.SetText(DonateAddress);
-            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
-            DonateCopiedText.Text = Loc.Get("Common.Copied");
-            DonateCopiedText.Visibility = Visibility.Visible;
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(ex);
         }
     }
 
