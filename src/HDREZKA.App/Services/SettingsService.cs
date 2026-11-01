@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using HDREZKA.Core.Api;
 
 namespace HDREZKA.App.Services;
 
@@ -47,6 +48,7 @@ public sealed class SettingsService
     public int OpeningSkipSeconds { get; set; } = 85;
     public bool ShowPlaybackStats { get; set; }
     public bool ShowHeaderEffects { get; set; }
+    public UpdateChannel PreferredUpdateChannel { get; set; } = UpdateChannel.Stable;
     public int SmoothFps { get; set; }
 
     /// <summary>Login (email or username) typed at the last successful sign-in.</summary>
@@ -187,6 +189,8 @@ public sealed class SettingsService
             SmoothFps = loaded.SmoothFps is 60 or 120 or 165 ? loaded.SmoothFps : 0;
             ShowPlaybackStats = loaded.ShowPlaybackStats;
             ShowHeaderEffects = loaded.ShowHeaderEffects;
+            PreferredUpdateChannel = Enum.IsDefined(loaded.PreferredUpdateChannel)
+                ? loaded.PreferredUpdateChannel : UpdateChannel.Stable;
             Speed = loaded.Speed is > 0 and <= 4 ? loaded.Speed : 1.0;
             PosterSize = loaded.PosterSize is >= 80 and <= 256 ? loaded.PosterSize : 132;
             AccountLogin = loaded.AccountLogin ?? "";

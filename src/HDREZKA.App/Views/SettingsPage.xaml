@@ -96,8 +96,31 @@
                     <TextBlock x:Name="UpdateHeader" Style="{StaticResource SectionHeader}"/>
                 </Expander.Header>
                 <StackPanel Spacing="4">
-                    <TextBlock x:Name="UpdateStatusText" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxWidth="640"/>
-                    <Button x:Name="CheckUpdatesButton" Click="CheckUpdatesButton_Click" Margin="0,8,0,0" HorizontalAlignment="Left"/>
+                    <TextBlock Text="Канал обновлений" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                    <ComboBox x:Name="UpdateChannelBox" MinWidth="240"
+                              SelectionChanged="UpdateChannelBox_SelectionChanged">
+                        <ComboBoxItem Content="Стабильный (main)"/>
+                        <ComboBoxItem Content="Тестовый (пререлизы)"/>
+                    </ComboBox>
+                    <TextBlock x:Name="InstalledBuildText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="640"/>
+                    <TextBlock x:Name="UpdateStatusText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="640"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+                        <Button x:Name="CheckUpdatesButton" Click="CheckUpdatesButton_Click"/>
+                        <Button x:Name="InstallUpdateButton" Content="Скачать и установить"
+                                Click="InstallUpdateButton_Click" Visibility="Collapsed"
+                                Style="{ThemeResource AccentButtonStyle}"/>
+                        <Button x:Name="CancelUpdateButton" Content="Отменить"
+                                Click="CancelUpdateButton_Click" Visibility="Collapsed"/>
+                    </StackPanel>
+                    <ProgressBar x:Name="UpdateDownloadProgress" Minimum="0" Maximum="100"
+                                 Visibility="Collapsed" Height="6" MaxWidth="480" HorizontalAlignment="Left"/>
+                    <TextBlock x:Name="UpdateReleaseNotesText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="640"/>
+                    <TextBlock Text="Обновление загружается только из релизов нашего GitHub. Контрольная сумма SHA-256 обязательна. Перед заменой файлов сохраняется предыдущая версия."
+                               FontSize="11" TextWrapping="Wrap" MaxWidth="640"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                 </StackPanel>
             </Expander>
 

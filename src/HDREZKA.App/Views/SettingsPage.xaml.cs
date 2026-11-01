@@ -1,4 +1,5 @@
 ﻿using HDREZKA.App.Services;
+using HDREZKA.Core.Api;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -8,6 +9,8 @@ namespace HDREZKA.App.Views;
 public sealed partial class SettingsPage : Page
 {
     private bool _initialized;
+    private ChannelRelease? _pendingUpdate;
+    private CancellationTokenSource? _downloadCancellation;
 
     private const string DonateAddress = "UQBNd1gXEZi4oahqNeJEy18KCUXfVvmBnPgXlokPpzU_PbFQ";
     private static readonly Uri BoostyUrl = new("https://boosty.to/eddinwork/donate");
@@ -64,7 +67,10 @@ public sealed partial class SettingsPage : Page
         DirectPlayCheck.IsChecked = settings.PlayFromHomeDirectly;
         DonorBox.Text = settings.DonorCode;
         SeriesToggle.IsOn = settings.SeriesUpdatesEnabled;
-        VersionText.Text = $"HDREZKA Anime4K Motion · {UpdateService.CurrentVersion}";
+        VersionText.Text = $"HDREZKA Anime4K Motion · {ChannelUpdateService.CurrentDescription}";
+        UpdateChannelBox.SelectedIndex = settings.PreferredUpdateChannel == UpdateChannel.Testing ? 1 : 0;
+        InstalledBuildText.Text = "Установлено: " + ChannelUpdateService.CurrentDescription;
+        UpdateStatusText.Text = "Выбери канал и проверь доступные сборки.";
 
         DonateAddressText.Text = DonateAddress;
         try
@@ -478,9 +484,116 @@ public sealed partial class SettingsPage : Page
         DonorPerksText.Visibility = ok ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private void UpdateChannelBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_initialized || _downloadCancellation != null) return;
+        var channel = UpdateChannelBox.SelectedIndex == 1 ? UpdateChannel.Testing : UpdateChannel.Stable;
+        SettingsService.Instance.PreferredUpdateChannel = channel;
+        SettingsService.Instance.Save();
+        _pendingUpdate = null;
+        InstallUpdateButton.Visibility = Visibility.Collapsed;
+        UpdateReleaseNotesText.Text = "";
+        UpdateStatusText.Text = "Канал выбран. Нажми «Проверить обновления».";
+    }
+
     private async void CheckUpdatesButton_Click(object sender, RoutedEventArgs e)
     {
-        await Windows.System.Launcher.LaunchUriAsync(new Uri("https://github.com/Tridgi/hdrezka-anime4k-motion/releases"));
+        CheckUpdatesButton.IsEnabled = false;
+        InstallUpdateButton.Visibility = Visibility.Collapsed;
+        _pendingUpdate = null;
+        UpdateReleaseNotesText.Text = "";
+        UpdateStatusText.Text = "Проверка обновлений GitHub…";
+        try
+        {
+            var channel = SettingsService.Instance.PreferredUpdateChannel;
+            var release = await ChannelUpdateService.LatestAsync(channel);
+            if (release == null)
+            {
+                UpdateStatusText.Text = "В выбранном канале пока нет опубликованных сборок.";
+                return;
+            }
+            if (ChannelUpdateService.IsInstalled(release))
+            {
+                UpdateStatusText.Text = "Уже установлена актуальная сборка " + release.Tag + ".";
+                return;
+            }
+            // Fail closed if the release has no verifiable archive SHA-256.
+            await ChannelUpdateService.RequireSha256Async(release);
+            _pendingUpdate = release;
+            UpdateStatusText.Text = "Доступна " + (channel == UpdateChannel.Testing ? "тестовая" : "стабильная") +
+                " сборка " + release.Tag + " · " + release.PublishedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm");
+            UpdateReleaseNotesText.Text = release.Notes.Length > 1200
+                ? release.Notes[..1200] + "…" : release.Notes;
+            InstallUpdateButton.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            App.TryLog(ex);
+            UpdateStatusText.Text = "Не удалось проверить обновления: " + ex.Message;
+        }
+        finally
+        {
+            CheckUpdatesButton.IsEnabled = true;
+        }
+    }
+
+    private void CancelUpdateButton_Click(object sender, RoutedEventArgs e)
+        => _downloadCancellation?.Cancel();
+
+    private async void InstallUpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        var release = _pendingUpdate;
+        if (release == null || _downloadCancellation != null) return;
+        if (release.Channel != SettingsService.Instance.PreferredUpdateChannel) return;
+        var dialog = new ContentDialog
+        {
+            Title = "Установить обновление " + release.Tag + "?",
+            Content = "Приложение скачает проверенный архив, закроется и перезапустится после обновления. Предыдущая версия будет сохранена для восстановления.",
+            PrimaryButtonText = "Обновить",
+            CloseButtonText = Loc.Get("Common.Cancel"),
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = Content.XamlRoot
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+        using var cts = new CancellationTokenSource();
+        _downloadCancellation = cts;
+        CheckUpdatesButton.IsEnabled = false;
+        InstallUpdateButton.IsEnabled = false;
+        UpdateChannelBox.IsEnabled = false;
+        CancelUpdateButton.Visibility = Visibility.Visible;
+        UpdateDownloadProgress.Visibility = Visibility.Visible;
+        UpdateDownloadProgress.Value = 0;
+        UpdateStatusText.Text = "Загрузка обновления…";
+        var progress = new Progress<int>(percent =>
+        {
+            UpdateDownloadProgress.Value = percent;
+            UpdateStatusText.Text = percent < 100
+                ? "Загрузка обновления: " + percent + "%"
+                : "Архив загружен. Проверка и подготовка установки…";
+        });
+        try
+        {
+            await ChannelUpdateService.DownloadAndRestartAsync(release, progress, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            UpdateStatusText.Text = "Загрузка обновления отменена.";
+        }
+        catch (Exception ex)
+        {
+            App.TryLog(ex);
+            UpdateStatusText.Text = "Обновление не установлено: " + ex.Message;
+        }
+        finally
+        {
+            _downloadCancellation = null;
+            CheckUpdatesButton.IsEnabled = true;
+            InstallUpdateButton.IsEnabled = true;
+            UpdateChannelBox.IsEnabled = true;
+            CancelUpdateButton.Visibility = Visibility.Collapsed;
+            UpdateDownloadProgress.Visibility = Visibility.Collapsed;
+        }
     }
 
     private async void LogoutButton_Click(object sender, RoutedEventArgs e)
