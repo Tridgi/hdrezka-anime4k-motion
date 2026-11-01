@@ -514,6 +514,29 @@ public sealed partial class SettingsPage : Page
         }
     }
 
+    private async void VersionHistoryButton_Click(object sender, RoutedEventArgs e)
+    {
+        VersionHistoryButton.IsEnabled = false;
+        VersionHistoryButton.Content = "Загрузка истории…";
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
+            var json = await ChannelUpdateService.FetchReleasesAsync(cts.Token);
+            var dialog = VersionHistoryDialog.Create(json, Content.XamlRoot);
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            App.TryLog(ex);
+            UpdateStatusText.Text = "Не удалось загрузить историю версий: " + ex.Message;
+        }
+        finally
+        {
+            VersionHistoryButton.Content = "История версий";
+            VersionHistoryButton.IsEnabled = true;
+        }
+    }
+
     private void UpdateChannelBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_initialized || _downloadCancellation != null) return;

@@ -16,7 +16,7 @@ public sealed record ChannelRelease(
 public static class ReleaseCatalog
 {
     public const string Repository = "Tridgi/hdrezka-anime4k-motion";
-    public const string ApiUrl = "https://api.github.com/repos/" + Repository + "/releases?per_page=50";
+    public const string ApiUrl = "https://api.github.com/repos/" + Repository + "/releases?per_page=100";
     public const string ReleasesUrl = "https://github.com/" + Repository + "/releases";
 
     public static ChannelRelease? Latest(string json, UpdateChannel channel)

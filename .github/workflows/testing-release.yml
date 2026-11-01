@@ -11,6 +11,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
@@ -39,6 +41,9 @@ jobs:
       - name: Smoke-test updater installation and backup
         shell: pwsh
         run: ./scripts/test-updater.ps1
+      - name: Prepare readable prerelease notes
+        shell: pwsh
+        run: ./scripts/extract-release-notes.ps1 -Version Unreleased -OutputPath artifacts/RELEASE_NOTES.md
       - name: Publish prerelease for the selected test branch
         shell: pwsh
         env:
@@ -47,4 +52,4 @@ jobs:
           $sha = '${{ github.sha }}'
           $short = $sha.Substring(0, 10)
           $tag = "test-$short"
-          gh release create $tag artifacts/HDREZKA-Anime4K-Motion-v2-win-x64.zip artifacts/SHA256SUMS.txt --repo '${{ github.repository }}' --target $sha --title "Тестовая сборка $short" --notes "Экспериментальная Windows x64 сборка из тестовой ветки. Коммит: $sha." --prerelease
+          gh release create $tag artifacts/HDREZKA-Anime4K-Motion-v2-win-x64.zip artifacts/SHA256SUMS.txt --repo '${{ github.repository }}' --target $sha --title "Тестовая сборка $short" --notes-file artifacts/RELEASE_NOTES.md --prerelease

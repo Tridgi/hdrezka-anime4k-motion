@@ -1,0 +1,54 @@
+name: Publish stable release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require release tag to be merged into main
+        shell: pwsh
+        run: |
+          git fetch origin +refs/heads/main:refs/remotes/origin/main --no-tags
+          git merge-base --is-ancestor "$env:GITHUB_SHA" origin/main
+          if ($LASTEXITCODE -ne 0) { throw 'Stable release must be tagged on a main commit.' }
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore pinned media dependencies
+        shell: pwsh
+        run: ./scripts/bootstrap.ps1
+      - name: Validate installer helper syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile('src/HDREZKA.App/Updater/InstallUpdate.ps1', [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { throw ($errors | Out-String) }
+      - name: Test core
+        run: dotnet test tests/HDREZKA.Tests/HDREZKA.Tests.csproj -c Release
+      - name: Publish portable Windows player
+        run: dotnet publish src/HDREZKA.App/HDREZKA.App.csproj -c Release -p:Platform=x64 -p:SourceRevisionId=${{ github.sha }} --self-contained true -o artifacts/app
+      - name: Prepare archive and release notes
+        shell: pwsh
+        run: |
+          ./scripts/package.ps1 -InputDirectory artifacts/app -OutputDirectory artifacts/portable
+          $asset = 'HDREZKA-Anime4K-Motion-v2-win-x64.zip'
+          Compress-Archive -Path 'artifacts/portable/*' -DestinationPath "artifacts/$asset" -CompressionLevel Optimal
+          $hash = (Get-FileHash "artifacts/$asset" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $asset" | Set-Content -Path artifacts/SHA256SUMS.txt -Encoding Ascii
+          ./scripts/extract-release-notes.ps1 -Version '${{ github.ref_name }}' -OutputPath artifacts/RELEASE_NOTES.md
+      - name: Smoke-test updater installation and backup
+        shell: pwsh
+        run: ./scripts/test-updater.ps1
+      - name: Publish stable release with changelog
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create '${{ github.ref_name }}' artifacts/HDREZKA-Anime4K-Motion-v2-win-x64.zip artifacts/SHA256SUMS.txt --repo '${{ github.repository }}' --title '${{ github.ref_name }}' --notes-file artifacts/RELEASE_NOTES.md

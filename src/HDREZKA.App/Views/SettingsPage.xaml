@@ -106,6 +106,8 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="640"/>
                     <Button x:Name="CopyBuildButton" Content="Копировать сведения о сборке"
                             Click="CopyBuildButton_Click" HorizontalAlignment="Left"/>
+                    <Button x:Name="VersionHistoryButton" Content="История версий"
+                            Click="VersionHistoryButton_Click" HorizontalAlignment="Left"/>
                     <TextBlock x:Name="CopiedBuildStatusText" FontSize="12" Visibility="Collapsed"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                     <TextBlock x:Name="UpdateStatusText" FontSize="12" TextWrapping="Wrap"
