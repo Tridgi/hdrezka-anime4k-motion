@@ -19,16 +19,44 @@
                 <ColumnDefinition x:Name="RightInsetColumn" Width="0"/>
             </Grid.ColumnDefinitions>
 
-            <TextBlock x:Name="AppTitleText" Grid.Column="1" Text="HDREZKA"
-                       VerticalAlignment="Center" Margin="16,0,0,0" FontSize="12"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <!-- Navigation actions belong to the title bar, not the side pane. -->
+            <StackPanel x:Name="TitleBarActions" Grid.Column="1" Orientation="Horizontal"
+                        Spacing="2" Margin="8,0,0,0" VerticalAlignment="Center">
+                <Button x:Name="AppBackButton" Width="30" Height="28"
+                        BorderThickness="0" Background="Transparent" Padding="0"
+                        Click="AppBackButton_Click" IsEnabled="False"
+                        ToolTipService.ToolTip="Назад" AutomationProperties.Name="Назад">
+                    <!-- Explicit left-pointing arrow: no dependency on ambiguous Segoe glyphs. -->
+                    <Path Data="M 18,10 L 4,10 M 10,4 L 4,10 L 10,16"
+                          Width="22" Height="20" Stretch="None"
+                          Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.7"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                </Button>
+                <Button x:Name="AppPaneButton" Width="30" Height="28"
+                        BorderThickness="0" Background="Transparent" Padding="0"
+                        Click="AppPaneButton_Click"
+                        ToolTipService.ToolTip="Боковая панель"
+                        AutomationProperties.Name="Скрыть или показать меню">
+                    <!-- Compact split-pane icon, similar to modern editor sidebars. -->
+                    <Path Data="M 4,3 L 18,3 Q 20,3 20,5 L 20,15 Q 20,17 18,17 L 4,17 Q 2,17 2,15 L 2,5 Q 2,3 4,3 Z M 8,3 L 8,17"
+                          Width="22" Height="20" Stretch="None" Fill="Transparent"
+                          Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.5"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                </Button>
+            </StackPanel>
+            <Grid x:Name="TitleBarDragRegion" Grid.Column="2" Background="Transparent">
+                <TextBlock x:Name="AppTitleText" Text="HDREZKA" VerticalAlignment="Center"
+                           Margin="12,0,0,0" FontSize="12"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </Grid>
         </Grid>
 
         <NavigationView
             x:Name="NavView"
             Grid.Row="1"
             IsSettingsVisible="False"
-            IsBackButtonVisible="Auto"
+            IsBackButtonVisible="Collapsed"
+            IsPaneToggleButtonVisible="False"
             IsBackEnabled="{x:Bind ContentFrame.CanGoBack, Mode=OneWay}"
             IsTitleBarAutoPaddingEnabled="False"
             SelectionChanged="NavView_SelectionChanged"

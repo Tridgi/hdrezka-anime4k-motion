@@ -58,6 +58,7 @@ internal sealed unsafe class MpvPlayer : IDisposable
     public long RenderedFrames { get; private set; }
     public int ShaderFailures { get; private set; }
     public int ActiveSmoothFps { get; private set; }
+    public volatile bool SmoothFilterFaulted;
 
     public MpvPlayer(SwapChainPanel panel)
     {
@@ -91,7 +92,7 @@ internal sealed unsafe class MpvPlayer : IDisposable
         get => _source;
         set
         {
-            _source = value; IsLoaded = false; _subtitle = null;
+            _source = value; IsLoaded = false; _subtitle = null; SmoothFilterFaulted = false;
             if (_disposed) return;
             if (value == null) { MpvNative.Command(_handle, "stop"); PlaybackSession.SetState(MediaPlaybackState.None); return; }
             PlaybackSession.SetState(MediaPlaybackState.Opening);
@@ -113,6 +114,7 @@ internal sealed unsafe class MpvPlayer : IDisposable
         Set("options/display-fps-override", "0");
         Set("vf", fps == 0 ? "" : SmoothRuntime.Prepare(fps));
         ActiveSmoothFps = fps;
+        if (fps > 0) SmoothFilterFaulted = false;
         Log.Info("[Smooth] OpenCL motion interpolation target=" + fps);
     }
     internal string CaptureFrame(string path) => _surface!.CaptureFrame(_render, path);
@@ -159,7 +161,17 @@ internal sealed unsafe class MpvPlayer : IDisposable
     private void Resize()
     {
         if (_disposed || _surface == null) return;
-        try { _surface.Resize((int)Math.Max(16, _panel.ActualWidth * _panel.CompositionScaleX), (int)Math.Max(16, _panel.ActualHeight * _panel.CompositionScaleY)); QueueRender(); }
+        try
+        {
+            var scaleX = _panel.CompositionScaleX;
+            var scaleY = _panel.CompositionScaleY;
+            if (!float.IsFinite(scaleX) || scaleX <= 0) scaleX = 1f;
+            if (!float.IsFinite(scaleY) || scaleY <= 0) scaleY = 1f;
+            var width = (int)Math.Max(16, Math.Round(_panel.ActualWidth * scaleX));
+            var height = (int)Math.Max(16, Math.Round(_panel.ActualHeight * scaleY));
+            _surface.Resize(width, height, scaleX, scaleY);
+            QueueRender();
+        }
         catch (Exception ex) { MediaFailed?.Invoke(this, new MpvFailure(ex.Message, ex.HResult)); }
     }
     private void QueueRender()
@@ -193,6 +205,13 @@ internal sealed unsafe class MpvPlayer : IDisposable
                 var level = Marshal.PtrToStringUTF8(Marshal.ReadIntPtr(ev.Data, IntPtr.Size)) ?? "";
                 var message = Marshal.PtrToStringUTF8(Marshal.ReadIntPtr(ev.Data, 2 * IntPtr.Size)) ?? "";
                 Log.Info("[mpv/" + prefix + "/" + level + "] " + message.Trim());
+                if ((level == "error" || level == "fatal") &&
+                    (prefix.Contains("vapoursynth", StringComparison.OrdinalIgnoreCase) ||
+                     message.Contains("vapoursynth", StringComparison.OrdinalIgnoreCase) ||
+                     message.Contains("svpflow", StringComparison.OrdinalIgnoreCase) ||
+                     message.Contains("svp1", StringComparison.OrdinalIgnoreCase) ||
+                     message.Contains("svp2", StringComparison.OrdinalIgnoreCase)))
+                    SmoothFilterFaulted = true;
                 if ((level == "error" || level == "fatal") && (prefix.Contains("gpu") || message.Contains("shader", StringComparison.OrdinalIgnoreCase)))
                     _dispatcher.TryEnqueue(() => { if (!_disposed) { ShaderFailures++; ShaderFailed?.Invoke(message.Trim()); } });
             }

@@ -48,7 +48,23 @@
 
                     <TextBlock x:Name="HomeHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>
                     <TextBlock x:Name="HomeHint" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxWidth="640"/>
-                    <StackPanel x:Name="HomeSectionsList" Spacing="4" Margin="0,8,0,0" MaxWidth="480" HorizontalAlignment="Left"/>
+                    <ListView x:Name="HomeSectionsList" Margin="0,8,0,0" MaxWidth="480"
+                              HorizontalAlignment="Left" Padding="0" BorderThickness="0"
+                              SelectionMode="None" AllowDrop="True" CanDragItems="True"
+                              CanReorderItems="True"
+                              ScrollViewer.VerticalScrollMode="Disabled"
+                              ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                              ScrollViewer.HorizontalScrollMode="Disabled"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="MinHeight" Value="44"/>
+                                <Setter Property="Padding" Value="5,2"/>
+                                <Setter Property="Margin" Value="0,2,0,2"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                    </ListView>
                 </StackPanel>
             </Expander>
 
@@ -61,6 +77,13 @@
                     <TextBlock x:Name="QualityHeader" FontWeight="SemiBold" Margin="0,4,0,0"/>
                     <ComboBox x:Name="QualityBox" MinWidth="220" SelectionChanged="QualityBox_SelectionChanged"/>
                     <CheckBox x:Name="DirectPlayCheck" Margin="0,8,0,0" Checked="DirectPlayCheck_Changed" Unchecked="DirectPlayCheck_Changed"/>
+                    <CheckBox x:Name="ShowPlaybackStatsCheck" Content="Показывать статистику воспроизведения"
+                              Margin="0,12,0,0" Checked="ShowPlaybackStatsCheck_Changed"
+                              Unchecked="ShowPlaybackStatsCheck_Changed"/>
+                    <TextBlock Text="Отрисовка кадров, пропуски, разрешение и режимы обработки.
+                                    Статистику также можно переключать кнопкой ⓘ в плеере."
+                               FontSize="12" TextWrapping="Wrap" MaxWidth="640"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBlock Text="Пропуск опенинга" FontWeight="SemiBold" Margin="0,12,0,0"/>
                     <NumberBox x:Name="OpeningSkipBox" Header="Перемотка вперёд, секунд" Minimum="1" Maximum="600"
                                SmallChange="5" LargeChange="30" SpinButtonPlacementMode="Inline"
@@ -89,8 +112,37 @@
                     <TextBlock x:Name="UpdateHeader" Style="{StaticResource SectionHeader}"/>
                 </Expander.Header>
                 <StackPanel Spacing="4">
-                    <TextBlock x:Name="UpdateStatusText" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxWidth="640"/>
-                    <Button x:Name="CheckUpdatesButton" Click="CheckUpdatesButton_Click" Margin="0,8,0,0" HorizontalAlignment="Left"/>
+                    <TextBlock Text="Канал обновлений" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                    <ComboBox x:Name="UpdateChannelBox" MinWidth="240"
+                              SelectionChanged="UpdateChannelBox_SelectionChanged">
+                        <ComboBoxItem Content="Стабильный (main)"/>
+                        <ComboBoxItem Content="Тестовый (пререлизы)"/>
+                    </ComboBox>
+                    <TextBlock x:Name="InstalledBuildText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="640"/>
+                    <Button x:Name="CopyBuildButton" Content="Копировать сведения о сборке"
+                            Click="CopyBuildButton_Click" HorizontalAlignment="Left"/>
+                    <Button x:Name="VersionHistoryButton" Content="История версий"
+                            Click="VersionHistoryButton_Click" HorizontalAlignment="Left"/>
+                    <TextBlock x:Name="CopiedBuildStatusText" FontSize="12" Visibility="Collapsed"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="UpdateStatusText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="640"/>
+                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+                        <Button x:Name="CheckUpdatesButton" Click="CheckUpdatesButton_Click"/>
+                        <Button x:Name="InstallUpdateButton" Content="Скачать и установить"
+                                Click="InstallUpdateButton_Click" Visibility="Collapsed"
+                                Style="{ThemeResource AccentButtonStyle}"/>
+                        <Button x:Name="CancelUpdateButton" Content="Отменить"
+                                Click="CancelUpdateButton_Click" Visibility="Collapsed"/>
+                    </StackPanel>
+                    <ProgressBar x:Name="UpdateDownloadProgress" Minimum="0" Maximum="100"
+                                 Visibility="Collapsed" Height="6" MaxWidth="480" HorizontalAlignment="Left"/>
+                    <TextBlock x:Name="UpdateReleaseNotesText" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="640"/>
+                    <TextBlock Text="Обновление загружается только из релизов нашего GitHub. Контрольная сумма SHA-256 обязательна. Перед заменой файлов сохраняется предыдущая версия."
+                               FontSize="11" TextWrapping="Wrap" MaxWidth="640"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
                 </StackPanel>
             </Expander>
 
@@ -104,21 +156,10 @@
                     <Border CornerRadius="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
                             Padding="16" Margin="0,8,0,0" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal" Spacing="28">
-                            <StackPanel Spacing="8" VerticalAlignment="Top">
-                                <Image x:Name="DonateQrImage" Width="150" Height="150" Stretch="Uniform"/>
-                                <TextBlock x:Name="DonateAddressText" FontFamily="Consolas" FontSize="12"
-                                           TextWrapping="Wrap" IsTextSelectionEnabled="True" MaxWidth="220"/>
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Button x:Name="DonateCopyButton" Click="DonateCopyButton_Click" Style="{ThemeResource AccentButtonStyle}"/>
-                                    <TextBlock x:Name="DonateCopiedText" VerticalAlignment="Center" FontSize="12"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="Collapsed"/>
-                                </StackPanel>
-                            </StackPanel>
-                            <StackPanel Spacing="8" VerticalAlignment="Top">
-                                <Image x:Name="BoostyQrImage" Width="150" Height="150" Stretch="Uniform" ImageFailed="BoostyQrImage_ImageFailed"/>
-                                <Button x:Name="BoostyButton" Click="BoostyButton_Click" Style="{ThemeResource AccentButtonStyle}"/>
-                            </StackPanel>
+                        <StackPanel Spacing="10" VerticalAlignment="Top" HorizontalAlignment="Left">
+                            <Image x:Name="BoostyQrImage" Width="132" Height="132" Stretch="Uniform" ImageFailed="BoostyQrImage_ImageFailed"/>
+                            <Button x:Name="BoostyButton" Click="BoostyButton_Click"
+                                    Style="{ThemeResource AccentButtonStyle}" HorizontalAlignment="Left"/>
                         </StackPanel>
                     </Border>
                     <TextBlock x:Name="DonorHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>

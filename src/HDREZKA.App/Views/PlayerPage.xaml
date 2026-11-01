@@ -28,13 +28,13 @@
           Background="Black"
           IsTabStop="True"
           UseSystemFocusVisuals="False"
+          SizeChanged="RootGrid_SizeChanged"
           PointerMoved="RootGrid_PointerMoved"
           PointerEntered="RootGrid_PointerEntered"
           PointerExited="RootGrid_PointerExited"
           KeyDown="RootGrid_KeyDown">
 
-        <!-- Adaptive controls: tiny window keeps only Play/Pause + fullscreen,
-             medium and wider shows everything. Last matching state wins. -->
+        <!-- Keep compact transport controls accessible on narrow windows. -->
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="ControlSizeStates">
                 <VisualState x:Name="NarrowLayout">
@@ -48,17 +48,26 @@
                         <Setter Target="VolumeIcon.Visibility" Value="Collapsed"/>
                         <Setter Target="VolumeSlider.Visibility" Value="Collapsed"/>
                         <Setter Target="MuteButton.Visibility" Value="Collapsed"/>
-                        <Setter Target="Sep2.Visibility" Value="Collapsed"/>
-                        <Setter Target="SubtitlesBox.Visibility" Value="Collapsed"/>
-                        <Setter Target="SpeedButton.Visibility" Value="Collapsed"/>
-                        <Setter Target="ZoomButton.Visibility" Value="Collapsed"/>
-                        <Setter Target="ExternalButton.Visibility" Value="Collapsed"/>
-                        <Setter Target="TitleText.MaxWidth" Value="180"/>
+                        <Setter Target="SkipOpeningText.Visibility" Value="Collapsed"/>
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="MediumLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="560"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="PrevButton.Visibility" Value="Visible"/>
+                        <Setter Target="NextButton.Visibility" Value="Visible"/>
+                        <Setter Target="Sep1.Visibility" Value="Collapsed"/>
+                        <Setter Target="VolumeIcon.Visibility" Value="Collapsed"/>
+                        <Setter Target="VolumeSlider.Visibility" Value="Collapsed"/>
+                        <Setter Target="MuteButton.Visibility" Value="Visible"/>
+                        <Setter Target="SkipOpeningText.Visibility" Value="Visible"/>
                     </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="WideLayout">
                     <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="720"/>
+                        <AdaptiveTrigger MinWindowWidth="780"/>
                     </VisualState.StateTriggers>
                     <VisualState.Setters>
                         <Setter Target="PrevButton.Visibility" Value="Visible"/>
@@ -67,12 +76,7 @@
                         <Setter Target="VolumeIcon.Visibility" Value="Visible"/>
                         <Setter Target="VolumeSlider.Visibility" Value="Visible"/>
                         <Setter Target="MuteButton.Visibility" Value="Visible"/>
-                        <Setter Target="Sep2.Visibility" Value="Visible"/>
-                        <Setter Target="SubtitlesBox.Visibility" Value="Visible"/>
-                        <Setter Target="SpeedButton.Visibility" Value="Visible"/>
-                        <Setter Target="ZoomButton.Visibility" Value="Visible"/>
-                        <Setter Target="ExternalButton.Visibility" Value="Visible"/>
-                        <Setter Target="TitleText.MaxWidth" Value="560"/>
+                        <Setter Target="SkipOpeningText.Visibility" Value="Visible"/>
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
@@ -110,44 +114,57 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <Grid x:Name="TopBar" Grid.Row="0" Padding="12,8,16,10" MinHeight="48" Background="#B3000000"
-                  DoubleTapped="TopBar_DoubleTapped">
+            <!-- Left-aligned title and episode; never hide the episode for window size. -->
+            <Grid x:Name="TopBar" Grid.Row="0" Padding="12,8,12,10" MinHeight="48"
+                  Background="#B3000000" DoubleTapped="TopBar_DoubleTapped">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-
-                <Button x:Name="BackButton" Click="BackButton_Click" Background="Transparent" BorderThickness="0"
-                        Padding="8" CornerRadius="8">
+                <Button x:Name="BackButton" Click="BackButton_Click" Background="Transparent"
+                        BorderThickness="0" Padding="8" CornerRadius="8">
                     <FontIcon Glyph="&#xE72B;" Foreground="White" FontSize="16"/>
                 </Button>
-
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" Margin="10,0,0,0" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="8,0,8,0"
+                            VerticalAlignment="Center" HorizontalAlignment="Left">
                     <TextBlock x:Name="TitleText" Foreground="White" FontSize="15" FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis" MaxWidth="560" VerticalAlignment="Center"/>
-                    <Border x:Name="EpisodeChip" Background="#33FFFFFF" CornerRadius="10" Padding="10,3" VerticalAlignment="Center"
-                            Visibility="Collapsed">
-                        <TextBlock x:Name="EpisodeText" Foreground="#E6FFFFFF" FontSize="12" VerticalAlignment="Center"/>
+                               TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" TextAlignment="Left"
+                               MaxWidth="420" VerticalAlignment="Center"/>
+                    <Border x:Name="EpisodeChip" Background="#33FFFFFF" CornerRadius="10"
+                            Padding="9,3" VerticalAlignment="Center" Visibility="Collapsed">
+                        <TextBlock x:Name="EpisodeText" Foreground="#E6FFFFFF" FontSize="12"
+                                   TextTrimming="CharacterEllipsis" MaxWidth="170" VerticalAlignment="Center"/>
                     </Border>
                 </StackPanel>
-
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                    <ComboBox x:Name="AnimeBox" SelectionChanged="AnimeBox_SelectionChanged"
-                              MinWidth="146" Padding="8,4" Foreground="White" Background="#33000000"
-                              BorderBrush="#4DFFFFFF" VerticalAlignment="Center"
-                              ToolTipService.ToolTip="Anime4K: улучшение аниме на GPU. Качество источника остаётся прежним."/>
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                    <StackPanel x:Name="HeaderEffectsHost" Orientation="Horizontal" Spacing="6"
+                                VerticalAlignment="Center" Visibility="Collapsed">
+                        <ComboBox x:Name="AnimeBox" SelectionChanged="AnimeBox_SelectionChanged"
+                                  MinWidth="146" Padding="8,4" Foreground="White" Background="#33000000"
+                                  BorderBrush="#4DFFFFFF" VerticalAlignment="Center"
+                                  ToolTipService.ToolTip="Anime4K: улучшение изображения"/>
+                        <ComboBox x:Name="SmoothBox" SelectionChanged="SmoothBox_SelectionChanged"
+                                  MinWidth="146" MaxWidth="170" Padding="8,4" Foreground="White"
+                                  Background="#33000000" BorderBrush="#4DFFFFFF" VerticalAlignment="Center"
+                                  ToolTipService.ToolTip="Плавность: интерполяция кадров"/>
+                    </StackPanel>
+                    <!-- Hidden source retains quality switching handler for the lower menu. -->
                     <ComboBox x:Name="QualityBox" SelectionChanged="QualityBox_SelectionChanged"
-                              MinWidth="118" MaxWidth="180" Padding="8,4"
-                              Foreground="White" Background="#33000000" BorderBrush="#4DFFFFFF"
-                              VerticalAlignment="Center"/>
-                    <ToggleButton x:Name="PinButton" Click="PinButton_Click" Background="Transparent" BorderThickness="0" Padding="8">
+                              Visibility="Collapsed"/>
+                    <TextBlock x:Name="PlaybackWarningText" Text="⚠ Пропуски" Foreground="#FFFF7070"
+                               FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
+                               Visibility="Collapsed" Margin="0,0,2,0"/>
+                    <ToggleButton x:Name="PinButton" Click="PinButton_Click"
+                                  Background="Transparent" BorderThickness="0" Padding="7">
                         <FontIcon x:Name="PinIcon" Glyph="&#xE718;" Foreground="White" FontSize="15"/>
                     </ToggleButton>
-                    <Button x:Name="MinimizeButton" Click="MinimizeButton_Click" Background="Transparent" BorderThickness="0" Padding="8">
+                    <Button x:Name="MinimizeButton" Click="MinimizeButton_Click"
+                            Background="Transparent" BorderThickness="0" Padding="7">
                         <FontIcon Glyph="&#xE921;" Foreground="White" FontSize="15"/>
                     </Button>
-                    <Button x:Name="CloseButton" Click="CloseButton_Click" Background="Transparent" BorderThickness="0" Padding="8">
+                    <Button x:Name="CloseButton" Click="CloseButton_Click"
+                            Background="Transparent" BorderThickness="0" Padding="7">
                         <FontIcon Glyph="&#xE8BB;" Foreground="White" FontSize="15"/>
                     </Button>
                 </StackPanel>
@@ -161,6 +178,20 @@
                         <FontIcon x:Name="BigPlayIcon" Glyph="&#xE768;" Foreground="White" FontSize="40"/>
                     </Button>
                 </StackPanel>
+                <Border x:Name="PlaybackStatsPanel" Visibility="Collapsed" IsHitTestVisible="False"
+                        HorizontalAlignment="Right" VerticalAlignment="Top" Margin="8,10,16,0"
+                        Background="#D9000000" CornerRadius="8" Padding="12,9" MaxWidth="310">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Статистика воспроизведения" Foreground="White"
+                                   FontWeight="SemiBold" FontSize="12"/>
+                        <TextBlock x:Name="StatsFpsText" Text="Отрисовка: —" Foreground="#FF9FE6A0"
+                                   FontFamily="Consolas" FontSize="12"/>
+                        <TextBlock x:Name="StatsDroppedText" Text="Пропуски: —" Foreground="White"
+                                   FontFamily="Consolas" FontSize="12"/>
+                        <TextBlock x:Name="StatsDetailText" Text="Ожидание воспроизведения" Foreground="#FFDDDDDD"
+                                   FontFamily="Consolas" FontSize="11" TextWrapping="Wrap" MaxWidth="285"/>
+                    </StackPanel>
+                </Border>
             </Grid>
 
             <Grid x:Name="BottomBar" Grid.Row="2" Padding="16,10,16,10" Background="#B3000000">
@@ -194,63 +225,71 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                        <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click" Background="Transparent" BorderThickness="0" Padding="8">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <Button x:Name="PlayPauseButton" Click="PlayPauseButton_Click"
+                                Background="Transparent" BorderThickness="0" Padding="8">
                             <FontIcon x:Name="PlayPauseIcon" Glyph="&#xE768;" Foreground="White" FontSize="18"/>
                         </Button>
-                        <Button x:Name="PrevButton" Click="PrevButton_Click" Background="Transparent" BorderThickness="0" Padding="8">
+                        <Button x:Name="PrevButton" Click="PrevButton_Click"
+                                Background="Transparent" BorderThickness="0" Padding="8">
                             <FontIcon Glyph="&#xE76B;" Foreground="White" FontSize="16"/>
                         </Button>
-                        <Button x:Name="NextButton" Click="NextButton_Click" Background="Transparent" BorderThickness="0" Padding="8">
+                        <Button x:Name="NextButton" Click="NextButton_Click"
+                                Background="Transparent" BorderThickness="0" Padding="8">
                             <FontIcon Glyph="&#xE76C;" Foreground="White" FontSize="16"/>
                         </Button>
-
-                        <Border x:Name="Sep1" Background="#33FFFFFF" Width="1" Height="22" Margin="12,0,12,0"/>
-
-                        <FontIcon x:Name="VolumeIcon" Glyph="&#xE767;" Foreground="#D9FFFFFF" FontSize="15" VerticalAlignment="Center"/>
+                        <Button x:Name="SkipOpeningButton" Click="SkipOpeningButton_Click"
+                                Background="Transparent" BorderThickness="0" Padding="8"
+                                ToolTipService.ToolTip="Пропустить опенинг (интервал задаётся в настройках)"
+                                AutomationProperties.Name="Пропустить опенинг">
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xEB9D;" FontFamily="Segoe MDL2 Assets"
+                                          Foreground="White" FontSize="15"/>
+                                <TextBlock x:Name="SkipOpeningText" Text="+1:25" Foreground="White"
+                                           FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="SpeedButton" Click="SpeedButton_Click"
+                                Background="Transparent" BorderThickness="0" Padding="8"
+                                ToolTipService.ToolTip="Скорость воспроизведения">
+                            <TextBlock x:Name="SpeedText" Text="1x" Foreground="White"
+                                       FontSize="12" FontWeight="SemiBold"/>
+                        </Button>
+                        <Border x:Name="Sep1" Background="#33FFFFFF"
+                                Width="1" Height="22" Margin="7,0,7,0"/>
+                        <FontIcon x:Name="VolumeIcon" Glyph="&#xE767;" Foreground="#D9FFFFFF"
+                                  FontSize="15" VerticalAlignment="Center"/>
                         <Slider x:Name="VolumeSlider" Minimum="0" Maximum="100" Width="110"
-                                Style="{StaticResource PlayerSlider}" ValueChanged="VolumeSlider_ValueChanged" Margin="6,0,0,0"/>
-
-                        <Button x:Name="MuteButton" Click="MuteButton_Click" Background="Transparent" BorderThickness="0" Padding="6">
-                            <FontIcon x:Name="MuteIcon" Glyph="&#xE767;" Foreground="#D9FFFFFF" FontSize="15"/>
+                                Style="{StaticResource PlayerSlider}" ValueChanged="VolumeSlider_ValueChanged"
+                                Margin="6,0,0,0"/>
+                        <Button x:Name="MuteButton" Click="MuteButton_Click"
+                                Background="Transparent" BorderThickness="0" Padding="6"
+                                ToolTipService.ToolTip="Отключить звук">
+                            <FontIcon x:Name="MuteIcon" Glyph="&#xE767;"
+                                      Foreground="#D9FFFFFF" FontSize="15"/>
                         </Button>
-
-                        <Border x:Name="Sep2" Background="#33FFFFFF" Width="1" Height="22" Margin="10,0,10,0"/>
-
+                        <!-- Hidden source retains subtitle switching handler. -->
                         <ComboBox x:Name="SubtitlesBox" SelectionChanged="SubtitlesBox_SelectionChanged"
-                                  MinWidth="140" MaxWidth="220" Padding="8,4"
-                                  Foreground="White" Background="#33000000" BorderBrush="#4DFFFFFF"/>
-
-                        <Button x:Name="SpeedButton" Click="SpeedButton_Click" Background="#33FFFFFF" BorderThickness="0"
-                                CornerRadius="8" Padding="10,5" Margin="12,0,0,0">
-                            <TextBlock x:Name="SpeedText" Text="1x" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
-                        </Button>
-
-                        <Button x:Name="ZoomButton" Click="ZoomButton_Click" Background="#33FFFFFF" BorderThickness="0"
-                                CornerRadius="8" Padding="10,5" Margin="8,0,0,0">
-                            <TextBlock x:Name="ZoomText" Text="Auto" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
-                        </Button>
-                        <Button x:Name="SkipOpeningButton" Click="SkipOpeningButton_Click" Background="#33FFFFFF" BorderThickness="0"
-                                CornerRadius="8" Padding="10,5" Margin="8,0,0,0"
-                                ToolTipService.ToolTip="Перемотать вперёд на время, заданное в настройках">
-                            <TextBlock x:Name="SkipOpeningText" Text="Опенинг +1:25" Foreground="White" FontSize="12"/>
-                        </Button>
-                        <ComboBox x:Name="SmoothBox" SelectionChanged="SmoothBox_SelectionChanged"
-                                  MinWidth="146" MaxWidth="170" Padding="8,4" Margin="8,0,0,0"
-                                  Foreground="White" Background="#33000000" BorderBrush="#4DFFFFFF"
-                                  ToolTipService.ToolTip="Отдельное повышение FPS по движению. Не меняет режим Anime4K."/>
+                                  Visibility="Collapsed"/>
                     </StackPanel>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="12,0,0,0">
-                        <Button x:Name="DownloadButton" Click="DownloadButton_Click" Background="Transparent" BorderThickness="0" Padding="8" Visibility="Collapsed">
-                            <FontIcon Glyph="&#xE896;" Foreground="White" FontSize="15"/>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                                Margin="8,0,0,0">
+                        <Button x:Name="TopBarMoreButton" Click="TopBarMoreButton_Click"
+                                Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8"
+                                ToolTipService.ToolTip="Дополнительные настройки Anime4K и плавности"
+                                AutomationProperties.Name="Дополнительные настройки">
+                            <TextBlock Text="✨" FontSize="18" Foreground="White"/>
                         </Button>
-                        <Button x:Name="ExternalButton" Click="ExternalButton_Click" Background="Transparent" BorderThickness="0" Padding="8">
-                            <FontIcon Glyph="&#xE8AD;" Foreground="White" FontSize="15"/>
+                        <Button x:Name="PlaybackSettingsButton" Click="PlaybackSettingsButton_Click"
+                                Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8"
+                                ToolTipService.ToolTip="Настройки воспроизведения"
+                                AutomationProperties.Name="Настройки воспроизведения">
+                            <FontIcon Glyph="&#xE713;" Foreground="White" FontSize="16"/>
                         </Button>
-                        <Button x:Name="FullscreenButton" Click="FullscreenButton_Click" Background="Transparent" BorderThickness="0" Padding="8">
-                            <FontIcon x:Name="FullscreenIcon" Glyph="&#xE740;" Foreground="White" FontSize="15"/>
+                        <Button x:Name="FullscreenButton" Click="FullscreenButton_Click"
+                                Background="Transparent" BorderThickness="0" Padding="8">
+                            <FontIcon x:Name="FullscreenIcon" Glyph="&#xE740;" Foreground="White"
+                                      FontSize="15"/>
                         </Button>
                     </StackPanel>
                 </Grid>

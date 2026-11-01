@@ -453,13 +453,13 @@ public sealed partial class DetailsPage : Page
         var ratings = _details?.VoiceActingRatings;
         if (ratings == null || ratings.Count == 0) return;
 
-        var list = new StackPanel { Spacing = 10, MinWidth = 320 };
+        var list = new StackPanel { Spacing = 10, MinWidth = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
         foreach (var r in ratings.OrderByDescending(x => x.Percent))
         {
             var row = new StackPanel { Spacing = 4 };
-            var header = new Grid();
+            var header = new Grid { ColumnSpacing = 12, MinWidth = 0 };
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(64) });
             var name = new TextBlock
             {
                 Text = r.Name,
@@ -469,6 +469,9 @@ public sealed partial class DetailsPage : Page
             var percent = new TextBlock
             {
                 Text = r.Percent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "%",
+                TextAlignment = TextAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                TextWrapping = TextWrapping.NoWrap,
                 Style = Application.Current.Resources["SecondaryText"] as Style,
             };
             Grid.SetColumn(percent, 1);
@@ -484,7 +487,16 @@ public sealed partial class DetailsPage : Page
             list.Children.Add(row);
         }
 
-        var scroll = new ScrollViewer { Content = list, MaxHeight = 400 };
+        var scroll = new ScrollViewer
+        {
+            Content = list,
+            MaxHeight = 400,
+            MinWidth = 0,
+            HorizontalScrollMode = ScrollMode.Disabled,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollMode = ScrollMode.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+        };
         var dialog = new ContentDialog
         {
             Title = Loc.Get("Details.Ratings"),

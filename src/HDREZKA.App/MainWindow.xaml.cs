@@ -29,6 +29,8 @@ public sealed partial class MainWindow : Window
         Title = "HDREZKA Anime4K Motion v2";
         ExtendsContentIntoTitleBar = true;
         SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
+        try { AppWindow.TitleBar.PreferredHeightOption = Microsoft.UI.Windowing.TitleBarHeightOption.Tall; }
+        catch (Exception ex) { App.TryLog(ex); }
 
         try
         {
@@ -56,6 +58,9 @@ public sealed partial class MainWindow : Window
         {
             DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, RefreshTitleBarLayout);
         };
+        CustomTitleBar.Loaded += (_, _) => RefreshTitleBarLayout();
+        CustomTitleBar.SizeChanged += (_, _) =>
+            DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, RefreshTitleBarLayout);
         AppWindow.Changed += (_, e) =>
         {
             if (e.DidPresenterChange || e.DidSizeChange)
@@ -87,10 +92,11 @@ public sealed partial class MainWindow : Window
         if (IsTheaterMode == on) return;
         IsTheaterMode = on;
         NavView.IsPaneVisible = !on;
-        NavView.IsPaneToggleButtonVisible = !on;
-        NavView.IsBackButtonVisible = on
-            ? NavigationViewBackButtonVisible.Collapsed
-            : NavigationViewBackButtonVisible.Auto;
+        // PlayerPage has its own back button, so title-bar navigation stays hidden in theater mode.
+        TitleBarActions.Visibility = on ? Visibility.Collapsed : Visibility.Visible;
+        NavView.IsPaneToggleButtonVisible = false;
+        NavView.IsBackButtonVisible = NavigationViewBackButtonVisible.Collapsed;
+        RefreshTitleBarLayout();
         RefreshCaptionButtons();
 
         try
@@ -111,7 +117,7 @@ public sealed partial class MainWindow : Window
     /// because SetPresenter resets drag rectangles.
     /// </summary>
 
-     private void RefreshTitleBarLayout()
+    private void RefreshTitleBarLayout()
     {
         if (_refreshingTitleBar) return;
         _refreshingTitleBar = true;
@@ -120,25 +126,49 @@ public sealed partial class MainWindow : Window
             var tb = AppWindow.TitleBar;
             if (tb is null) return;
 
-            CustomTitleBar.Height = tb.Height;
-            LeftInsetColumn.Width = new GridLength(Math.Max(0, tb.LeftInset));
-            RightInsetColumn.Width = new GridLength(Math.Max(0, tb.RightInset));
+            // WinUI measures in DIPs; AppWindow.TitleBar insets are physical pixels.
+            var scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
+            if (scale <= 0) scale = 1.0;
+            CustomTitleBar.Height = tb.Height / scale;
+            LeftInsetColumn.Width = new GridLength(Math.Max(0, tb.LeftInset / scale));
+            RightInsetColumn.Width = new GridLength(Math.Max(0, tb.RightInset / scale));
 
-            double scale = 1.0;
-            try { scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0; } catch { }
-
-            var dragWidth = Math.Max(0, CustomTitleBar.ActualWidth - tb.LeftInset - tb.RightInset);
-            if (dragWidth > 0 && tb.Height > 0)
+            // Only the region to the right of the two buttons is draggable.
+            // Dragging the entire title bar would swallow clicks on Back/Pane.
+            if (TitleBarDragRegion.ActualWidth > 0 && CustomTitleBar.ActualHeight > 0)
             {
-                tb.SetDragRectangles(new[]
+                var start = TitleBarDragRegion.TransformToVisual(CustomTitleBar)
+                    .TransformPoint(new Windows.Foundation.Point(0, 0));
+                var x = (int)Math.Round(start.X * scale);
+                var width = (int)Math.Round(TitleBarDragRegion.ActualWidth * scale);
+                var height = (int)Math.Round(CustomTitleBar.ActualHeight * scale);
+                if (width > 0 && height > 0)
                 {
-                    new Windows.Graphics.RectInt32(
-                        (int)(tb.LeftInset * scale), 0,
-                        (int)(dragWidth * scale), (int)(tb.Height * scale)),
-                });
+                    tb.SetDragRectangles(new[] { new Windows.Graphics.RectInt32(x, 0, width, height) });
+                }
             }
+
+            // Mark both XAML buttons as clickable non-client pass-through regions,
+            // including at Windows scaling of 125-175%.
+            var clickable = TitleBarActions.Visibility == Visibility.Visible
+                ? new[] { AppBackButton, AppPaneButton }
+                : Array.Empty<Button>();
+            var regions = new List<Windows.Graphics.RectInt32>();
+            foreach (var button in clickable)
+            {
+                if (button.ActualWidth <= 0 || button.ActualHeight <= 0) continue;
+                var bounds = button.TransformToVisual(CustomTitleBar).TransformBounds(
+                    new Windows.Foundation.Rect(0, 0, button.ActualWidth, button.ActualHeight));
+                regions.Add(new Windows.Graphics.RectInt32(
+                    (int)Math.Round(bounds.X * scale),
+                    (int)Math.Round(bounds.Y * scale),
+                    (int)Math.Round(bounds.Width * scale),
+                    (int)Math.Round(bounds.Height * scale)));
+            }
+            Microsoft.UI.Input.InputNonClientPointerSource.GetForWindowId(AppWindow.Id)
+                .SetRegionRects(Microsoft.UI.Input.NonClientRegionKind.Passthrough, regions.ToArray());
         }
-        catch { }
+        catch (Exception ex) { App.TryLog(ex); }
         finally { _refreshingTitleBar = false; }
     }
 
@@ -256,6 +286,7 @@ public sealed partial class MainWindow : Window
 private void ContentFrame_Navigated(object sender, NavigationEventArgs e)
         {
             NavView.IsBackEnabled = ContentFrame.CanGoBack;
+            AppBackButton.IsEnabled = ContentFrame.CanGoBack;
             SetTheaterMode(e.SourcePageType == typeof(PlayerPage));
 
             var tag = e.SourcePageType switch
@@ -354,13 +385,21 @@ else
         await dialog.ShowAsync();
     }
 
-    private void NavView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args)
+    private void GoBack()
     {
-        if (ContentFrame.CanGoBack)
-        {
-            ContentFrame.GoBack();
-        }
+        if (ContentFrame.CanGoBack) ContentFrame.GoBack();
     }
+
+    private void AppBackButton_Click(object sender, RoutedEventArgs e) => GoBack();
+
+    private void AppPaneButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (IsTheaterMode) return;
+        NavView.IsPaneOpen = !NavView.IsPaneOpen;
+    }
+
+    private void NavView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args)
+        => GoBack();
 
     private void NavView_DisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
     {

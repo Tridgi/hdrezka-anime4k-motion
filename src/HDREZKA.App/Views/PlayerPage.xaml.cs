@@ -108,6 +108,7 @@ public sealed partial class PlayerPage : Page
         Loaded += (_, _) =>
         {
             BuildSpeedMenu();
+            ApplyHeaderLayout();
             // Re-apply after activation: SetTitleBar may not stick
             // when called pre-activation from OnNavigatedTo.
             ApplyWindowChrome();
@@ -121,8 +122,6 @@ public sealed partial class PlayerPage : Page
             new PointerEventHandler((_, e) => _seeking = true),
             handledEventsToo: true);
 
-        // Download button visibility must survive VSM transitions.
-        ControlSizeStates.CurrentStateChanged += (_, _) => ApplyDownloadVisibility();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -142,7 +141,7 @@ public sealed partial class PlayerPage : Page
         UpdateEpisodeText();
         ApplyLocalization();
         ApplyWindowChrome();
-        ApplyDownloadVisibility();
+        ApplyHeaderLayout();
 
         _ = LoadVideoAsync(seekToSaved: true);
     }
@@ -161,6 +160,7 @@ public sealed partial class PlayerPage : Page
         ShowSystemCursor();
         ClearPlaybackMarker();
         SavePosition();
+        StopPlaybackStats();
         _saveTimer.Stop();
         _hideTimer.Stop();
 
@@ -219,6 +219,7 @@ public sealed partial class PlayerPage : Page
         UpdateMuteIcon();
         SubscribePlayerEvents();
         ApplySpeed();
+        StartPlaybackStats();
         _saveTimer.Start();
         Log.Info("[Player] Native backend ready");
     }
@@ -252,13 +253,28 @@ public sealed partial class PlayerPage : Page
         }
     }
 
+    private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyHeaderLayout();
+
+    // The episode chip never disappears when the viewport narrows.
+    // Shorten the title and constrain the chip to keep right-side window controls available.
+    private void ApplyHeaderLayout()
+    {
+        if (RootGrid == null || TitleText == null || EpisodeText == null) return;
+        var width = RootGrid.ActualWidth;
+        if (width <= 0) return;
+        var shortcuts = SettingsService.Instance.ShowHeaderEffects && width >= 1090;
+        HeaderEffectsHost.Visibility = shortcuts ? Visibility.Visible : Visibility.Collapsed;
+        EpisodeText.MaxWidth = width < 660 ? 90 : 170;
+        var chipWidth = EpisodeChip.Visibility == Visibility.Visible ? EpisodeText.MaxWidth + 18 : 0;
+        var reserved = 211 + chipWidth + (shortcuts ? 338 : 0);
+        TitleText.MaxWidth = Math.Max(32, Math.Min(480, width - reserved));
+    }
+
     private void ApplyLocalization()
     {
         SpeedButton.Visibility = Visibility.Visible;
         BufferingText.Text = Loc.Get("Player.Buffering");
         ToolTipService.SetToolTip(FullscreenButton, Loc.Get("Player.Fullscreen"));
-        ToolTipService.SetToolTip(ZoomButton, Loc.Get("Player.Zoom"));
-        ToolTipService.SetToolTip(ExternalButton, Loc.Get("Player.External"));
         ToolTipService.SetToolTip(PinButton, Loc.Get("Player.Pin"));
         ToolTipService.SetToolTip(MinimizeButton, Loc.Get("Player.Minimize"));
         ToolTipService.SetToolTip(CloseButton, Loc.Get("Player.Close"));
@@ -762,63 +778,6 @@ public sealed partial class PlayerPage : Page
     /// Download button exists only for unlocked users (VSM setters would
     /// otherwise re-show it on every narrow/wide transition).
     /// </summary>
-    private void ApplyDownloadVisibility()
-    {
-        var wide = ControlSizeStates.CurrentState?.Name != "NarrowLayout";
-        DownloadButton.Visibility = DonorUnlock.IsUnlocked && wide && string.IsNullOrEmpty(_launch?.LocalFile)
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-    }
-    private async void ExternalButton_Click(object sender, RoutedEventArgs e)
-    {
-        ReturnFocus();
-        // Offline file: open it directly.
-        if (!string.IsNullOrEmpty(_launch?.LocalFile))
-        {
-            try
-            {
-                await Windows.System.Launcher.LaunchUriAsync(new Uri(_launch.LocalFile));
-            }
-            catch (Exception ex)
-            {
-                App.TryLog(ex);
-                ShowStatus(Loc.Get("Details.NoVideo"));
-            }
-
-            return;
-        }
-
-        var url = _video?.Videos.FirstOrDefault(v => v.Quality == _quality)?.Urls.FirstOrDefault()
-            ?? _video?.GetMaxQuality()?.Urls.FirstOrDefault();
-        if (string.IsNullOrEmpty(url) || !Uri.TryCreate(url, UriKind.Absolute, out var uri))
-        {
-            ShowStatus(Loc.Get("Details.NoVideo"));
-            return;
-        }
-
-        // Copy link so user can paste it into VLC/mpv/Browser manually.
-        try
-        {
-            var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
-            package.SetText(uri.ToString());
-            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(ex);
-        }
-
-        try
-        {
-            await Windows.System.Launcher.LaunchUriAsync(uri);
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(ex);
-            ShowStatus(Loc.Get("Player.ExternalFail"));
-        }
-    }
-
     private async void QualityBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_switching || _video == null || _launch == null) return;
@@ -841,6 +800,7 @@ public sealed partial class PlayerPage : Page
         }
 
         _quality = quality;
+        _temporarilyDisabledSmoothSource = null;
         await LoadVideoAsync(seekToSaved: false, qualityOverride: quality);
     }
 
@@ -860,7 +820,10 @@ public sealed partial class PlayerPage : Page
         {
             try
             {
-                if (_tearingDown) return;
+                if (_tearingDown || !ReferenceEquals(sender, _player)) return;
+                // A quality/CDN switch reloads the file without recreating mpv.
+                // Check file-local video filters after MPV_EVENT_FILE_LOADED.
+                EnsureSmoothnessAfterSourceOpened(sender);
                 var duration = sender.PlaybackSession.NaturalDuration;
             if (duration > TimeSpan.Zero)
             {
@@ -1137,6 +1100,7 @@ public sealed partial class PlayerPage : Page
         var next = ordered[idx - 1];
         Log.Info($"[Player] Auto quality drop: {_quality} -> {next.Quality}");
         _quality = next.Quality;
+        _temporarilyDisabledSmoothSource = null;
         _ = LoadVideoAsync(seekToSaved: false, qualityOverride: next.Quality);
     }
 
@@ -1188,7 +1152,7 @@ public sealed partial class PlayerPage : Page
         {
             if (_tearingDown) return;
 
-            if (TryRecoverWithoutSmoothness()) return;
+            if (sender.SmoothFilterFaulted && TryRecoverWithoutSmoothness()) return;
             // Битая или заблокированная CDN-ссылка: сначала пробуем остальные
             // ссылки/качества, и только потом показываем ошибку.
             if (TryNextCandidate()) return;
@@ -1318,6 +1282,7 @@ public sealed partial class PlayerPage : Page
         {
             EpisodeChip.Visibility = Visibility.Collapsed;
         }
+        ApplyHeaderLayout();
     }
 
     private void BackButton_Click(object sender, RoutedEventArgs e)
@@ -1582,11 +1547,10 @@ public sealed partial class PlayerPage : Page
     private static readonly string[] ZoomLabels = { "Auto", "Fill", "Stretch" };
     private int _zoomIndex;
 
-    private void ZoomButton_Click(object sender, RoutedEventArgs e)
+    private void SetPlayerZoomMode(int index)
     {
-        _zoomIndex = (_zoomIndex + 1) % ZoomModes.Length;
+        _zoomIndex = Math.Clamp(index, 0, ZoomModes.Length - 1);
         _player?.SetZoom(_zoomIndex);
-        ZoomText.Text = ZoomLabels[_zoomIndex];
         App.TryLog(new Exception("[Player] Zoom: " + ZoomLabels[_zoomIndex]));
     }
 
