@@ -484,6 +484,36 @@ public sealed partial class SettingsPage : Page
         DonorPerksText.Visibility = ok ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    private void CopyBuildButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // Use the installed build, not the selected update channel: the two may differ.
+            var details = string.Join(Environment.NewLine, new[]
+            {
+                "HDREZKA Anime4K Motion",
+                "Версия: " + UpdateService.CurrentVersion,
+                "Тег сборки: " + (ChannelUpdateService.InstalledTag ?? "не указан"),
+                "Коммит: " + (ChannelUpdateService.InstalledCommit ?? "не указан"),
+                "Выбранный канал обновлений: " +
+                    (SettingsService.Instance.PreferredUpdateChannel == UpdateChannel.Testing ? "Тестовый" : "Стабильный"),
+                "Репозиторий: " + ReleaseCatalog.Repository
+            });
+            var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            package.SetText(details);
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+            Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
+            CopiedBuildStatusText.Text = "Сведения о сборке скопированы.";
+            CopiedBuildStatusText.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            App.TryLog(ex);
+            CopiedBuildStatusText.Text = "Не удалось скопировать сведения о сборке.";
+            CopiedBuildStatusText.Visibility = Visibility.Visible;
+        }
+    }
+
     private void UpdateChannelBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_initialized || _downloadCancellation != null) return;
