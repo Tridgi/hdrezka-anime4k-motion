@@ -161,7 +161,7 @@
                         <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock x:Name="TitleText" Grid.Column="0" Foreground="White" FontSize="15" FontWeight="SemiBold"
-                               TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" MaxWidth="560" Margin="0,0,6,0"
+                               TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" TextAlignment="Left" Margin="0,0,6,0"
                                VerticalAlignment="Center" HorizontalAlignment="Stretch"/>
                     <Grid x:Name="EpisodeChipHost" Grid.Column="1" VerticalAlignment="Center">
                         <Border x:Name="EpisodeChip" Background="#33FFFFFF" CornerRadius="10" Padding="10,3"
@@ -308,7 +308,7 @@
                                 ToolTipService.ToolTip="Пропустить опенинг (интервал задаётся в настройках)"
                                 AutomationProperties.Name="Пропустить опенинг">
                             <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                <FontIcon Glyph="&#xE111;" Foreground="White" FontSize="15"/>
+                                <FontIcon Glyph="&#xEB9D;" FontFamily="Segoe MDL2 Assets" Foreground="White" FontSize="15"/>
                                 <TextBlock x:Name="SkipOpeningText" Text="+1:25" Foreground="White"
                                            FontSize="12" VerticalAlignment="Center"/>
                             </StackPanel>
