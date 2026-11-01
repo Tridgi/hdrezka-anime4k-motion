@@ -49,7 +49,7 @@
                     <TextBlock x:Name="HomeHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>
                     <TextBlock x:Name="HomeHint" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxWidth="640"/>
                     <ListView x:Name="HomeSectionsList" Margin="0,8,0,0" MaxWidth="480"
-                              HorizontalAlignment="Stretch" Padding="0" BorderThickness="0"
+                              HorizontalAlignment="Left" Padding="0" BorderThickness="0"
                               SelectionMode="None" AllowDrop="True" CanDragItems="True"
                               CanReorderItems="True"
                               ScrollViewer.VerticalScrollMode="Disabled"
