@@ -104,6 +104,10 @@
                     </ComboBox>
                     <TextBlock x:Name="InstalledBuildText" FontSize="12" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="640"/>
+                    <Button x:Name="CopyBuildButton" Content="Копировать сведения о сборке"
+                            Click="CopyBuildButton_Click" HorizontalAlignment="Left"/>
+                    <TextBlock x:Name="CopiedBuildStatusText" FontSize="12" Visibility="Collapsed"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
                     <TextBlock x:Name="UpdateStatusText" FontSize="12" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" MaxWidth="640"/>
                     <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
