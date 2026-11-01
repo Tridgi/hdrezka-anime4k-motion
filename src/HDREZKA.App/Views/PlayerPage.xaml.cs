@@ -266,7 +266,7 @@ public sealed partial class PlayerPage : Page
         HeaderEffectsHost.Visibility = shortcuts ? Visibility.Visible : Visibility.Collapsed;
         EpisodeText.MaxWidth = width < 660 ? 90 : 170;
         var chipWidth = EpisodeChip.Visibility == Visibility.Visible ? EpisodeText.MaxWidth + 18 : 0;
-        var reserved = 245 + chipWidth + (shortcuts ? 338 : 0);
+        var reserved = 211 + chipWidth + (shortcuts ? 338 : 0);
         TitleText.MaxWidth = Math.Max(32, Math.Min(480, width - reserved));
     }
 
@@ -800,6 +800,7 @@ public sealed partial class PlayerPage : Page
         }
 
         _quality = quality;
+        _temporarilyDisabledSmoothSource = null;
         await LoadVideoAsync(seekToSaved: false, qualityOverride: quality);
     }
 
@@ -819,7 +820,10 @@ public sealed partial class PlayerPage : Page
         {
             try
             {
-                if (_tearingDown) return;
+                if (_tearingDown || !ReferenceEquals(sender, _player)) return;
+                // A quality/CDN switch reloads the file without recreating mpv.
+                // Check file-local video filters after MPV_EVENT_FILE_LOADED.
+                EnsureSmoothnessAfterSourceOpened(sender);
                 var duration = sender.PlaybackSession.NaturalDuration;
             if (duration > TimeSpan.Zero)
             {
@@ -1096,6 +1100,7 @@ public sealed partial class PlayerPage : Page
         var next = ordered[idx - 1];
         Log.Info($"[Player] Auto quality drop: {_quality} -> {next.Quality}");
         _quality = next.Quality;
+        _temporarilyDisabledSmoothSource = null;
         _ = LoadVideoAsync(seekToSaved: false, qualityOverride: next.Quality);
     }
 
@@ -1147,7 +1152,7 @@ public sealed partial class PlayerPage : Page
         {
             if (_tearingDown) return;
 
-            if (TryRecoverWithoutSmoothness()) return;
+            if (sender.SmoothFilterFaulted && TryRecoverWithoutSmoothness()) return;
             // Битая или заблокированная CDN-ссылка: сначала пробуем остальные
             // ссылки/качества, и только потом показываем ошибку.
             if (TryNextCandidate()) return;

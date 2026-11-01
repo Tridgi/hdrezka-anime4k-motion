@@ -6,15 +6,53 @@ namespace HDREZKA.App.Views;
 public sealed partial class PlayerPage
 {
     private bool _smoothMenuBuilding;
-    private bool TryRecoverWithoutSmoothness()
+    private string? _temporarilyDisabledSmoothSource;
+
+    /// <summary>
+    /// mpv persists while quality/CDN is changed, but file-local video filters
+    /// may be cleared during reloading. Check once the new file has loaded.
+    /// </summary>
+    private void EnsureSmoothnessAfterSourceOpened(MpvPlayer player)
     {
-        if (_player?.ActiveSmoothFps is not > 0) return false;
+        var desired = SettingsService.Instance.SmoothFps;
+        if (desired <= 0) return;
+        if (_temporarilyDisabledSmoothSource == _currentSource)
+        {
+            Log.Info("[Smooth] Interpolation kept off after filter fault; quality=" + _quality);
+            return;
+        }
+        var filter = player.Get("vf");
+        if (filter.Contains("vapoursynth", StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Info("[Smooth] Filter preserved; quality=" + _quality + " target=" + desired);
+            return;
+        }
         try
         {
+            player.ApplySmoothness(desired);
+            Log.Info("[Smooth] Filter restored after source load; quality=" + _quality +
+                     " target=" + desired + " vf=" + player.Get("vf"));
+        }
+        catch (Exception ex)
+        {
+            App.TryLog(ex);
+            Log.Info("[Smooth] Filter restore failed; quality=" + _quality + ": " + ex.Message);
+            // A problem on one stream must not erase the user's saved FPS mode.
+            _temporarilyDisabledSmoothSource = _currentSource;
+            try { player.ApplySmoothness(0); } catch (Exception fallback) { App.TryLog(fallback); }
+            ToolTipService.SetToolTip(SmoothBox, "Не удалось включить плавность на этом видеопотоке: " + ex.Message);
+        }
+    }
+
+    private bool TryRecoverWithoutSmoothness()
+    {
+        if (_player?.ActiveSmoothFps is not > 0 || !_player.SmoothFilterFaulted) return false;
+        try
+        {
+            _temporarilyDisabledSmoothSource = _currentSource;
             _player.ApplySmoothness(0);
-            _smoothMenuBuilding = true; SmoothBox.SelectedIndex = 0; _smoothMenuBuilding = false;
-            SettingsService.Instance.SmoothFps = 0; SettingsService.Instance.Save();
-            ToolTipService.SetToolTip(SmoothBox, "Повышение FPS отключено после ошибки воспроизведения. Можно включить его снова.");
+            ToolTipService.SetToolTip(SmoothBox, "Фильтр временно отключён для этого потока после ошибки; настройка FPS сохранена.");
+            Log.Info("[Smooth] Filter fault: retry without interpolation at quality=" + _quality);
             _ = LoadVideoAsync(seekToSaved: false);
             return true;
         }
@@ -41,6 +79,7 @@ public sealed partial class PlayerPage
         if (_smoothMenuBuilding || _player == null || SmoothBox.SelectedItem is not ComboBoxItem { Tag: int fps }) return;
         try
         {
+            _temporarilyDisabledSmoothSource = null;
             _player.ApplySmoothness(fps);
             SettingsService.Instance.SmoothFps = fps;
             SettingsService.Instance.Save();

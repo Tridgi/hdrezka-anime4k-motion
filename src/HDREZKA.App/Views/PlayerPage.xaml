@@ -47,6 +47,8 @@
                         <Setter Target="Sep1.Visibility" Value="Collapsed"/>
                         <Setter Target="VolumeIcon.Visibility" Value="Collapsed"/>
                         <Setter Target="VolumeSlider.Visibility" Value="Collapsed"/>
+                        <Setter Target="MuteButton.Visibility" Value="Collapsed"/>
+                        <Setter Target="SkipOpeningText.Visibility" Value="Collapsed"/>
                     </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="MediumLayout">
@@ -59,6 +61,8 @@
                         <Setter Target="Sep1.Visibility" Value="Collapsed"/>
                         <Setter Target="VolumeIcon.Visibility" Value="Collapsed"/>
                         <Setter Target="VolumeSlider.Visibility" Value="Collapsed"/>
+                        <Setter Target="MuteButton.Visibility" Value="Visible"/>
+                        <Setter Target="SkipOpeningText.Visibility" Value="Visible"/>
                     </VisualState.Setters>
                 </VisualState>
                 <VisualState x:Name="WideLayout">
@@ -71,6 +75,8 @@
                         <Setter Target="Sep1.Visibility" Value="Visible"/>
                         <Setter Target="VolumeIcon.Visibility" Value="Visible"/>
                         <Setter Target="VolumeSlider.Visibility" Value="Visible"/>
+                        <Setter Target="MuteButton.Visibility" Value="Visible"/>
+                        <Setter Target="SkipOpeningText.Visibility" Value="Visible"/>
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>
@@ -149,12 +155,6 @@
                     <TextBlock x:Name="PlaybackWarningText" Text="⚠ Пропуски" Foreground="#FFFF7070"
                                FontSize="11" FontWeight="SemiBold" VerticalAlignment="Center"
                                Visibility="Collapsed" Margin="0,0,2,0"/>
-                    <Button x:Name="TopBarMoreButton" Click="TopBarMoreButton_Click"
-                            Background="Transparent" BorderThickness="0" Padding="7" CornerRadius="8"
-                            ToolTipService.ToolTip="Дополнительные настройки"
-                            AutomationProperties.Name="Дополнительные настройки">
-                        <TextBlock Text="✨" FontSize="18" Foreground="White"/>
-                    </Button>
                     <ToggleButton x:Name="PinButton" Click="PinButton_Click"
                                   Background="Transparent" BorderThickness="0" Padding="7">
                         <FontIcon x:Name="PinIcon" Glyph="&#xE718;" Foreground="White" FontSize="15"/>
@@ -268,18 +268,24 @@
                             <FontIcon x:Name="MuteIcon" Glyph="&#xE767;"
                                       Foreground="#D9FFFFFF" FontSize="15"/>
                         </Button>
-                        <Button x:Name="PlaybackSettingsButton" Click="PlaybackSettingsButton_Click"
-                                Background="Transparent" BorderThickness="0" Padding="8"
-                                ToolTipService.ToolTip="Настройки воспроизведения"
-                                AutomationProperties.Name="Настройки воспроизведения">
-                            <FontIcon Glyph="&#xE713;" Foreground="White" FontSize="16"/>
-                        </Button>
                         <!-- Hidden source retains subtitle switching handler. -->
                         <ComboBox x:Name="SubtitlesBox" SelectionChanged="SubtitlesBox_SelectionChanged"
                                   Visibility="Collapsed"/>
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
                                 Margin="8,0,0,0">
+                        <Button x:Name="TopBarMoreButton" Click="TopBarMoreButton_Click"
+                                Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8"
+                                ToolTipService.ToolTip="Дополнительные настройки Anime4K и плавности"
+                                AutomationProperties.Name="Дополнительные настройки">
+                            <TextBlock Text="✨" FontSize="18" Foreground="White"/>
+                        </Button>
+                        <Button x:Name="PlaybackSettingsButton" Click="PlaybackSettingsButton_Click"
+                                Background="Transparent" BorderThickness="0" Padding="8" CornerRadius="8"
+                                ToolTipService.ToolTip="Настройки воспроизведения"
+                                AutomationProperties.Name="Настройки воспроизведения">
+                            <FontIcon Glyph="&#xE713;" Foreground="White" FontSize="16"/>
+                        </Button>
                         <Button x:Name="FullscreenButton" Click="FullscreenButton_Click"
                                 Background="Transparent" BorderThickness="0" Padding="8">
                             <FontIcon x:Name="FullscreenIcon" Glyph="&#xE740;" Foreground="White"

@@ -118,8 +118,18 @@ public sealed partial class PlayerPage
             var resolution = width > 0 && height > 0 ? $"{width}×{height}" : "неизвестно";
             var anime = (AnimeBox.SelectedItem as Microsoft.UI.Xaml.Controls.ComboBoxItem)?.Tag as string
                 ?? SettingsService.Instance.Anime4KMode;
-            var smooth = player.ActiveSmoothFps is > 0 ? $"{player.ActiveSmoothFps} FPS" : "выкл.";
-            StatsDetailText.Text = $"Видео: {resolution}\nAnime4K: {anime} · Плавность: {smooth}\nGPU: {player.Gpu}";
+            var requestedFps = SettingsService.Instance.SmoothFps;
+            var filter = player.Get("vf");
+            var hasMotionFilter = filter.Contains("vapoursynth", StringComparison.OrdinalIgnoreCase);
+            var filterFps = player.Number("estimated-vf-fps");
+            var sourceFps = player.Number("container-fps");
+            var interpolation = requestedFps <= 0 ? "выкл."
+                : $"цель {requestedFps} · фильтр {(hasMotionFilter ? "в цепочке" : "не подключён")}";
+            var measuredFps = filterFps > 0 ? filterFps.ToString("0.0", CultureInfo.InvariantCulture) : "—";
+            var inputFps = sourceFps > 0 ? sourceFps.ToString("0.##", CultureInfo.InvariantCulture) : "—";
+            StatsDetailText.Text = $"Видео: {resolution} · исходные {inputFps} FPS\n" +
+                $"Anime4K: {anime} · Плавность: {interpolation}\n" +
+                $"После видеофильтра (оценка mpv): {measuredFps} FPS\nGPU: {player.Gpu}";
         }
         catch (Exception ex)
         {

@@ -10,7 +10,7 @@ public sealed partial class PlayerPage
     // source of truth even when the toolbar shortcuts are hidden.
     private void TopBarMoreButton_Click(object sender, RoutedEventArgs e)
     {
-        var menu = new MenuFlyout();
+        var menu = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Top };
         var anime = new MenuFlyoutSubItem { Text = "Anime4K" };
         foreach (var (mode, label) in new[]
         {
@@ -73,10 +73,10 @@ public sealed partial class PlayerPage
         menu.ShowAt(TopBarMoreButton);
     }
 
-    // Ordinary playback parameters on the lower-left settings button.
+    // Ordinary playback parameters on the lower-right settings button.
     private void PlaybackSettingsButton_Click(object sender, RoutedEventArgs e)
     {
-        var menu = new MenuFlyout();
+        var menu = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.Top };
         var subtitles = new MenuFlyoutSubItem { Text = Loc.Get("Common.Subtitles") };
         foreach (var choice in SubtitlesBox.Items.OfType<ComboBoxItem>())
         {
