@@ -33,6 +33,19 @@ public class ReleaseCatalogTests
         Assert.False(ReleaseCatalog.IsSameBuild(stable!, "test-1234567", null));
     }
 
+    [Fact]
+    public void HistoryKeepsChannelsSeparate()
+    {
+        var stable = ReleaseCatalog.History(Json, UpdateChannel.Stable);
+        var testing = ReleaseCatalog.History(Json, UpdateChannel.Testing);
+        Assert.Single(stable);
+        Assert.Single(testing);
+        Assert.Equal("v2.0.0", stable[0].Tag);
+        Assert.Equal("test-1234567", testing[0].Tag);
+        Assert.All(stable, r => Assert.Equal(UpdateChannel.Stable, r.Channel));
+        Assert.All(testing, r => Assert.Equal(UpdateChannel.Testing, r.Channel));
+    }
+
     [Theory]
     [InlineData("https://evil.example.com/Tridgi/hdrezka-anime4k-motion/releases/download/x/file.zip")]
     [InlineData("http://github.com/Tridgi/hdrezka-anime4k-motion/releases/download/x/file.zip")]

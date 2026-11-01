@@ -20,6 +20,10 @@ public static class ReleaseCatalog
     public const string ReleasesUrl = "https://github.com/" + Repository + "/releases";
 
     public static ChannelRelease? Latest(string json, UpdateChannel channel)
+        => History(json, channel).FirstOrDefault();
+
+    /// <summary>Published downloadable releases, newest first, for the selected channel.</summary>
+    public static IReadOnlyList<ChannelRelease> History(string json, UpdateChannel channel)
     {
         using var document = JsonDocument.Parse(json);
         if (document.RootElement.ValueKind != JsonValueKind.Array) return null;
@@ -57,7 +61,7 @@ public static class ReleaseCatalog
             found.Add(new ChannelRelease(tag, version, releaseUrl, Get(release, "body") ?? "",
                 assetUrl, assetName, sha, manifestUrl, commit, published, channel));
         }
-        return found.OrderByDescending(r => r.PublishedAt).FirstOrDefault();
+        return found.OrderByDescending(r => r.PublishedAt).ToArray();
     }
 
     public static bool IsTrustedReleaseUrl(string value)

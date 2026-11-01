@@ -63,13 +63,16 @@ public static class ChannelUpdateService
         }
     }
 
-    public static async Task<ChannelRelease?> LatestAsync(UpdateChannel channel, CancellationToken ct = default)
+    /// <summary>One request feeds both update lookup and the version history dialog.</summary>
+    public static async Task<string> FetchReleasesAsync(CancellationToken ct = default)
     {
         using var response = await Api.GetAsync(ReleaseCatalog.ApiUrl, ct).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
-        var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-        return ReleaseCatalog.Latest(json, channel);
+        return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
     }
+
+    public static async Task<ChannelRelease?> LatestAsync(UpdateChannel channel, CancellationToken ct = default)
+        => ReleaseCatalog.Latest(await FetchReleasesAsync(ct).ConfigureAwait(false), channel);
 
     public static bool IsInstalled(ChannelRelease release)
         => ReleaseCatalog.IsSameBuild(release, InstalledTag, InstalledCommit);
