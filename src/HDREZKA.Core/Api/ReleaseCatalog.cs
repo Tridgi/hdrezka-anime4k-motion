@@ -26,7 +26,7 @@ public static class ReleaseCatalog
     public static IReadOnlyList<ChannelRelease> History(string json, UpdateChannel channel)
     {
         using var document = JsonDocument.Parse(json);
-        if (document.RootElement.ValueKind != JsonValueKind.Array) return null;
+        if (document.RootElement.ValueKind != JsonValueKind.Array) return Array.Empty<ChannelRelease>();
         var found = new List<ChannelRelease>();
         foreach (var release in document.RootElement.EnumerateArray())
         {
