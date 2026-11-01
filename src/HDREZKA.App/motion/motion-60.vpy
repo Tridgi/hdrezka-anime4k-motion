@@ -6,12 +6,13 @@ core.max_cache_size = 384
 root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 for name in ("svpflow1_vs.dll", "svpflow2_vs.dll"):
     core.std.LoadPlugin(os.path.join(root, "runtime", "open-svpflow", name))
-# mpv's streamed source intentionally advertises variable FPS (0/1).
-# Give SVP a rational rate; otherwise its VFR fallback expects an absent fps prop.
+# Prefer the container's explicit frame rate. Some lower-quality streams
+# lack it; fall back only to a valid rate carried by the incoming VideoNode.
+# Never assume a hard-coded 24/30 FPS for a stream with unknown timing.
 from fractions import Fraction
-if not (0 < container_fps <= 240):
+rate = Fraction(str(container_fps)).limit_denominator(100000) if 0 < container_fps <= 240 else video_in.fps
+if rate.numerator <= 0 or rate.denominator <= 0 or rate > 240:
     raise ValueError("Source FPS unavailable: motion interpolation requires a known rate")
-rate = Fraction(str(container_fps)).limit_denominator(100000)
 clip = core.std.AssumeFPS(video_in, fpsnum=rate.numerator, fpsden=rate.denominator)
 if clip.format.color_family != vs.YUV or clip.format.subsampling_w != 1 or clip.format.subsampling_h != 1:
     clip = core.resize.Bicubic(clip, format=vs.YUV420P8)
