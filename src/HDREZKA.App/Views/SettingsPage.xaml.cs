@@ -13,7 +13,7 @@ public sealed partial class SettingsPage : Page
     private CancellationTokenSource? _downloadCancellation;
 
     private const string DonateAddress = "UQBNd1gXEZi4oahqNeJEy18KCUXfVvmBnPgXlokPpzU_PbFQ";
-    private static readonly Uri BoostyUrl = new("https://boosty.to/eddinwork/donate");
+    private static readonly Uri BoostyUrl = new("https://boosty.to/tridgi");
 
     public SettingsPage()
     {
