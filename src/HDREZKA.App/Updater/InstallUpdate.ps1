@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $logDirectory = Join-Path $env:APPDATA 'HDREZKA-Anime4K-Motion'
 $logFile = Join-Path $logDirectory 'updater.log'
-$install = [IO.Path]::GetFullPath($InstallPath).TrimEnd([char[]]@('\\','/'))
+$install = [IO.Path]::GetFullPath($InstallPath).TrimEnd([char[]]@([char]92,[char]47))
 $archive = [IO.Path]::GetFullPath($ArchivePath)
 $directory = Split-Path -Parent $install
 $name = Split-Path -Leaf $install
@@ -28,7 +28,7 @@ function Write-UpdateLog([string]$message) {
 }
 try {
     if (-not (Test-Path -LiteralPath (Join-Path $install 'HDREZKA.App.exe') -PathType Leaf)) { throw 'Current installation not found.' }
-    if (([IO.Path]::GetPathRoot($install)).TrimEnd('\\') -eq $install) { throw 'Refusing to replace a volume root.' }
+    if (([IO.Path]::GetPathRoot($install)).TrimEnd([char]92) -eq $install) { throw 'Refusing to replace a volume root.' }
     if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) { throw 'Update archive not found.' }
     $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actual -ne $ExpectedSha256.ToLowerInvariant()) { throw 'Archive checksum mismatch.' }
@@ -45,7 +45,7 @@ try {
         if ($zip.Entries.Count -gt 12000) { throw 'Too many ZIP entries.' }
         $size = [long]0
         foreach ($entry in $zip.Entries) {
-            $relative = $entry.FullName.Replace('\\', '/')
+            $relative = $entry.FullName.Replace([char]92, [char]47)
             $segments = $relative.Split('/')
             if ($relative.StartsWith('/') -or $relative.Contains(':') -or
                 $segments -contains '..' -or $segments -contains '.' -or
