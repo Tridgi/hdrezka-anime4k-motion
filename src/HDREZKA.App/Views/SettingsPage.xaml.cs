@@ -517,6 +517,13 @@ public sealed partial class SettingsPage : Page
                 UpdateStatusText.Text = "Уже установлена актуальная сборка " + release.Tag + ".";
                 return;
             }
+            // v2.0.0 was published before the channel updater existed.
+            // Installing it would remove the only in-app route back to testing.
+            if (channel == UpdateChannel.Stable && release.Version == "2.0.0")
+            {
+                UpdateStatusText.Text = "Стабильная v2.0.0 не поддерживает выбор каналов. Чтобы не потерять обновлятор, автоматический откат на неё пока заблокирован. Нужен следующий стабильный релиз.";
+                return;
+            }
             // Fail closed if the release has no verifiable archive SHA-256.
             await ChannelUpdateService.RequireSha256Async(release);
             _pendingUpdate = release;

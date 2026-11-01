@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Mandatory=$true)][string]$InstallPath,
     [Parameter(Mandatory=$true)][string]$ArchivePath,
     [Parameter(Mandatory=$true)][string]$ExpectedSha256,
@@ -18,7 +18,6 @@ $name = Split-Path -Leaf $install
 $nonce = [guid]::NewGuid().ToString('N')
 $stage = Join-Path $directory "$name.stage-$nonce"
 $backup = Join-Path $directory "$name.backup-$(Get-Date -Format yyyyMMdd-HHmmss)-$nonce"
-$swapped = $false
 $backedUp = $false
 function Write-UpdateLog([string]$message) {
     try {
@@ -69,7 +68,6 @@ try {
     Move-Item -LiteralPath $install -Destination $backup -ErrorAction Stop
     $backedUp = $true
     Move-Item -LiteralPath $stage -Destination $install -ErrorAction Stop
-    $swapped = $true
     Start-Process -FilePath (Join-Path $install 'HDREZKA.App.exe') -WorkingDirectory $install -ErrorAction Stop
     Write-UpdateLog "Installed $ReleaseChannel / $ReleaseTag. Backup: $backup"
 } catch {
@@ -91,5 +89,8 @@ try {
 } finally {
     if (Test-Path -LiteralPath $stage) {
         try { Remove-Item -LiteralPath $stage -Recurse -Force } catch {}
+    }
+    if (Test-Path -LiteralPath $archive) {
+        try { Remove-Item -LiteralPath $archive -Force } catch {}
     }
 }

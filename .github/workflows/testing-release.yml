@@ -17,6 +17,13 @@ jobs:
       - name: Restore pinned media dependencies
         shell: pwsh
         run: ./scripts/bootstrap.ps1
+      - name: Validate installer helper syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile('src/HDREZKA.App/Updater/InstallUpdate.ps1', [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { throw ($errors | Out-String) }
       - name: Test core
         run: dotnet test tests/HDREZKA.Tests/HDREZKA.Tests.csproj -c Release
       - name: Publish portable Windows player
