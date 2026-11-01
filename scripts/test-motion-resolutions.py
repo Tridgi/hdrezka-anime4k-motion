@@ -87,7 +87,7 @@ class FakeSvp2:
     def SmoothFps(self, clip, *args):
         import re
         config = args[-1]
-        match = re.search(r"rate:\\{num:(\\d+),den:(\\d+),abs:true\\}", config)
+        match = re.search(r"rate:\{num:(\d+),den:(\d+),abs:true\}", config)
         if not match:
             raise ValueError("Cannot parse output target FPS")
         return clip.copy(fps=Fraction(int(match.group(1)), int(match.group(2))))
