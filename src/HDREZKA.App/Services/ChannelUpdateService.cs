@@ -158,8 +158,10 @@ public static class ChannelUpdateService
             }) start.ArgumentList.Add(arg);
             using var process = Process.Start(start);
             if (process == null) throw new InvalidOperationException("Не удалось запустить помощник установки.");
+            // Return to the calling UI event handler. Only the UI dispatcher can
+            // safely call WinUI Application.Exit(). Calling Exit() here after
+            // ConfigureAwait(false) left the process alive and timed out the updater.
             // Nothing under AppData is removed: login, history, settings are kept.
-            Microsoft.UI.Xaml.Application.Current.Exit();
         }
         catch
         {

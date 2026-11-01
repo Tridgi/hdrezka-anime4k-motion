@@ -609,9 +609,12 @@ public sealed partial class SettingsPage : Page
                 ? "Загрузка обновления: " + percent + "%"
                 : "Архив загружен. Проверка и подготовка установки…";
         });
+        var installerStarted = false;
         try
         {
+            // This UI event handler captures WinUI SynchronizationContext.
             await ChannelUpdateService.DownloadAndRestartAsync(release, progress, cts.Token);
+            installerStarted = true;
         }
         catch (OperationCanceledException)
         {
@@ -630,6 +633,37 @@ public sealed partial class SettingsPage : Page
             UpdateChannelBox.IsEnabled = true;
             CancelUpdateButton.Visibility = Visibility.Collapsed;
             UpdateDownloadProgress.Visibility = Visibility.Collapsed;
+        }
+
+        if (!installerStarted) return;
+
+        // The old implementation called Exit() from a ThreadPool continuation
+        // inside ChannelUpdateService (ConfigureAwait(false)), so the updater
+        // waited 120 seconds and reported "Application did not exit".
+        // Always exit from the WinUI event handler / UI dispatcher.
+        SettingsService.Instance.Save();
+        UpdateStatusText.Text = "Архив проверен. Закрытие приложения для установки…";
+        try
+        {
+            if (!DispatcherQueue.HasThreadAccess)
+                throw new InvalidOperationException("Завершение обновления запущено вне UI-потока.");
+
+            // Safety net only: when native media/background threads keep the
+            // WinUI process alive, stop this process after allowing graceful
+            // shutdown. The detached updater still verifies/backs up the files.
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(8)).ConfigureAwait(false);
+                Environment.Exit(0);
+            });
+            Microsoft.UI.Xaml.Application.Current.Exit();
+        }
+        catch (Exception ex)
+        {
+            App.TryLog(ex);
+            // The updater was already started. Leaving this process running
+            // would repeat the timeout, so ensure it can proceed.
+            Environment.Exit(0);
         }
     }
 

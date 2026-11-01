@@ -36,6 +36,9 @@ jobs:
           Compress-Archive -Path 'artifacts/portable/*' -DestinationPath "artifacts/$asset" -CompressionLevel Optimal
           $hash = (Get-FileHash "artifacts/$asset" -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $asset" | Set-Content -Path artifacts/SHA256SUMS.txt -Encoding Ascii
+      - name: Smoke-test updater installation and backup
+        shell: pwsh
+        run: ./scripts/test-updater.ps1
       - name: Publish prerelease for the selected test branch
         shell: pwsh
         env:

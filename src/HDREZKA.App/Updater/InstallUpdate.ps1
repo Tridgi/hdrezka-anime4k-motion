@@ -81,6 +81,9 @@ try {
             Start-Process -FilePath (Join-Path $install 'HDREZKA.App.exe') -WorkingDirectory $install
         } catch { Write-UpdateLog "ROLLBACK FAILED: $($_.Exception.Message)"; $errorMessage += " (rollback failed)" }
     }
+    # CI must surface a failed installation instead of opening a modal dialog
+    # and blocking the unattended Windows runner.
+    if ($env:CI -eq 'true') { throw "Updater failed: $errorMessage" }
     try {
         Add-Type -AssemblyName System.Windows.Forms
         [System.Windows.Forms.MessageBox]::Show("Не удалось обновить приложение: $errorMessage`nЖурнал: $logFile",
