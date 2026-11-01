@@ -7,8 +7,9 @@ namespace HDREZKA.App.Services;
 /// screen capture or CPU readback: transport controls stay above the video.</summary>
 internal sealed unsafe class D3DVideoSurface : IDisposable
 {
-    private IntPtr _factory, _device, _context, _swapChain, _panel;
+    private IntPtr _factory, _device, _context, _swapChain, _swapChain2, _panel;
     private int _width, _height;
+    private float _scaleX = float.NaN, _scaleY = float.NaN;
     public IntPtr Device => _device;
     public string AdapterName { get; private set; } = "";
     private static void** V(IntPtr p) => *(void***)p;
@@ -19,6 +20,7 @@ internal sealed unsafe class D3DVideoSurface : IDisposable
     [StructLayout(LayoutKind.Sequential)] private struct SwapDesc { public uint Width, Height, Format; public int Stereo; public uint SampleCount, SampleQuality, Usage, Count, Scaling, Effect, Alpha, Flags; }
     [StructLayout(LayoutKind.Sequential)] private struct TextureDesc { public uint Width, Height, Mips, ArraySize, Format, SampleCount, SampleQuality, Usage, BindFlags, CPUAccess, Misc; }
     [StructLayout(LayoutKind.Sequential)] private struct MappedResource { public IntPtr Data; public uint RowPitch, DepthPitch; }
+    [StructLayout(LayoutKind.Sequential)] private struct DxgiMatrix3x2 { public float M11, M12, M21, M22, M31, M32; }
 
     public D3DVideoSurface(SwapChainPanel panel)
     {
@@ -51,30 +53,42 @@ internal sealed unsafe class D3DVideoSurface : IDisposable
             var unknown = WinRT.MarshalInspectable<object>.FromManaged(panel);
             try { var iid = new Guid("63aad0b8-7c24-40ff-85a8-640d944cc325"); Check(Marshal.QueryInterface(unknown, ref iid, out _panel)); }
             finally { Marshal.Release(unknown); }
-            Resize(1280, 720);
+            Resize(1280, 720, panel.CompositionScaleX, panel.CompositionScaleY);
             Log.Info("[Anime4K] Rendering GPU: " + AdapterName);
         }
         catch { Dispose(); throw; }
     }
 
-    public void Resize(int width, int height)
+    public void Resize(int width, int height, float scaleX, float scaleY)
     {
+        // The back buffer uses physical pixels, while SwapChainPanel is laid out in DIPs.
+        // XAML applies CompositionScale to the swap chain when composing the visual tree.
+        // IDXGISwapChain2 needs the inverse transform to prevent cropping at 125%+ DPI.
+        scaleX = float.IsFinite(scaleX) && scaleX > 0 ? scaleX : 1f;
+        scaleY = float.IsFinite(scaleY) && scaleY > 0 ? scaleY : 1f;
         width = Math.Clamp(width, 16, 7680); height = Math.Clamp(height, 16, 4320);
-        if (width == _width && height == _height) return;
+        if (width == _width && height == _height && scaleX == _scaleX && scaleY == _scaleY) return;
         if (_swapChain == IntPtr.Zero)
         {
             var desc = new SwapDesc { Width = (uint)width, Height = (uint)height, Format = 87, SampleCount = 1, Usage = 0x20, Count = 2, Scaling = 0, Effect = 3, Alpha = 3 };
             IntPtr swap;
             Check(((delegate* unmanaged[Stdcall]<IntPtr, IntPtr, SwapDesc*, IntPtr, IntPtr*, int>)V(_factory)[24])(_factory, _device, &desc, IntPtr.Zero, &swap));
             _swapChain = swap;
+            var swapChain2Id = new Guid("a8be2ac4-199f-4946-b331-79599fb98de7");
+            Check(Marshal.QueryInterface(_swapChain, ref swapChain2Id, out _swapChain2));
             Check(((delegate* unmanaged[Stdcall]<IntPtr, IntPtr, int>)V(_panel)[3])(_panel, _swapChain));
         }
-        else
+        else if (width != _width || height != _height)
         {
             ((delegate* unmanaged[Stdcall]<IntPtr, void>)V(_context)[110])(_context); // ClearState
             Check(((delegate* unmanaged[Stdcall]<IntPtr, uint, uint, uint, uint, uint, int>)V(_swapChain)[13])(_swapChain, 2, (uint)width, (uint)height, 87, 0));
         }
-        _width = width; _height = height;
+
+        // IDXGISwapChain2::SetMatrixTransform (vtable slot 34), called on every DPI change,
+        // even when the rounded backing-buffer dimensions have not changed.
+        var matrix = new DxgiMatrix3x2 { M11 = 1f / scaleX, M22 = 1f / scaleY };
+        Check(((delegate* unmanaged[Stdcall]<IntPtr, DxgiMatrix3x2*, int>)V(_swapChain2)[34])(_swapChain2, &matrix));
+        _width = width; _height = height; _scaleX = scaleX; _scaleY = scaleY;
     }
 
     public void Render(IntPtr renderContext)
@@ -95,7 +109,7 @@ internal sealed unsafe class D3DVideoSurface : IDisposable
     public void Dispose()
     {
         if (_panel != IntPtr.Zero) ((delegate* unmanaged[Stdcall]<IntPtr, IntPtr, int>)V(_panel)[3])(_panel, IntPtr.Zero);
-        Release(ref _swapChain); Release(ref _panel); Release(ref _context); Release(ref _device); Release(ref _factory);
+        Release(ref _swapChain2); Release(ref _swapChain); Release(ref _panel); Release(ref _context); Release(ref _device); Release(ref _factory);
     }
 
     // Test-only readback of our own render target, independent of desktop capture.
