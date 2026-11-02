@@ -168,6 +168,9 @@ public static class ChannelUpdateService
     public static async Task<ChannelRelease?> LatestAsync(UpdateChannel channel, CancellationToken ct = default)
         => (await LatestWithStatusAsync(channel, ct: ct).ConfigureAwait(false)).Release;
 
+    public static bool IsInstalled(ChannelRelease release)
+        => ReleaseCatalog.IsSameBuild(release, InstalledTag, InstalledCommit);
+
     private static bool IsReleaseListJson(string json)
     {
         try
