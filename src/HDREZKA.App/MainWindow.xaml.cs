@@ -57,6 +57,7 @@ public sealed partial class MainWindow : Window
         RootGrid.SizeChanged += (_, _) =>
         {
             DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, RefreshTitleBarLayout);
+            UpdateCenteredModalLayout();
         };
         CustomTitleBar.Loaded += (_, _) => RefreshTitleBarLayout();
         CustomTitleBar.SizeChanged += (_, _) =>
@@ -83,6 +84,71 @@ public sealed partial class MainWindow : Window
 
         ContentFrame.Navigate(typeof(HomePage));
         NavView.SelectedItem = NavHome;
+    }
+
+    private TaskCompletionSource<bool>? _centeredModalCompletion;
+
+    /// <summary>
+    /// A modal overlay hosted in RootGrid, which spans the complete application
+    /// window. The overlay remains centred even with the navigation pane open.
+    /// Avoid ContentDialog.Popup here: it does not control the popup's geometry.
+    /// </summary>
+    public Task ShowCenteredModalAsync(string title, FrameworkElement body)
+    {
+        if (_centeredModalCompletion is not null)
+            return Task.CompletedTask;
+
+        var completion = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        _centeredModalCompletion = completion;
+        CenteredModalTitle.Text = title;
+        CenteredModalBody.Content = body;
+        UpdateCenteredModalLayout();
+
+        // Keep keyboard navigation and clicks within the modal.
+        NavView.IsEnabled = false;
+        TitleBarActions.IsEnabled = false;
+        DownloadsFab.IsEnabled = false;
+        CenteredModalLayer.Visibility = Visibility.Visible;
+        DispatcherQueue.TryEnqueue(() =>
+            CenteredModalCloseButton.Focus(FocusState.Programmatic));
+        return completion.Task;
+    }
+
+    private void UpdateCenteredModalLayout()
+    {
+        if (_centeredModalCompletion is null) return;
+        var width = RootGrid.ActualWidth;
+        var height = RootGrid.ActualHeight;
+        if (width <= 0 || height <= 0) return;
+
+        CenteredModalCard.Width = Math.Max(240, Math.Min(560, width - 40));
+        CenteredModalCard.MaxHeight = Math.Max(180, height - 36);
+        if (CenteredModalBody.Content is ScrollViewer scroll)
+            scroll.MaxHeight = Math.Max(100, height - 190);
+    }
+
+    private void CloseCenteredModal()
+    {
+        var completion = _centeredModalCompletion;
+        if (completion is null) return;
+        _centeredModalCompletion = null;
+        CenteredModalLayer.Visibility = Visibility.Collapsed;
+        CenteredModalBody.Content = null;
+        NavView.IsEnabled = true;
+        TitleBarActions.IsEnabled = true;
+        DownloadsFab.IsEnabled = true;
+        completion.TrySetResult(true);
+    }
+
+    private void CenteredModalCloseButton_Click(object sender, RoutedEventArgs e)
+        => CloseCenteredModal();
+
+    private void CenteredModalLayer_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Escape) return;
+        e.Handled = true;
+        CloseCenteredModal();
     }
 
     public bool IsTheaterMode { get; private set; }

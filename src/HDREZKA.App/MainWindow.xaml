@@ -143,5 +143,33 @@
                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Grid>
         </Button>
+        <!-- Explicit full-window modal layer. Unlike ContentDialog.Popup, this
+             is centred over RootGrid (title bar + NavigationView), not the page. -->
+        <Grid x:Name="CenteredModalLayer" Grid.Row="0" Grid.RowSpan="2"
+              Visibility="Collapsed" HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch" Background="#B0000000"
+              KeyDown="CenteredModalLayer_KeyDown">
+            <Border x:Name="CenteredModalCard" Width="520"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Padding="22" CornerRadius="12" BorderThickness="1"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+                <Grid RowSpacing="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="CenteredModalTitle" Grid.Row="0"
+                               FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                    <ContentPresenter x:Name="CenteredModalBody" Grid.Row="1"
+                                      HorizontalAlignment="Stretch"
+                                      VerticalAlignment="Stretch"/>
+                    <Button x:Name="CenteredModalCloseButton" Grid.Row="2"
+                            Content="Закрыть" MinWidth="120"
+                            HorizontalAlignment="Right" Click="CenteredModalCloseButton_Click"/>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
