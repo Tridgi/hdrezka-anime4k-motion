@@ -146,30 +146,6 @@
                 </StackPanel>
             </Expander>
 
-            <Expander x:Name="DonateExpander" IsExpanded="False"
-                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                <Expander.Header>
-                    <TextBlock x:Name="DonateHeader" Style="{StaticResource SectionHeader}"/>
-                </Expander.Header>
-                <StackPanel Spacing="4">
-                    <TextBlock x:Name="DonateHint" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxWidth="640"/>
-                    <Border CornerRadius="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1"
-                            Padding="16" Margin="0,8,0,0" HorizontalAlignment="Left">
-                        <StackPanel Spacing="10" VerticalAlignment="Top" HorizontalAlignment="Left">
-                            <Image x:Name="BoostyQrImage" Width="132" Height="132" Stretch="Uniform" ImageFailed="BoostyQrImage_ImageFailed"/>
-                            <Button x:Name="BoostyButton" Click="BoostyButton_Click"
-                                    Style="{ThemeResource AccentButtonStyle}" HorizontalAlignment="Left"/>
-                        </StackPanel>
-                    </Border>
-                    <TextBlock x:Name="DonorHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                    <TextBox x:Name="DonorBox" MaxWidth="280" HorizontalAlignment="Left" LostFocus="DonorBox_LostFocus"/>
-                    <TextBlock x:Name="DonorHint" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxWidth="640"/>
-                    <TextBlock x:Name="DonorStatusText" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap" MaxWidth="640"/>
-                    <TextBlock x:Name="DonorPerksText" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxWidth="640" Visibility="Collapsed"/>
-                </StackPanel>
-            </Expander>
-
             <Expander x:Name="AboutExpander" IsExpanded="True"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <Expander.Header>

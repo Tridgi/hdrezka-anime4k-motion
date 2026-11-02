@@ -101,6 +101,11 @@
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
+                <NavigationViewItem x:Name="NavSupport" Tag="Support" Content="Поддержка проекта">
+                    <NavigationViewItem.Icon>
+                        <SymbolIcon Symbol="Favorite"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
                 <NavigationViewItem x:Name="NavUpdates" Tag="Updates" Content="Updates">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE91C;" />

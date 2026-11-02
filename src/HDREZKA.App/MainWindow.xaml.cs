@@ -232,6 +232,7 @@ public sealed partial class MainWindow : Window
                 NavBookmarks.Content = Loc.Get("Nav.Bookmarks");
                 NavContinue.Content = Loc.Get("Nav.Continue");
                 NavCollections.Content = Loc.Get("Nav.Collections");
+                NavSupport.Content = Loc.Get("Nav.Support");
                 NavUpdates.Content = Loc.Get("Nav.Updates");
                 NavAccount.Content = Loc.Get("Nav.Account");
                 NavSettings.Content = Loc.Get("Nav.Settings");
@@ -295,6 +296,7 @@ private void ContentFrame_Navigated(object sender, NavigationEventArgs e)
                 var t when t == typeof(CatalogPage) => "Catalog",
                 var t when t == typeof(BookmarksPage) => "Bookmarks",
                 var t when t == typeof(SettingsPage) => "Settings",
+                var t when t == typeof(SupportPage) => "Support",
                 var t when t == typeof(ContinueWatchingPage) => "Continue",
                 var t when t == typeof(CollectionsPage) => "Collections",
                 var t when t == typeof(UpdatesPage) => "Updates",
@@ -314,6 +316,7 @@ else
                     "Catalog" => NavCatalog,
                     "Bookmarks" => NavBookmarks,
                     "Settings" => NavSettings,
+                    "Support" => NavSupport,
                     "Continue" => NavContinue,
                     "Collections" => NavCollections,
                     "Updates" => NavUpdates,
@@ -355,6 +358,9 @@ else
                 break;
             case "Settings":
                 if (ContentFrame.Content is not SettingsPage) ContentFrame.Navigate(typeof(SettingsPage));
+                break;
+            case "Support":
+                if (ContentFrame.Content is not SupportPage) ContentFrame.Navigate(typeof(SupportPage));
                 break;
             case "Collections":
                 if (ContentFrame.Content is not CollectionsPage) ContentFrame.Navigate(typeof(CollectionsPage));

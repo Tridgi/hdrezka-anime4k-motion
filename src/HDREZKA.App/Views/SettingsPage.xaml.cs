@@ -12,8 +12,6 @@ public sealed partial class SettingsPage : Page
     private ChannelRelease? _pendingUpdate;
     private CancellationTokenSource? _downloadCancellation;
 
-    private static readonly Uri BoostyUrl = new("https://boosty.to/tridgi");
-
     public SettingsPage()
     {
         InitializeComponent();
@@ -68,23 +66,12 @@ public sealed partial class SettingsPage : Page
         HeadersToggle.IsOn = settings.UseAndroidHeaders;
         ShowPlaybackStatsCheck.IsChecked = settings.ShowPlaybackStats;
         DirectPlayCheck.IsChecked = settings.PlayFromHomeDirectly;
-        DonorBox.Text = settings.DonorCode;
         SeriesToggle.IsOn = settings.SeriesUpdatesEnabled;
         VersionText.Text = $"HDREZKA Anime4K Motion · {ChannelUpdateService.CurrentDescription}";
         UpdateChannelBox.SelectedIndex = settings.PreferredUpdateChannel == UpdateChannel.Testing ? 1 : 0;
         InstalledBuildText.Text = "Установлено: " + ChannelUpdateService.CurrentDescription;
         UpdateStatusText.Text = "Выбери канал и проверь доступные сборки.";
 
-        try
-        {
-            BoostyQrImage.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
-                new Uri(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "boosty-qr.png")));
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(ex);
-            BoostyQrImage.Visibility = Visibility.Collapsed;
-        }
 
         _initialized = true;
     }
@@ -126,12 +113,6 @@ public sealed partial class SettingsPage : Page
         HeadersHeader.Text = Loc.Get("Settings.Headers");
         HeadersHint.Text = Loc.Get("Settings.HeadersHint");
         AutoMirrorButton.Content = Loc.Get("Settings.AutoMirror");
-        DonateHeader.Text = Loc.Get("Settings.Donate");
-        DonateHint.Text = Loc.Get("Settings.DonateHint");
-        BoostyButton.Content = Loc.Get("Settings.DonateBoosty");
-        DonorHeader.Text = Loc.Get("Settings.DonorCode");
-        DonorHint.Text = Loc.Get("Settings.DonorHint");
-        UpdateDonorStatus();
         UpdateHeader.Text = Loc.Get("Settings.Updates");
         CheckUpdatesButton.Content = Loc.Get("Settings.CheckUpdates");
         SeriesHeader.Text = Loc.Get("Settings.SeriesUpdates");
@@ -417,64 +398,6 @@ public sealed partial class SettingsPage : Page
         {
             AutoMirrorButton.IsEnabled = true;
         }
-    }
-
-    private void BoostyQrImage_ImageFailed(object sender, ExceptionRoutedEventArgs e)
-    {
-        BoostyQrImage.Visibility = Visibility.Collapsed;
-    }
-
-    private async void BoostyButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            await Windows.System.Launcher.LaunchUriAsync(BoostyUrl);
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(ex);
-        }
-    }
-
-    private void DonorBox_LostFocus(object sender, RoutedEventArgs e)
-    {
-        var was = DonorUnlock.IsUnlocked;
-        SettingsService.Instance.DonorCode = DonorBox.Text.Trim();
-        SettingsService.Instance.Save();
-        UpdateDonorStatus();
-        if (!was && DonorUnlock.IsUnlocked)
-        {
-            _ = ShowDonorThanksAsync();
-        }
-    }
-
-    private async Task ShowDonorThanksAsync()
-    {
-        try
-        {
-            var dialog = new ContentDialog
-            {
-                Title = Loc.Get("Settings.DonorThanksTitle"),
-                Content = Loc.Get("Settings.DonorThanksText"),
-                CloseButtonText = "OK",
-                XamlRoot = Content.XamlRoot,
-            };
-            await dialog.ShowAsync();
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(ex);
-        }
-    }
-
-    private void UpdateDonorStatus()
-    {
-        var ok = HDREZKA.Core.Api.DonorCode.Validate(SettingsService.Instance.DonorCode);
-        DonorStatusText.Text = string.IsNullOrWhiteSpace(SettingsService.Instance.DonorCode)
-            ? ""
-            : Loc.Get(ok ? "Settings.DonorUnlocked" : "Settings.DonorInvalid");
-        DonorPerksText.Text = ok ? Loc.Get("Settings.DonorPerks") : "";
-        DonorPerksText.Visibility = ok ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void CopyBuildButton_Click(object sender, RoutedEventArgs e)
