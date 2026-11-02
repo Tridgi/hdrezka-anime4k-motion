@@ -107,7 +107,7 @@ public sealed partial class MainWindow : Window
 
         // Keep keyboard navigation and clicks within the modal.
         NavView.IsEnabled = false;
-        TitleBarActions.IsEnabled = false;
+        TitleBarActions.IsHitTestVisible = false;
         DownloadsFab.IsEnabled = false;
         CenteredModalLayer.Visibility = Visibility.Visible;
         DispatcherQueue.TryEnqueue(() =>
@@ -136,7 +136,7 @@ public sealed partial class MainWindow : Window
         CenteredModalLayer.Visibility = Visibility.Collapsed;
         CenteredModalBody.Content = null;
         NavView.IsEnabled = true;
-        TitleBarActions.IsEnabled = true;
+        TitleBarActions.IsHitTestVisible = true;
         DownloadsFab.IsEnabled = true;
         completion.TrySetResult(true);
     }
