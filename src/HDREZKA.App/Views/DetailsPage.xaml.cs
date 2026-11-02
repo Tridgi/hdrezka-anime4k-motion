@@ -533,9 +533,15 @@ public sealed partial class DetailsPage : Page
             Width = dialogWidth,
             MinWidth = 0,
             MaxWidth = dialogWidth,
+            // Center over the complete application window, never relative to
+            // the clicked rating button or to a left-aligned content panel.
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0),
             XamlRoot = root
         };
-        await dialog.ShowAsync();
+        await dialog.ShowAsync(ContentDialogPlacement.Popup);
     }
 
     private int MetaLabelWidth => _isNarrow ? 110 : 160;
