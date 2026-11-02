@@ -514,9 +514,14 @@ public sealed partial class SettingsPage : Page
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
-            var json = await ChannelUpdateService.FetchReleasesAsync(cts.Token);
-            var dialog = VersionHistoryDialog.Create(json, Content.XamlRoot);
+            var lookup = await ChannelUpdateService.FetchReleasesWithStatusAsync(ct: cts.Token);
+            var dialog = VersionHistoryDialog.Create(
+                lookup.Json, Content.XamlRoot, SettingsService.Instance.PreferredUpdateChannel);
             await dialog.ShowAsync();
+            if (lookup.IsStale)
+                UpdateStatusText.Text = "История показана из кэша (" +
+                    lookup.FetchedAt.LocalDateTime.ToString("dd.MM HH:mm") +
+                    "). GitHub сейчас недоступен или ограничил запросы.";
         }
         catch (Exception ex)
         {
@@ -552,7 +557,14 @@ public sealed partial class SettingsPage : Page
         try
         {
             var channel = SettingsService.Instance.PreferredUpdateChannel;
-            var release = await ChannelUpdateService.LatestAsync(channel);
+            var (release, lookup) = await ChannelUpdateService.LatestWithStatusAsync(channel, forceRefresh: true);
+            if (lookup.IsStale)
+            {
+                UpdateStatusText.Text = "Новая проверка GitHub пока недоступна. Последние сведения о релизах сохранены от " +
+                    lookup.FetchedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm") +
+                    ". Попробуйте позже; установленная версия не изменена.";
+                return;
+            }
             if (release == null)
             {
                 UpdateStatusText.Text = "В выбранном канале пока нет опубликованных сборок.";

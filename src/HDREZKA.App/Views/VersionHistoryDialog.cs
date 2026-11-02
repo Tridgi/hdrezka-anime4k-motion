@@ -7,7 +7,7 @@ namespace HDREZKA.App.Views;
 /// <summary>In-app history of published stable and test releases from GitHub.</summary>
 internal static class VersionHistoryDialog
 {
-    public static ContentDialog Create(string releasesJson, XamlRoot xamlRoot)
+    public static ContentDialog Create(string releasesJson, XamlRoot xamlRoot, UpdateChannel initialChannel)
     {
         var selector = new ComboBox { MinWidth = 220, HorizontalAlignment = HorizontalAlignment.Left };
         selector.Items.Add(new ComboBoxItem { Content = "Стабильные (main)", Tag = UpdateChannel.Stable });
@@ -69,8 +69,8 @@ internal static class VersionHistoryDialog
             }
         }
 
-        selector.SelectedIndex = 0;
-        Fill(UpdateChannel.Stable);
+        selector.SelectedIndex = initialChannel == UpdateChannel.Testing ? 1 : 0;
+        Fill(initialChannel);
         selector.SelectionChanged += (_, _) =>
             Fill(selector.SelectedIndex == 1 ? UpdateChannel.Testing : UpdateChannel.Stable);
 

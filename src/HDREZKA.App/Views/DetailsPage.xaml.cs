@@ -453,36 +453,64 @@ public sealed partial class DetailsPage : Page
         var ratings = _details?.VoiceActingRatings;
         if (ratings == null || ratings.Count == 0) return;
 
-        var list = new StackPanel { Spacing = 10, MinWidth = 0, HorizontalAlignment = HorizontalAlignment.Stretch };
-        foreach (var r in ratings.OrderByDescending(x => x.Percent))
+        // Reserve a fixed percentage column and a separate 22 DIP scrollbar
+        // gutter. Unconstrained StackPanel layouts clipped the percentages.
+        var root = Content.XamlRoot;
+        var dialogWidth = Math.Clamp(root.Size.Width - 40, 280, 560);
+        var viewportWidth = dialogWidth - 64;
+        var contentWidth = viewportWidth - 22;
+
+        var list = new StackPanel
         {
-            var row = new StackPanel { Spacing = 4 };
-            var header = new Grid { ColumnSpacing = 12, MinWidth = 0 };
+            Width = contentWidth,
+            Spacing = 12,
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        var sorted = ratings.Where(r => float.IsFinite(r.Percent))
+            .OrderByDescending(r => r.Percent).ToArray();
+
+        foreach (var (rating, index) in sorted.Select((r, i) => (r, i)))
+        {
+            var row = new StackPanel { Width = contentWidth, Spacing = 5 };
+            var header = new Grid { Width = contentWidth, ColumnSpacing = 12 };
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(64) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(68) });
+
             var name = new TextBlock
             {
-                Text = r.Name,
+                Text = rating.Name,
                 TextWrapping = TextWrapping.Wrap,
-                Style = Application.Current.Resources["PrimaryText"] as Style,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxLines = 2,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontWeight = index == 0
+                    ? Microsoft.UI.Text.FontWeights.SemiBold
+                    : Microsoft.UI.Text.FontWeights.Normal
             };
+            ToolTipService.SetToolTip(name, rating.Name);
+            Grid.SetColumn(name, 0);
+            header.Children.Add(name);
+
             var percent = new TextBlock
             {
-                Text = r.Percent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "%",
+                Text = rating.Percent.ToString("0.#", System.Globalization.CultureInfo.CurrentCulture) + " %",
                 TextAlignment = TextAlignment.Right,
-                HorizontalAlignment = HorizontalAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Center,
                 TextWrapping = TextWrapping.NoWrap,
-                Style = Application.Current.Resources["SecondaryText"] as Style,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
             };
             Grid.SetColumn(percent, 1);
-            header.Children.Add(name);
             header.Children.Add(percent);
             row.Children.Add(header);
             row.Children.Add(new ProgressBar
             {
+                Width = contentWidth,
+                Height = 4,
                 Minimum = 0,
                 Maximum = 100,
-                Value = Math.Clamp(r.Percent, 0, 100),
+                Value = Math.Clamp(rating.Percent, 0, 100),
+                IsHitTestVisible = false
             });
             list.Children.Add(row);
         }
@@ -490,19 +518,22 @@ public sealed partial class DetailsPage : Page
         var scroll = new ScrollViewer
         {
             Content = list,
-            MaxHeight = 400,
-            MinWidth = 0,
+            Width = viewportWidth,
+            MaxHeight = Math.Max(160, Math.Min(440, root.Size.Height - 180)),
             HorizontalScrollMode = ScrollMode.Disabled,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             VerticalScrollMode = ScrollMode.Auto,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
         };
         var dialog = new ContentDialog
         {
             Title = Loc.Get("Details.Ratings"),
             Content = scroll,
-            CloseButtonText = "OK",
-            XamlRoot = Content.XamlRoot,
+            CloseButtonText = "Закрыть",
+            Width = dialogWidth,
+            MinWidth = 0,
+            MaxWidth = dialogWidth,
+            XamlRoot = root
         };
         await dialog.ShowAsync();
     }

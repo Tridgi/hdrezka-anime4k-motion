@@ -1,13 +1,12 @@
 name: Publish test prerelease
 on:
   push:
-    branches: [fix/player-swapchain-dpi-scaling]
+    branches: [fix/player-swapchain-dpi-scaling, fix/ratings-updates-polish]
   workflow_dispatch:
 permissions:
   contents: write
 jobs:
   publish-test:
-    if: github.ref == 'refs/heads/fix/player-swapchain-dpi-scaling'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
