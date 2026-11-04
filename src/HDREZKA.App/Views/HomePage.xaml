@@ -25,10 +25,13 @@
     </Page.Resources>
 
     <Grid Padding="28,12,28,12">
-        <ScrollViewer VerticalScrollBarVisibility="Hidden">
+        <ScrollViewer x:Name="HomeScrollViewer" ViewChanged="HomeScrollViewer_ViewChanged"
+                      VerticalScrollBarVisibility="Hidden">
             <StackPanel x:Name="ContentPanel" Spacing="4">
                 <Grid x:Name="HeroCard" Height="380" CornerRadius="16" Margin="0,8,0,8"
-                      SizeChanged="HeroCard_SizeChanged">
+                      SizeChanged="HeroCard_SizeChanged"
+                      PointerEntered="HeroCard_PointerEntered"
+                      PointerExited="HeroCard_PointerExited">
                     <Border CornerRadius="16" Background="#22000000">
                         <Border.Clip>
                             <RectangleGeometry x:Name="HeroClipRect" Rect="0,0,1200,380"/>
@@ -172,7 +175,8 @@
                                 BorderThickness="0">
                             <FontIcon Glyph="&#xE76B;" FontSize="14"/>
                         </Button>
-                        <ScrollViewer x:Name="FilmsScroll" Grid.Column="1"
+                        <ScrollViewer x:Name="FilmsScroll" Tag="Films" Grid.Column="1"
+                                      ViewChanged="CarouselScroll_ViewChanged"
                                       HorizontalScrollMode="Enabled"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
@@ -226,7 +230,8 @@
                                 BorderThickness="0">
                             <FontIcon Glyph="&#xE76B;" FontSize="14"/>
                         </Button>
-                        <ScrollViewer x:Name="SeriesScroll" Grid.Column="1"
+                        <ScrollViewer x:Name="SeriesScroll" Tag="Series" Grid.Column="1"
+                                      ViewChanged="CarouselScroll_ViewChanged"
                                       HorizontalScrollMode="Enabled"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
@@ -280,7 +285,8 @@
                                 BorderThickness="0">
                             <FontIcon Glyph="&#xE76B;" FontSize="14"/>
                         </Button>
-                        <ScrollViewer x:Name="CartoonsScroll" Grid.Column="1"
+                        <ScrollViewer x:Name="CartoonsScroll" Tag="Cartoons" Grid.Column="1"
+                                      ViewChanged="CarouselScroll_ViewChanged"
                                       HorizontalScrollMode="Enabled"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
@@ -334,7 +340,8 @@
                                 BorderThickness="0">
                             <FontIcon Glyph="&#xE76B;" FontSize="14"/>
                         </Button>
-                        <ScrollViewer x:Name="PopularScroll" Grid.Column="1"
+                        <ScrollViewer x:Name="PopularScroll" Tag="Popular" Grid.Column="1"
+                                      ViewChanged="CarouselScroll_ViewChanged"
                                       HorizontalScrollMode="Enabled"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
@@ -388,7 +395,8 @@
                                 BorderThickness="0">
                             <FontIcon Glyph="&#xE76B;" FontSize="14"/>
                         </Button>
-                        <ScrollViewer x:Name="WatchingScroll" Grid.Column="1"
+                        <ScrollViewer x:Name="WatchingScroll" Tag="Watching" Grid.Column="1"
+                                      ViewChanged="CarouselScroll_ViewChanged"
                                       HorizontalScrollMode="Enabled"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
@@ -442,7 +450,8 @@
                                 BorderThickness="0">
                             <FontIcon Glyph="&#xE76B;" FontSize="14"/>
                         </Button>
-                        <ScrollViewer x:Name="SoonScroll" Grid.Column="1"
+                        <ScrollViewer x:Name="SoonScroll" Tag="Soon" Grid.Column="1"
+                                      ViewChanged="CarouselScroll_ViewChanged"
                                       HorizontalScrollMode="Enabled"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
