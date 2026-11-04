@@ -231,6 +231,7 @@ public static class Parsers
         int? duration = null;
         IReadOnlyList<MovieCountry>? countries = null;
         IReadOnlyList<MovieGenre>? genres = null;
+        var sourceSeries = new List<NamedLink>();
         IReadOnlyList<PersonSimple>? producers = null, actors = null;
 
         var info = content.QuerySelector(".b-post__info");
@@ -277,6 +278,21 @@ public static class Parsers
                         case "Жанр":
                             genres = valueEl.QuerySelectorAll("a")
                                 .Select(a => new MovieGenre(Text(a), CleanPath(a.GetAttribute("href")) ?? "")).ToList();
+                            break;
+                        case "Изсерии":
+                        case "Входитвсписки":
+                            foreach (var a in valueEl.QuerySelectorAll("a[href]"))
+                            {
+                                var path = CleanPath(a.GetAttribute("href"));
+                                if (path == null || !System.Text.RegularExpressions.Regex.IsMatch(
+                                    path, @"^(films|series|animation|cartoons|show)/(best|popular|year|genre|country|new)/[a-z0-9_-]+(?:/[a-z0-9_-]+)?$",
+                                    System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+                                var title = Text(a);
+                                if (title.Length > 0 &&
+                                    !sourceSeries.Any(x => x.Id.Equals(path,
+                                        StringComparison.OrdinalIgnoreCase)))
+                                    sourceSeries.Add(new NamedLink(title, path));
+                            }
                             break;
                         case "Время":
                             duration = ToInt(Text(valueEl));
@@ -344,6 +360,7 @@ public static class Parsers
             Genres = genres,
             FranchiseParts = franchise.Count > 0 ? franchise : null,
             CollectionLinks = collectionLinks.Count > 0 ? collectionLinks : null,
+            SourceSeries = sourceSeries.Count > 0 ? sourceSeries : null,
             Producers = producers,
             Actors = actors,
             SiteRating = siteRating,
