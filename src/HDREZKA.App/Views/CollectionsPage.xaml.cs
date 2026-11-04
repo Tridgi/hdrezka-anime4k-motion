@@ -8,7 +8,7 @@ using Microsoft.UI.Xaml.Media;
 
 namespace HDREZKA.App.Views;
 
-public sealed record CollectionLaunch(string Id, string? Title = null);
+public sealed record CollectionLaunch(string Id, string? Title = null, string? SourcePath = null);
 
 public sealed partial class CollectionsPage : Page
 {
@@ -16,6 +16,7 @@ public sealed partial class CollectionsPage : Page
     private readonly List<CollectionSimple> _collections = new();
     private string _currentCollectionId = "";
     private string? _launchedCollectionTitle;
+    private string? _sourceSeriesPath;
     private int _page = 1;
     private bool _hasMore = true;
     private bool _loading;
@@ -41,7 +42,7 @@ public sealed partial class CollectionsPage : Page
             !string.IsNullOrWhiteSpace(launch.Id))
         {
             _launchedCollectionTitle = launch.Title;
-            SelectCollection(launch.Id);
+            SelectCollection(launch.Id, launch.SourcePath);
             return;
         }
         // Do not open the first folder automatically: it can be stale,
@@ -165,6 +166,7 @@ public sealed partial class CollectionsPage : Page
         _requestVersion++;
         _currentCollectionId = "";
         _launchedCollectionTitle = null;
+        _sourceSeriesPath = null;
         _loading = false;
         _page = 1;
         _items.Clear();
@@ -270,8 +272,9 @@ public sealed partial class CollectionsPage : Page
         SelectCollection(collectionId);
     }
 
-    private void SelectCollection(string collectionId)
+    private void SelectCollection(string collectionId, string? sourcePath = null)
     {
+        _sourceSeriesPath = sourcePath;
         _requestVersion++;
         _currentCollectionId = collectionId;
         _loading = false;
@@ -294,6 +297,7 @@ public sealed partial class CollectionsPage : Page
 
         var version = _requestVersion;
         var collectionId = _currentCollectionId;
+        var sourcePath = _sourceSeriesPath;
         var page = _page;
         _activeRequestVersion = version;
         _loading = true;
@@ -305,8 +309,9 @@ public sealed partial class CollectionsPage : Page
             _collectionViewActive && _currentCollectionId == collectionId;
         try
         {
-            var (title, items) = await RezkaService.Instance.Client
-                .GetCollectionsListAsync(collectionId, page);
+            var (title, items) = sourcePath is { Length: > 0 }
+                ? await RezkaService.Instance.Client.GetSourceSeriesListAsync(sourcePath, page)
+                : await RezkaService.Instance.Client.GetCollectionsListAsync(collectionId, page);
             if (!IsCurrent()) return;
             _items.AddRange(items);
             ItemsGrid.ItemsSource = _items.ToList();
