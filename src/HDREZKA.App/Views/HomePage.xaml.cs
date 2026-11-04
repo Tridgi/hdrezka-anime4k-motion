@@ -559,27 +559,14 @@ public sealed partial class HomePage : Page
         }
     }
 
-    private static int SemanticHomeGenreIndex(string name)
-    {
-        var lower = name.ToLowerInvariant();
-        if (lower.Contains("ужас") || lower.Contains("horror") ||
-            lower.Contains("боев") || lower.Contains("action")) return 1;
-        if (lower.Contains("комед") || lower.Contains("comedy") ||
-            lower.Contains("приключ") || lower.Contains("adventure")) return 2;
-        if (lower.Contains("фантаст") || lower.Contains("sci-fi") ||
-            lower.Contains("документ") || lower.Contains("documentary")) return 0;
-        return 3;
-    }
-
     private void RenderHomePreviewGenres(IReadOnlyList<MovieGenre>? genres)
     {
         HomePreviewGenreRows.Children.Clear();
         if (genres is not { Count: > 0 }) return;
-        var dark = ActualTheme != ElementTheme.Light;
-        var colorful = SettingsService.Instance.DetailPalette == DetailsPalette.Colorful;
-        var shades = dark
-            ? new[] { (125, 201, 255), (255, 164, 194), (139, 232, 185), (202, 163, 242) }
-            : new[] { (36, 98, 167), (161, 53, 102), (26, 121, 72), (114, 65, 154) };
+        var palette = GenreColors.Palette(
+            genres.Select(g => g.Name).ToArray(),
+            ActualTheme == ElementTheme.Light,
+            SettingsService.Instance.DetailPalette == DetailsPalette.Colorful);
         StackPanel? row = null;
         for (var i = 0; i < Math.Min(4, genres.Count); i++)
         {
@@ -588,15 +575,11 @@ public sealed partial class HomePage : Page
                 row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
                 HomePreviewGenreRows.Children.Add(row);
             }
-            var (r, g, b) = shades[SemanticHomeGenreIndex(genres[i].Name)];
             row!.Children.Add(new TextBlock
             {
                 Text = genres[i].Name, FontSize = 12,
                 FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                    colorful ? Windows.UI.Color.FromArgb(255, (byte)r, (byte)g, (byte)b)
-                    : dark ? Windows.UI.Color.FromArgb(255, 200, 205, 213)
-                    : Windows.UI.Color.FromArgb(255, 86, 93, 103)),
+                Foreground = palette[i].Fg,
                 MaxWidth = 144, TextTrimming = TextTrimming.CharacterEllipsis
             });
         }
@@ -624,6 +607,12 @@ public sealed partial class HomePage : Page
             ? Loc.Get("Details.Actors") + ": " +
               string.Join(", ", details.Actors.Take(4).Select(x => x.Name)) : "";
         StyleHomePreviewBadges();
+        if (r is { } score)
+        {
+            HomePreviewRezka.Background = RezkaScoreColors.Gradient(score);
+            HomePreviewRezkaText.Foreground =
+                new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
+        }
     }
 
     private async Task ShowHomePreviewAsync(MovieCard card, MovieSimple movie, CancellationToken ct)
@@ -653,6 +642,7 @@ public sealed partial class HomePage : Page
             if (_hoverCache.TryGetValue(movie.Id, out var cached))
             {
                 FillHomePreview(cached);
+                card.SetRatingFromDetails(cached.SiteRating?.Value);
                 PositionHomePreview(card);
                 return;
             }
@@ -664,6 +654,7 @@ public sealed partial class HomePage : Page
                 _hoverCache.Remove(_hoverCache.Keys.First());
             _hoverCache[movie.Id] = details;
             FillHomePreview(details);
+            card.SetRatingFromDetails(details.SiteRating?.Value);
             PositionHomePreview(card);
         }
         catch (OperationCanceledException) { }
