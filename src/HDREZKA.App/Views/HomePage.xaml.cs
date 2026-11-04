@@ -117,6 +117,9 @@ public sealed partial class HomePage : Page
         HeroCard.Height = PosterMetrics.HeroCardHeight;
         HeroPosterBorder.Width = PosterMetrics.HeroWidth;
         HeroPosterBorder.Height = PosterMetrics.HeroHeight;
+        HeroArtwork.Width = PosterMetrics.HeroWidth + 108;
+        HeroArtwork.Height = Math.Max(PosterMetrics.HeroHeight + 14, 275);
+        HeroRankNumber.FontSize = Math.Min(253, PosterMetrics.HeroHeight * .83);
         HeroPosterClip.Rect = new Windows.Foundation.Rect(0, 0, PosterMetrics.HeroWidth, PosterMetrics.HeroHeight);
     }
 
@@ -301,7 +304,7 @@ public sealed partial class HomePage : Page
     private void ApplyHeroContent()
     {
         var movie = _heroItems[_heroIndex];
-        HeroKicker.Text = $"{Loc.Get("Filter.Hot")} · #{_heroIndex + 1}";
+        HeroRankNumber.Text = (_heroIndex + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
         HeroTitle.Text = movie.Name ?? "";
         HeroDetails.Text = movie.Details ?? "";
         HeroDescription.Text = _heroDescriptions.GetValueOrDefault(movie.Id) ?? "";
@@ -1002,7 +1005,7 @@ public sealed partial class HomePage : Page
     {
         HeroClipRect.Rect = new Windows.Foundation.Rect(0, 0, Math.Max(0, e.NewSize.Width), Math.Max(0, e.NewSize.Height));
         var narrow = e.NewSize.Width < 700;
-        HeroPosterBorder.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        HeroArtwork.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
         HeroInnerGrid.Padding = narrow ? new Thickness(60, 18, 60, 30)
             : new Thickness(70, 20, 70, 34);
         HeroTitle.FontSize = e.NewSize.Width < 530 ? 22 : narrow ? 27 : 31;
