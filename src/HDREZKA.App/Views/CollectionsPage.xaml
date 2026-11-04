@@ -26,9 +26,9 @@
             </ScrollViewer>
         </StackPanel>
 
-        <ScrollViewer x:Name="ItemsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" ViewChanged="ItemsScroll_ViewChanged">
+        <ScrollViewer x:Name="ItemsScroll" Grid.Row="1" VerticalScrollBarVisibility="Hidden" ViewChanged="ItemsScroll_ViewChanged">
             <StackPanel>
-                <GridView x:Name="ItemsGrid" SelectionMode="None" IsItemClickEnabled="False">
+                <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="ItemsGrid" SelectionMode="None" IsItemClickEnabled="False">
                     <GridView.ItemsPanel>
                         <ItemsPanelTemplate>
                             <ItemsWrapGrid Orientation="Horizontal"/>
