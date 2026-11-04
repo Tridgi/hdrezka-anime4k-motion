@@ -212,43 +212,68 @@ public sealed partial class AppearancePage : Page
 
             var selected = scheme.Primary.Equals(
                 SettingsService.Instance.ManualAccentHex, StringComparison.OrdinalIgnoreCase);
-            var colors = new StackPanel
+            // Two *full-tile* swatches: sharp 50/50 split, not two tiny dots.
+            // The slight centre shadow keeps white labels legible on light schemes.
+            var halves = new LinearGradientBrush
             {
-                Orientation = Orientation.Horizontal, Spacing = 4,
-                HorizontalAlignment = HorizontalAlignment.Center
+                StartPoint = new Windows.Foundation.Point(0, 0.5),
+                EndPoint = new Windows.Foundation.Point(1, 0.5)
             };
-            colors.Children.Add(new Border
+            halves.GradientStops.Add(new GradientStop { Offset = 0, Color = primary });
+            halves.GradientStops.Add(new GradientStop { Offset = .5, Color = primary });
+            halves.GradientStops.Add(new GradientStop { Offset = .5, Color = secondary });
+            halves.GradientStops.Add(new GradientStop { Offset = 1, Color = secondary });
+            var label = new TextBlock
             {
-                Width = 25, Height = 18, CornerRadius = new CornerRadius(5),
-                Background = new SolidColorBrush(primary)
-            });
-            colors.Children.Add(new Border
-            {
-                Width = 25, Height = 18, CornerRadius = new CornerRadius(5),
-                Background = new SolidColorBrush(secondary)
-            });
-            var labels = new StackPanel { Spacing = 5 };
-            labels.Children.Add(colors);
-            labels.Children.Add(new TextBlock
-            {
-                Text = scheme.Name + (selected ? " ✓" : ""),
-                FontSize = 12,
-                FontWeight = selected ? Microsoft.UI.Text.FontWeights.Bold :
-                    Microsoft.UI.Text.FontWeights.Normal,
+                Text = scheme.Name,
+                FontSize = 17,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 TextAlignment = TextAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+            };
+            var tile = new Grid { MinHeight = 64 };
+            tile.Children.Add(new Border { Background = halves, CornerRadius = new CornerRadius(10) });
+            tile.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(66, 0, 0, 0)),
+                CornerRadius = new CornerRadius(10)
             });
+            tile.Children.Add(label);
+            if (selected)
+            {
+                var marker = new Border
+                {
+                    Background = new SolidColorBrush(Windows.UI.Color.FromArgb(220, 0, 0, 0)),
+                    CornerRadius = new CornerRadius(10),
+                    Padding = new Thickness(5, 3, 5, 3),
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(0, 5, 5, 0),
+                    Child = new FontIcon
+                    {
+                        Glyph = "\uE73E", FontSize = 12,
+                        Foreground = new SolidColorBrush(Microsoft.UI.Colors.White)
+                    }
+                };
+                tile.Children.Add(marker);
+            }
             var button = new Button
             {
-                Content = labels, Tag = scheme,
-                Padding = new Thickness(4, 6, 4, 6),
+                Content = tile,
+                Tag = scheme,
+                Padding = new Thickness(0),
                 MinWidth = 0, MinHeight = 0,
+                CornerRadius = new CornerRadius(10),
+                BorderThickness = selected ? new Thickness(2) : new Thickness(0),
+                BorderBrush = ThemeHelper.AccentTextBrush,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch
+                VerticalAlignment = VerticalAlignment.Stretch,
             };
             button.Click += AccentScheme_Click;
-            ToolTipService.SetToolTip(button, scheme.Name + " · " +
-                scheme.Primary + " / " + scheme.Companion);
+            ToolTipService.SetToolTip(button, scheme.Name + ": " + scheme.Primary + " / " + scheme.Companion);
             Grid.SetColumn(button, i % 3);
             Grid.SetRow(button, i / 3);
             AccentMatrixGrid.Children.Add(button);
