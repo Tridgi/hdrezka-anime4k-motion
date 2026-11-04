@@ -32,12 +32,24 @@ public sealed partial class MovieCard : UserControl
         Unloaded += (_, _) => SettingsService.Instance.PosterSizeChanged -= OnPosterSizeChanged;
     }
 
+    private double _cardWidthOverride;
+
+    /// <summary>
+    /// Details recommendations may scale to their grid slot without changing
+    /// the poster size used by catalog cards elsewhere in the application.
+    /// </summary>
+    public void SetCardWidthOverride(double width)
+    {
+        _cardWidthOverride = double.IsFinite(width) && width > 0 ? width : 0;
+        ApplyPosterSize();
+    }
+
     private void OnPosterSizeChanged() => DispatcherQueue.TryEnqueue(ApplyPosterSize);
 
     private void ApplyPosterSize()
     {
-        var w = PosterMetrics.CardWidth;
-        var h = PosterMetrics.CardHeight;
+        var w = _cardWidthOverride > 0 ? _cardWidthOverride : PosterMetrics.CardWidth;
+        var h = _cardWidthOverride > 0 ? Math.Round(w * 1.5) : PosterMetrics.CardHeight;
         OuterGrid.Width = w + 4;
         PosterGrid.Width = w;
         PosterGrid.Height = h;
