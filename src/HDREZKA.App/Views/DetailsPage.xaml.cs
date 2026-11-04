@@ -828,6 +828,16 @@ public sealed partial class DetailsPage : Page
         var dark = !IsLightTheme;
         (Windows.UI.Color A, Windows.UI.Color B, Windows.UI.Color C) colors = flag switch
         {
+            "🇬🇷" => dark
+                ? (Windows.UI.Color.FromArgb(255, 35, 66, 106), Windows.UI.Color.FromArgb(255, 76, 86, 102),
+                    Windows.UI.Color.FromArgb(255, 35, 66, 106))
+                : (Windows.UI.Color.FromArgb(255, 182, 210, 248), Windows.UI.Color.FromArgb(255, 247, 249, 253),
+                    Windows.UI.Color.FromArgb(255, 182, 210, 248)),
+            "🇨🇾" => dark
+                ? (Windows.UI.Color.FromArgb(255, 66, 69, 72), Windows.UI.Color.FromArgb(255, 117, 80, 52),
+                    Windows.UI.Color.FromArgb(255, 46, 88, 66))
+                : (Windows.UI.Color.FromArgb(255, 247, 248, 251), Windows.UI.Color.FromArgb(255, 243, 208, 165),
+                    Windows.UI.Color.FromArgb(255, 207, 235, 214)),
             "🇯🇵" => dark
                 ? (Windows.UI.Color.FromArgb(255, 59, 52, 56), Windows.UI.Color.FromArgb(255, 107, 57, 70),
                     Windows.UI.Color.FromArgb(255, 59, 52, 56))
@@ -864,12 +874,21 @@ public sealed partial class DetailsPage : Page
             StartPoint = new Windows.Foundation.Point(0, .5),
             EndPoint = new Windows.Foundation.Point(1, .5),
         };
-        gradient.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop { Color = colors.A, Offset = 0 });
-        gradient.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop { Color = colors.B, Offset = .5 });
-        gradient.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop { Color = colors.C, Offset = 1 });
+        // Duplicate stop offsets form three crisp flag-coloured bands.
+        foreach (var (offset, color) in new[]
+        {
+            (0.0, colors.A), (1.0 / 3, colors.A),
+            (1.0 / 3, colors.B), (2.0 / 3, colors.B),
+            (2.0 / 3, colors.C), (1.0, colors.C)
+        })
+            gradient.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop
+            {
+                Offset = offset, Color = color
+            });
         badge.Background = gradient;
-        if (badge.Child is TextBlock label)
-            label.Foreground = dark ? Brush(246, 246, 248) : Brush(33, 37, 44);
+        if (badge.Child is StackPanel content)
+            foreach (var label in content.Children.OfType<TextBlock>())
+                label.Foreground = dark ? Brush(246, 246, 248) : Brush(33, 37, 44);
     }
 
     private void AddMetaRow(string label, FrameworkElement value)
