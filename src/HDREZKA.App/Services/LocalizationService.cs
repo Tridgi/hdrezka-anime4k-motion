@@ -39,6 +39,7 @@ public sealed class LocalizationService
     private static readonly Dictionary<string, string> Russian = new()
     {
         ["Nav.Home"] = "Главная",
+        ["Home.MoreTitles"] = "Посмотреть все",
         ["Nav.Catalog"] = "Каталог",
         ["Nav.Search"] = "Поиск",
         ["Nav.Bookmarks"] = "Закладки",
@@ -330,6 +331,7 @@ public sealed class LocalizationService
     private static readonly Dictionary<string, string> English = new()
     {
         ["Nav.Home"] = "Home",
+        ["Home.MoreTitles"] = "See all titles",
         ["Nav.Catalog"] = "Catalog",
         ["Nav.Search"] = "Search",
         ["Nav.Bookmarks"] = "Bookmarks",
@@ -621,6 +623,7 @@ public sealed class LocalizationService
     private static readonly Dictionary<string, string> Ukrainian = new()
     {
         ["Nav.Home"] = "Головна",
+        ["Home.MoreTitles"] = "Переглянути всі",
         ["Nav.Catalog"] = "Каталог",
         ["Nav.Search"] = "Пошук",
         ["Nav.Bookmarks"] = "Закладки",
