@@ -676,6 +676,21 @@ public sealed partial class DetailsPage : Page
         PreviewKpValue.Foreground = kFg;
     }
 
+    private MetadataTone PreviewGenreTone(string genre)
+    {
+        var value = genre.ToLowerInvariant();
+        if (value.Contains("ужас") || value.Contains("horror") ||
+            value.Contains("боев") || value.Contains("action"))
+            return MetadataTone.GenreRose;
+        if (value.Contains("комед") || value.Contains("comedy") ||
+            value.Contains("приключ") || value.Contains("adventure"))
+            return MetadataTone.GenreGreen;
+        if (value.Contains("фантаст") || value.Contains("sci-fi") ||
+            value.Contains("документ") || value.Contains("documentary"))
+            return MetadataTone.GenreBlue;
+        return MetadataTone.GenrePurple;
+    }
+
     private void RenderPreviewGenres(IReadOnlyList<MovieGenre>? genres)
     {
         PreviewGenreChips.Children.Clear();
@@ -686,25 +701,26 @@ public sealed partial class DetailsPage : Page
         }
 
         PreviewGenresSection.Visibility = Visibility.Visible;
-        StackPanel? row = null;
-        var tones = new[]
+        // Colored *text*, not colored pills. Each genre keeps its own
+        // semantic hue; neutral mode uses one secondary text tone.
+        var text = new TextBlock
         {
-            MetadataTone.GenreBlue, MetadataTone.GenreRose,
-            MetadataTone.GenreGreen, MetadataTone.GenrePurple
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap,
+            MaxLines = 3
         };
-        for (var index = 0; index < Math.Min(4, genres.Count); index++)
+        for (var i = 0; i < Math.Min(6, genres.Count); i++)
         {
-            if (index % 2 == 0)
+            var (_, fg) = BadgeBrushes(PreviewGenreTone(genres[i].Name));
+            text.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
             {
-                row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-                PreviewGenreChips.Children.Add(row);
-            }
-            var badge = Chip(genres[index].Name, tones[index]);
-            badge.MaxWidth = 142;
-            if (badge.Child is TextBlock label)
-                label.MaxWidth = 117;
-            row!.Children.Add(badge);
+                Text = (i == 0 ? "" : "  ·  ") + genres[i].Name,
+                Foreground = IsColorful ? fg
+                    : IsLightTheme ? Brush(87, 93, 104) : Brush(191, 197, 209),
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
         }
+        PreviewGenreChips.Children.Add(text);
     }
 
     private void UpdateRecommendationPreview(MovieDetailed details)
