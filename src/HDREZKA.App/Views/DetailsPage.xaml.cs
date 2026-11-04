@@ -676,7 +676,7 @@ public sealed partial class DetailsPage : Page
         PreviewKpValue.Foreground = kFg;
     }
 
-    private void RenderPreviewGenres(IReadOnlyList<NamedLink>? genres)
+    private void RenderPreviewGenres(IReadOnlyList<MovieGenre>? genres)
     {
         PreviewGenreChips.Children.Clear();
         if (genres is not { Count: > 0 })
