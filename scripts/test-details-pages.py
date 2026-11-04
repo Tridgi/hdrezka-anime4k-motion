@@ -19,7 +19,7 @@ def contents(name):
 
 class DetailsLayoutSmokeTests(unittest.TestCase):
     def test_xaml_well_formed_and_handlers_exist(self):
-        for name in ("DetailsPage", "SettingsPage", "UpdatesPage", "AppearancePage", "HomePage", "CatalogPage", "CollectionsPage"):
+        for name in ("DetailsPage", "SettingsPage", "UpdatesPage", "AppearancePage", "HomePage", "CatalogPage", "CollectionsPage", "PersonPage"):
             markup = contents(name + ".xaml")
             code = contents(name + ".xaml.cs")
             root = ET.fromstring(markup)
@@ -30,6 +30,59 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
                     r'\b(?:Click|SizeChanged|Toggled|SelectionChanged|ItemClick|ViewChanged|TextChanged|RecommendationHoverChanged)'
                     r'="([A-Za-z_]\w*)"', markup):
                 self.assertIn(handler + "(", code, (name, handler))
+
+    def test_all_collections_pages_are_loaded_deduped_and_bounded(self):
+        client = contents("../../HDREZKA.Core/Api/RezkaClient.cs")
+        parsers = contents("../../HDREZKA.Core/Api/Parsers.cs")
+        code = contents("CollectionsPage.xaml.cs")
+        self.assertIn("PageUrl(\"collections/\", page)", client)
+        self.assertIn("const int hardPageLimit = 25", client)
+        self.assertIn("if (seen.Add(item.Id))", client)
+        self.assertIn("if (fresh == 0) break", client)
+        self.assertIn("ParseCollectionsLastPage(html)", client)
+        self.assertIn("ParseCollectionsLastPage(string html)", parsers)
+        self.assertIn("GetAllCollectionsAsync()", code)
+        self.assertIn("if (e.Parameter is CollectionLaunch launch", code)
+
+    def test_details_franchise_collection_chips_and_genre_navigation(self):
+        details = contents("DetailsPage.xaml.cs")
+        models = contents("../../HDREZKA.Core/Api/Models.cs")
+        parser = contents("../../HDREZKA.Core/Api/Parsers.cs")
+        catalog = contents("CatalogPage.xaml.cs")
+        self.assertIn("FranchiseParts { get; init; }", models)
+        self.assertIn("CollectionLinks { get; init; }", models)
+        self.assertIn("ParseFranchiseParts(doc, pagePath)", parser)
+        self.assertIn("ParseDetailCollectionLinks(doc)", parser)
+        self.assertIn("WrapNavigationChips(parts", details)
+        self.assertIn("new CollectionLaunch(link.Id, link.Name)", details)
+        self.assertIn("new CatalogGenreLaunch(target)", details)
+        self.assertIn("GetGenreListAsync(genre, _page)", catalog)
+        self.assertIn("ClearGenreButton_Click", catalog)
+
+    def test_person_page_uses_adaptive_poster_grid_without_scrollbars(self):
+        markup = contents("PersonPage.xaml")
+        code = contents("PersonPage.xaml.cs")
+        for name in ("PersonHeroGrid", "PersonBioPanel", "PersonPoster",
+                     "FilmographyPanel", "FilmographyHeader",
+                     "FilmographyCountText"):
+            self.assertIn('x:Name="' + name + '"', markup)
+        self.assertIn("PersonHeroGrid_SizeChanged", code)
+        self.assertIn("ItemsWrapGrid", markup)
+        self.assertIn('x:Key="PersonFilmTemplate"', markup)
+        self.assertIn("ScrollViewer.VerticalScrollMode", markup)
+        self.assertIn("VerticalScrollBarVisibility=\"Hidden\"", markup)
+        self.assertIn("GridView", code)
+        self.assertNotIn("MaxHeight = 480", code)
+
+    def test_localization_dictionaries_do_not_contain_duplicate_keys(self):
+        localization = contents("../Services/LocalizationService.cs")
+        for dictionary in ("Russian", "English", "Ukrainian"):
+            start = localization.index(
+                "private static readonly Dictionary<string, string> " + dictionary)
+            end = localization.index("};", start)
+            keys = re.findall(r'\["([^"]+)"\]\s*=', localization[start:end])
+            self.assertEqual(len(keys), len(set(keys)),
+                             dictionary + " contains duplicate keys")
 
     def test_catalog_filter_first_and_hover_preview_is_outside_grid(self):
         markup = contents("CatalogPage.xaml")
