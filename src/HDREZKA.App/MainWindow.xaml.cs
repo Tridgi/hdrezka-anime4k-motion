@@ -89,6 +89,9 @@ public sealed partial class MainWindow : Window
 
         ContentFrame.Navigate(typeof(HomePage));
         NavView.SelectedItem = NavHome;
+        NavView.PaneOpened += (_, _) => UpdatePaneGlyph();
+        NavView.PaneClosed += (_, _) => UpdatePaneGlyph();
+        UpdatePaneGlyph();
     }
 
     private TaskCompletionSource<bool>? _centeredModalCompletion;
@@ -501,10 +504,18 @@ else
 
     private void AppBackButton_Click(object sender, RoutedEventArgs e) => GoBack();
 
+    private void UpdatePaneGlyph()
+    {
+        var expanded = NavView.IsPaneOpen;
+        AppPaneOpenGlyph.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        AppPaneClosedGlyph.Visibility = expanded ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     private void AppPaneButton_Click(object sender, RoutedEventArgs e)
     {
         if (IsTheaterMode) return;
         NavView.IsPaneOpen = !NavView.IsPaneOpen;
+        UpdatePaneGlyph();
     }
 
     private void NavView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args)
