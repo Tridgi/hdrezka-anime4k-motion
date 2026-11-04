@@ -1,8 +1,10 @@
+using HDREZKA.App.Controls;
 using HDREZKA.App.Services;
 using HDREZKA.Core.Api;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace HDREZKA.App.Views;
@@ -28,6 +30,11 @@ public sealed partial class CatalogPage : Page
     private bool _hasMore = true;
     private bool _loading;
     private bool _mirrorRecovered;
+    private MovieCard? _hoveredCard;
+    private string? _hoveredMovieId;
+    private CancellationTokenSource? _hoverCts;
+    private readonly Dictionary<string, MovieDetailed> _previewCache =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public CatalogPage()
     {
@@ -77,6 +84,7 @@ public sealed partial class CatalogPage : Page
     {
         base.OnNavigatedFrom(e);
         LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
+        HideCatalogPreview();
     }
 
     private void OnLanguageChanged()
@@ -92,6 +100,7 @@ public sealed partial class CatalogPage : Page
     private void ApplyLocalization()
     {
         TitleText.Text = Loc.Get("Catalog.Title");
+        CatalogPreviewHeader.Text = Loc.Get("Details.AboutMovie");
         MoreButton.Content = Loc.Get("Common.LoadMore");
         RetryButton.Content = Loc.Get("Common.Retry");
         StateText.Text = Loc.Get("Common.Loading");
@@ -160,6 +169,7 @@ public sealed partial class CatalogPage : Page
 
     private void Reload()
     {
+        HideCatalogPreview();
         _page = 1;
         _items.Clear();
         ItemsGrid.ItemsSource = null;
@@ -229,6 +239,7 @@ public sealed partial class CatalogPage : Page
 
     private void ItemsScroll_ViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
     {
+        HideCatalogPreview();
         if (e.IsIntermediate || !_hasMore || _loading || _items.Count == 0) return;
 
         var verticalOffset = ItemsScroll.VerticalOffset;
@@ -237,6 +248,174 @@ public sealed partial class CatalogPage : Page
         {
             _page++;
             _ = LoadAsync();
+        }
+    }
+
+    private void CatalogMovie_HoverChanged(object sender, RecommendationHoverEventArgs e)
+    {
+        if (sender is not MovieCard card) return;
+        if (!e.IsEntering)
+        {
+            if (ReferenceEquals(_hoveredCard, card))
+                HideCatalogPreview();
+            return;
+        }
+        if (e.Movie == null) return;
+        HideCatalogPreview();
+        _hoveredCard = card;
+        _hoveredMovieId = e.Movie.Id;
+        _hoverCts = new CancellationTokenSource();
+        _ = ShowCatalogPreviewAsync(card, e.Movie, _hoverCts.Token);
+    }
+
+    private void HideCatalogPreview()
+    {
+        try { _hoverCts?.Cancel(); } catch { }
+        _hoverCts = null;
+        _hoveredCard = null;
+        _hoveredMovieId = null;
+        CatalogPreviewPanel.Visibility = Visibility.Collapsed;
+    }
+
+    private bool CatalogPreviewCurrent(MovieCard card, MovieSimple movie,
+        CancellationToken token) =>
+        !token.IsCancellationRequested && ReferenceEquals(_hoveredCard, card)
+        && _hoveredMovieId == movie.Id && card.Movie?.Id == movie.Id;
+
+    private static SolidColorBrush PreviewColor(byte r, byte g, byte b)
+        => new(Windows.UI.Color.FromArgb(255, r, g, b));
+
+    private void StyleCatalogPreviewRatings(float? rezka, float? imdb, float? kp)
+    {
+        var colorful = SettingsService.Instance.DetailPalette == DetailsPalette.Colorful;
+        var light = ActualTheme == ElementTheme.Light;
+        var muted = light ? PreviewColor(228, 233, 238) : PreviewColor(49, 54, 61);
+        var ink = light ? PreviewColor(34, 38, 43) : PreviewColor(243, 245, 247);
+        CatalogPreviewRezkaBadge.Visibility = rezka.HasValue
+            ? Visibility.Visible : Visibility.Collapsed;
+        CatalogPreviewImdbBadge.Visibility = imdb.HasValue
+            ? Visibility.Visible : Visibility.Collapsed;
+        CatalogPreviewKpBadge.Visibility = kp.HasValue
+            ? Visibility.Visible : Visibility.Collapsed;
+        CatalogPreviewRezka.Text = rezka.HasValue ? "R " + rezka.Value.ToString("0.0") : "";
+        CatalogPreviewImdb.Text = imdb.HasValue ? "IMDb " + imdb.Value.ToString("0.0") : "";
+        CatalogPreviewKp.Text = kp.HasValue ? "КП " + kp.Value.ToString("0.0") : "";
+        CatalogPreviewRezkaBadge.Background = rezka.HasValue && colorful
+            ? RezkaScoreColors.Gradient(rezka.Value) : muted;
+        CatalogPreviewRezka.Foreground = rezka.HasValue && colorful
+            ? PreviewColor(255, 255, 255) : ink;
+        CatalogPreviewImdbBadge.Background = colorful
+            ? (light ? PreviewColor(250, 231, 173) : PreviewColor(91, 78, 39)) : muted;
+        CatalogPreviewKpBadge.Background = colorful
+            ? (light ? PreviewColor(250, 216, 194) : PreviewColor(96, 63, 47)) : muted;
+        CatalogPreviewImdb.Foreground = ink;
+        CatalogPreviewKp.Foreground = ink;
+    }
+
+    private void FillCatalogPreviewGenres(IReadOnlyList<MovieGenre>? genres)
+    {
+        CatalogPreviewGenres.Inlines.Clear();
+        if (genres is not { Count: > 0 }) return;
+        var names = genres.Take(5).Select(x => x.Name).ToArray();
+        var colors = GenreColors.Palette(names,
+            ActualTheme == ElementTheme.Light,
+            SettingsService.Instance.DetailPalette == DetailsPalette.Colorful);
+        for (var i = 0; i < names.Length; i++)
+        {
+            CatalogPreviewGenres.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
+            {
+                Text = (i == 0 ? "" : "  ·  ") + names[i],
+                Foreground = colors[i].Fg,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
+        }
+    }
+
+    private void SetCatalogPreviewDetails(MovieDetailed details)
+    {
+        CatalogPreviewTitle.Text = details.Name;
+        CatalogPreviewOriginal.Text = details.OriginalName ?? "";
+        StyleCatalogPreviewRatings(details.SiteRating?.Value,
+            details.ImdbRating?.Value, details.KpRating?.Value);
+        CatalogPreviewDescription.Text = details.Description ?? "";
+        FillCatalogPreviewGenres(details.Genres);
+        CatalogPreviewDirector.Text = details.Producers is { Count: > 0 }
+            ? Loc.Get("Details.Director") + ": " +
+              string.Join(", ", details.Producers.Take(3).Select(x => x.Name)) : "";
+        CatalogPreviewActors.Text = details.Actors is { Count: > 0 }
+            ? Loc.Get("Details.Actors") + ": " +
+              string.Join(", ", details.Actors.Take(4).Select(x => x.Name)) : "";
+    }
+
+    private void PositionCatalogPreview(MovieCard card)
+    {
+        var availableWidth = CatalogPreviewLayer.ActualWidth;
+        var availableHeight = CatalogPreviewLayer.ActualHeight;
+        if (availableWidth < 220 || availableHeight < 220)
+        {
+            CatalogPreviewPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+        CatalogPreviewPanel.Width = Math.Min(336, availableWidth - 28);
+        CatalogPreviewPanel.MaxHeight = availableHeight - 24;
+        CatalogPreviewDescription.MaxLines = availableHeight < 540 ? 3 : 5;
+        var cardPoint = card.TransformToVisual(CatalogPreviewLayer)
+            .TransformPoint(new Windows.Foundation.Point(0, 0));
+        CatalogPreviewPanel.Measure(new Windows.Foundation.Size(
+            CatalogPreviewPanel.Width, CatalogPreviewPanel.MaxHeight));
+        var panelHeight = Math.Min(CatalogPreviewPanel.DesiredSize.Height,
+            CatalogPreviewPanel.MaxHeight);
+        const double margin = 14;
+        var right = cardPoint.X + card.ActualWidth + margin;
+        var left = cardPoint.X - CatalogPreviewPanel.Width - margin;
+        var x = right + CatalogPreviewPanel.Width <= availableWidth - 12
+            ? right : left >= 12 ? left
+            : Math.Max(12, (availableWidth - CatalogPreviewPanel.Width) / 2);
+        var y = Math.Clamp(cardPoint.Y - 5, 12,
+            Math.Max(12, availableHeight - panelHeight - 12));
+        Canvas.SetLeft(CatalogPreviewPanel, x);
+        Canvas.SetTop(CatalogPreviewPanel, y);
+    }
+
+    private async Task ShowCatalogPreviewAsync(MovieCard card, MovieSimple movie,
+        CancellationToken token)
+    {
+        try
+        {
+            // Cheap immediate preview first. Fetch details only for the card
+            // that remains hovered, never for the entire catalog grid.
+            await Task.Delay(170, token);
+            if (!CatalogPreviewCurrent(card, movie, token)) return;
+            CatalogPreviewHeader.Text = Loc.Get("Details.AboutMovie");
+            CatalogPreviewTitle.Text = movie.Name ?? "";
+            CatalogPreviewOriginal.Text = movie.Details ?? "";
+            StyleCatalogPreviewRatings(movie.Rating, null, null);
+            CatalogPreviewDescription.Text = "";
+            CatalogPreviewGenres.Inlines.Clear();
+            CatalogPreviewDirector.Text = "";
+            CatalogPreviewActors.Text = "";
+            CatalogPreviewPanel.Visibility = Visibility.Visible;
+            PositionCatalogPreview(card);
+            if (_previewCache.TryGetValue(movie.Id, out var cached))
+            {
+                SetCatalogPreviewDetails(cached);
+                PositionCatalogPreview(card);
+                return;
+            }
+            await Task.Delay(230, token);
+            if (!CatalogPreviewCurrent(card, movie, token)) return;
+            var details = await RezkaService.Instance.Client.GetDetailsAsync(movie.Id, token);
+            if (!CatalogPreviewCurrent(card, movie, token)) return;
+            if (_previewCache.Count >= 24)
+                _previewCache.Remove(_previewCache.Keys.First());
+            _previewCache[movie.Id] = details;
+            SetCatalogPreviewDetails(details);
+            PositionCatalogPreview(card);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Log.Info("[Catalog] Hover preview unavailable: " + ex.Message);
         }
     }
 
