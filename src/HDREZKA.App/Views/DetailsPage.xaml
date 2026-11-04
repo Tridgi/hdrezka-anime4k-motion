@@ -11,7 +11,11 @@
 
     <Page.Resources>
         <DataTemplate x:Key="WatchAlsoTemplate" x:DataType="api:MovieSimple">
-            <controls:MovieCard Movie="{x:Bind}"/>
+            <!-- WinUI owns the visuals: never manually create/remove MovieCard
+                 from a SizeChanged event, which can destabilize layout. -->
+            <Viewbox Stretch="Uniform" StretchDirection="Both" HorizontalAlignment="Stretch">
+                <controls:MovieCard Movie="{x:Bind}"/>
+            </Viewbox>
         </DataTemplate>
     </Page.Resources>
 
@@ -282,9 +286,33 @@
                                 </Button>
                             </StackPanel>
                         </Grid>
-                        <!-- Only the current page of 1–3 cards is rendered.
-                             No nested scrollbar and no offscreen image loading. -->
-                        <Grid x:Name="WatchAlsoCards" Grid.Row="1" ColumnSpacing="12"/>
+                        <!-- Virtualized WinUI list, only 1–3 entries per page.
+                             Both scrolling directions are disabled: arrows are
+                             the only paging mechanism. -->
+                        <ListView x:Name="WatchAlsoGrid" Grid.Row="1" SelectionMode="None"
+                                  IsItemClickEnabled="False" ItemTemplate="{StaticResource WatchAlsoTemplate}"
+                                  HorizontalAlignment="Center"
+                                  ScrollViewer.HorizontalScrollMode="Disabled"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                  ScrollViewer.VerticalScrollMode="Disabled"
+                                  ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                            <ListView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <ItemsStackPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ListView.ItemsPanel>
+                            <ListView.ItemContainerStyle>
+                                <Style TargetType="ListViewItem">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0"/>
+                                    <Setter Property="MinWidth" Value="0"/>
+                                    <Setter Property="MinHeight" Value="0"/>
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                    <Setter Property="VerticalContentAlignment" Value="Top"/>
+                                    <Setter Property="IsTabStop" Value="False"/>
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                        </ListView>
                     </Grid>
                 </Border>
                 <StackPanel x:Name="CommentsSection" Grid.Row="5" Spacing="10" Margin="0,14,0,0" Visibility="Collapsed">
