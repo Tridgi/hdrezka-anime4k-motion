@@ -23,6 +23,7 @@ public sealed partial class HomePage : Page
     private int _heroIndex;
     private readonly DispatcherTimer _heroTimer = new() { Interval = TimeSpan.FromSeconds(10) };
     private readonly Dictionary<string, string> _heroDescriptions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _heroBackdrops = new(StringComparer.OrdinalIgnoreCase);
     private CancellationTokenSource? _heroDescriptionCts;
     private CancellationTokenSource? _homeHoverCts;
     private MovieCard? _hoverCard;
@@ -295,7 +296,7 @@ public sealed partial class HomePage : Page
         {
             // Через общий кэш: раньше герой каждый раз качал постер заново.
             PosterCache.SetSource(HeroPoster, movie.Poster);
-            PosterCache.SetSource(HeroBackdrop, movie.Poster);
+            PosterCache.SetSource(HeroBackdrop, _heroBackdrops.GetValueOrDefault(movie.Id) ?? movie.Poster);
         }
         else
         {
@@ -383,9 +384,15 @@ public sealed partial class HomePage : Page
             if (cts.IsCancellationRequested) return;
             var synopsis = details.Description?.Trim() ?? "";
             _heroDescriptions[movie.Id] = synopsis;
+            if (!string.IsNullOrWhiteSpace(details.BigPoster))
+                _heroBackdrops[movie.Id] = details.BigPoster;
             if (_heroItems.Count > _heroIndex &&
                 _heroItems[_heroIndex].Id == movie.Id)
+            {
                 HeroDescription.Text = synopsis;
+                if (_heroBackdrops.TryGetValue(movie.Id, out var backdrop))
+                    PosterCache.SetSource(HeroBackdrop, backdrop);
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
