@@ -79,31 +79,91 @@ public sealed partial class DetailsPage : Page
     private void OnPosterSizeChanged() => DispatcherQueue.TryEnqueue(ApplyPosterMetrics);
 
     private bool _isNarrow;
+    private bool _stackSelectors;
+    private int _lastLayoutBucket = -1;
+    private bool _descriptionExpanded;
 
-    /// <summary>
-    /// Manual adaptive layout (page content width, not window): stacked
-    /// poster + full-width info when narrow. Done in code, not VSM —
-    /// deterministic and testable.
-    /// </summary>
+    // Breakpoints are based on available page width, never monitor pixels.
+    // 740 DIP: poster/info stack; 670 DIP: season and voice stack; 510 DIP:
+    // reduce margins and put secondary buttons on separate rows.
     private void UpdateAdaptiveLayout()
     {
-        var narrow = ActualWidth > 0 && ActualWidth < 640;
-        if (narrow == _isNarrow) return;
+        var width = ActualWidth;
+        if (width <= 0) return;
+        var narrow = width < 740;
+        var stackSelectors = width < 670;
+        var bucket = (int)(width / 120);
+        if (narrow == _isNarrow && stackSelectors == _stackSelectors &&
+            bucket == _lastLayoutBucket) return;
 
         _isNarrow = narrow;
+        _stackSelectors = stackSelectors;
+        _lastLayoutBucket = bucket;
+
+        MainPanel.Padding = width < 510
+            ? new Thickness(12, 14, 12, 20)
+            : width < 850 ? new Thickness(20, 16, 20, 24)
+            : new Thickness(28, 16, 28, 24);
+
+        HeaderGrid.ColumnSpacing = narrow ? 0 : 24;
         Grid.SetColumnSpan(PosterPanel, narrow ? 2 : 1);
         Grid.SetRow(InfoPanel, narrow ? 1 : 0);
         Grid.SetColumn(InfoPanel, narrow ? 0 : 1);
         Grid.SetColumnSpan(InfoPanel, narrow ? 2 : 1);
+
+        ActionsRow.Orientation = width < 510
+            ? Orientation.Vertical : Orientation.Horizontal;
+        EpisodesList.MaxWidth = Math.Min(480, Math.Max(168, width - (width < 510 ? 72 : 110)));
         ApplyPosterMetrics();
+        ArrangeSelectionControls();
+
         if (_details != null) BuildMeta(_details);
+    }
+
+    private void ArrangeSelectionControls()
+    {
+        var hasSeasons = _seasons is { Count: > 0 };
+        if (!hasSeasons)
+        {
+            SeasonColumn.Width = new GridLength(0);
+            ChoiceGrid.ColumnSpacing = 0;
+            Grid.SetRow(VoicesPanel, 0);
+            Grid.SetColumn(VoicesPanel, 0);
+            Grid.SetColumnSpan(VoicesPanel, 2);
+        }
+        else if (_stackSelectors)
+        {
+            SeasonColumn.Width = new GridLength(1, GridUnitType.Star);
+            ChoiceGrid.ColumnSpacing = 0;
+            Grid.SetRow(SeasonsPanel, 0);
+            Grid.SetColumn(SeasonsPanel, 0);
+            Grid.SetColumnSpan(SeasonsPanel, 2);
+            Grid.SetRow(VoicesPanel, 1);
+            Grid.SetColumn(VoicesPanel, 0);
+            Grid.SetColumnSpan(VoicesPanel, 2);
+        }
+        else
+        {
+            SeasonColumn.Width = new GridLength(180);
+            ChoiceGrid.ColumnSpacing = 16;
+            Grid.SetRow(SeasonsPanel, 0);
+            Grid.SetColumn(SeasonsPanel, 0);
+            Grid.SetColumnSpan(SeasonsPanel, 1);
+            Grid.SetRow(VoicesPanel, 0);
+            Grid.SetColumn(VoicesPanel, 1);
+            Grid.SetColumnSpan(VoicesPanel, 1);
+        }
     }
 
     private void ApplyPosterMetrics()
     {
-        var width = _isNarrow ? Math.Min(PosterMetrics.DetailsWidth, 200) : PosterMetrics.DetailsWidth;
+        // User poster size remains the source of truth; cap details width so
+        // controls never steal half the viewport at large poster settings.
+        var max = _isNarrow || (ActualWidth > 0 && ActualWidth < 1050) ? 210 : 250;
+        var width = Math.Clamp(PosterMetrics.DetailsWidth, 164, max);
+        PosterPanel.Width = width;
         PosterImage.Width = width;
-        PosterImage.Height = (int)Math.Round(width * 1.5);
+        PosterImage.Height = Math.Round(width * 1.5);
     }
 
     private void OnLanguageChanged() => DispatcherQueue.TryEnqueue(ApplyLocalization);
@@ -125,6 +185,9 @@ public sealed partial class DetailsPage : Page
         CommentInput.PlaceholderText = Loc.Get("Comments.Placeholder");
         CommentSendButton.Content = Loc.Get("Common.Send");
         CommentsMoreButton.Content = Loc.Get("Common.LoadMore");
+        EpisodesHeader.Text = Loc.Get("Details.Episodes");
+        DescriptionExpandButton.Content = Loc.Get(_descriptionExpanded ? "Details.ShowLess" : "Details.ShowMore");
+        if (_details != null) BuildMeta(_details);
     }
 
     private async Task LoadAsync(MovieSimple movie)
@@ -229,10 +292,12 @@ public sealed partial class DetailsPage : Page
 
     private void MarkSelectedVoice(MovieVoiceActing voice)
     {
-        foreach (var child in VoicesList.Children.OfType<ToggleButton>())
-        {
-            child.IsChecked = child.Tag is MovieVoiceActing candidate && ReferenceEquals(candidate, voice);
-        }
+        VoiceBox.SelectionChanged -= VoiceBox_SelectionChanged;
+        var item = VoiceBox.Items.OfType<ComboBoxItem>()
+            .FirstOrDefault(candidate => candidate.Tag is MovieVoiceActing v &&
+                v.TranslatorId == voice.TranslatorId);
+        if (item != null) VoiceBox.SelectedItem = item;
+        VoiceBox.SelectionChanged += VoiceBox_SelectionChanged;
     }
 
     private void Render(MovieDetailed details)
@@ -241,7 +306,15 @@ public sealed partial class DetailsPage : Page
         OrigTitleText.Text = details.OriginalName ?? "";
         PosterCache.SetSource(PosterImage, details.Poster);
 
+        _descriptionExpanded = false;
         DescriptionText.Text = details.Description ?? "";
+        DescriptionText.MaxLines = 3;
+        DescriptionText.TextTrimming = TextTrimming.CharacterEllipsis;
+        DescriptionPanel.Visibility = string.IsNullOrWhiteSpace(DescriptionText.Text)
+            ? Visibility.Collapsed : Visibility.Visible;
+        DescriptionExpandButton.Visibility = DescriptionText.Text.Length > 180
+            ? Visibility.Visible : Visibility.Collapsed;
+        DescriptionExpandButton.Content = Loc.Get("Details.ShowMore");
         RatingsPanel.Children.Clear();
         AddRating("Rezka", details.SiteRating);
         AddRating("IMDb", details.ImdbRating);
@@ -251,29 +324,43 @@ public sealed partial class DetailsPage : Page
         MetaPanel.Children.Clear();
         BuildMeta(details);
 
-        // voices
-        VoicesPanel.Visibility = details.VoiceActings is { Count: > 0 } ? Visibility.Visible : Visibility.Collapsed;
-        VoicesList.Children.Clear();
+        // Preserve translator IDs and selected instance: the episode endpoint
+        // needs the MovieVoiceActing object, not a localized display string.
+        _seasons = details.Seasons;
+        _voice = details.VoiceActings?.FirstOrDefault(v => v.IsSelected)
+            ?? details.VoiceActings?.FirstOrDefault();
+        _season = _seasons?.FirstOrDefault(s => s.IsSelected) ?? _seasons?.FirstOrDefault();
+        _episode = _season?.Episodes.FirstOrDefault(ep => ep.IsSelected)
+            ?? _season?.Episodes.FirstOrDefault();
+
+        VoicesPanel.Visibility = details.VoiceActings is { Count: > 0 }
+            ? Visibility.Visible : Visibility.Collapsed;
+        VoiceBox.SelectionChanged -= VoiceBox_SelectionChanged;
+        VoiceBox.Items.Clear();
         if (details.VoiceActings != null)
         {
             foreach (var voice in details.VoiceActings)
             {
-                var button = new ToggleButton
+                var display = new TextBlock
                 {
-                    Content = voice.Name + (voice.IsPremium ? " ★" : ""),
-                    Tag = voice,
-                    IsChecked = voice.IsSelected,
-                    MaxWidth = 340,
+                    Text = voice.Name + (voice.IsPremium ? " ★" : ""),
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    MaxWidth = 420
                 };
-                button.Click += VoiceButton_Click;
-                VoicesList.Children.Add(button);
+                ToolTipService.SetToolTip(display, voice.Name);
+                VoiceBox.Items.Add(new ComboBoxItem { Content = display, Tag = voice });
             }
         }
 
-        _seasons = details.Seasons;
-        _voice = details.VoiceActings?.FirstOrDefault(v => v.IsSelected) ?? details.VoiceActings?.FirstOrDefault();
-        _season = _seasons?.FirstOrDefault(s => s.IsSelected) ?? _seasons?.FirstOrDefault();
-        _episode = _season?.Episodes.FirstOrDefault(ep => ep.IsSelected) ?? _season?.Episodes.FirstOrDefault();
+        var voiceIndex = details.VoiceActings?.ToList()
+            .FindIndex(voice => voice.TranslatorId == _voice?.TranslatorId) ?? -1;
+        VoiceBox.SelectedIndex = voiceIndex;
+        VoiceBox.SelectionChanged += VoiceBox_SelectionChanged;
+
+        AgeRatingBorder.Visibility = string.IsNullOrWhiteSpace(details.AgeRestriction)
+            ? Visibility.Collapsed : Visibility.Visible;
+        AgeRatingText.Text = details.AgeRestriction ?? "";
+        UpdateAgeBadgeStyle();
 
         RenderSeasons();
         UpdateSeasonDownloadVisibility();
@@ -303,6 +390,16 @@ public sealed partial class DetailsPage : Page
         RenderSchedule(details);
         RenderWatchAlso(details);
         Log.Info("[Details] Rendered " + details.Id);
+    }
+
+    private void DescriptionExpandButton_Click(object sender, RoutedEventArgs e)
+    {
+        _descriptionExpanded = !_descriptionExpanded;
+        DescriptionText.MaxLines = _descriptionExpanded ? 0 : 3;
+        DescriptionText.TextTrimming = _descriptionExpanded
+            ? TextTrimming.None : TextTrimming.CharacterEllipsis;
+        DescriptionExpandButton.Content = Loc.Get(_descriptionExpanded
+            ? "Details.ShowLess" : "Details.ShowMore");
     }
 
     private void RenderWatchAlso(MovieDetailed details)
@@ -779,23 +876,17 @@ public sealed partial class DetailsPage : Page
         MetaPanel.Children.Add(grid);
     }
 
-    private async void VoiceButton_Click(object sender, RoutedEventArgs e)
+    private async void VoiceBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (sender is not ToggleButton button || button.Tag is not MovieVoiceActing voice || _details == null) return;
-
-        foreach (var child in VoicesList.Children.OfType<ToggleButton>())
-        {
-            child.IsChecked = child == button;
-        }
+        if (VoiceBox.SelectedItem is not ComboBoxItem { Tag: MovieVoiceActing voice } ||
+            _details == null || ReferenceEquals(_voice, voice)) return;
 
         _voice = voice;
         SeasonBox.IsEnabled = false;
         try
         {
-            // Сезоны у каждой озвучки СВОИ: сайт отдаёт их через get_episodes,
-            // а HTML содержит только набор озвучки по умолчанию. Поэтому при
-            // смене озвучки всегда перезапрашиваем (так делает mac-клиент),
-            // иначе у Coldfilm с двумя сезонами пользователь видел один.
+            // Each voiceover may expose a different set of seasons. Preserve
+            // the original translator-specific refresh and stale-result guard.
             await RefreshSeasonsAsync(voice, resetSelection: true, _loadCts?.Token ?? default);
         }
         finally
@@ -910,7 +1001,14 @@ public sealed partial class DetailsPage : Page
     {
         var hasSeasons = _seasons is { Count: > 0 };
         SeasonsPanel.Visibility = hasSeasons ? Visibility.Visible : Visibility.Collapsed;
-        if (!hasSeasons) return;
+        EpisodesPanel.Visibility = hasSeasons && _season?.Episodes.Count > 0
+            ? Visibility.Visible : Visibility.Collapsed;
+        ArrangeSelectionControls();
+        if (!hasSeasons)
+        {
+            EpisodesList.Items.Clear();
+            return;
+        }
 
         SeasonBox.SelectionChanged -= SeasonBox_SelectionChanged;
         SeasonBox.Items.Clear();
@@ -1016,17 +1114,29 @@ public sealed partial class DetailsPage : Page
         if (_season == null) return;
         var movieId = _details != null ? ExtractNumericId(_details.Id) ?? _details.Id : null;
         var translator = _voice?.TranslatorId;
-        foreach (var episode in _season.Episodes)
+        for (var episodeIndex = 0; episodeIndex < _season.Episodes.Count; episodeIndex++)
         {
+            var episode = _season.Episodes[episodeIndex];
             var watched = movieId != null && translator != null &&
                 PositionService.Instance.IsWatched(movieId, translator, _season.SeasonId, episode.EpisodeId);
+            var label = episode.Name;
+            // Long descriptive episode titles remain in the tooltip while the
+            // chip shows the ordinal, avoiding 50 wide buttons on one row.
+            if (label.Length > 4)
+                label = (episodeIndex + 1).ToString();
             var button = new ToggleButton
             {
-                Content = watched ? "✓ " + episode.Name : episode.Name,
+                Content = watched ? "✓" + label : label,
                 Tag = episode,
-                MinWidth = 44,
+                Width = 40,
+                Height = 32,
+                Padding = new Thickness(1),
+                Margin = new Thickness(3, 2, 3, 2),
+                MinWidth = 0,
+                MinHeight = 0,
                 IsChecked = episode.EpisodeId == _episode?.EpisodeId,
             };
+            ToolTipService.SetToolTip(button, episode.Name);
             button.Click += EpisodeButton_Click;
             EpisodesList.Items.Add(button);
         }
