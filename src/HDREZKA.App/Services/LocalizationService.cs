@@ -42,17 +42,6 @@ public sealed class LocalizationService
         ["Home.MoreTitles"] = "Вся подборка",
         ["Home.OpenCatalog"] = "Открыть каталог",
         ["Nav.Catalog"] = "Каталог",
-        ["Nav.Collections"] = "Добірки",
-        ["Collections.BrowseHint"] = "Виберіть добірку або знайдіть її за назвою. Фільми відкриються після вибору.",
-        ["Collections.Search"] = "Пошук добірок",
-        ["Collections.SearchPlaceholder"] = "Назва добірки…",
-        ["Collections.Back"] = "Усі добірки",
-        ["Collections.ItemsCount"] = "{0} фільмів",
-        ["Collections.SelectedHint"] = "Вміст добірки",
-        ["Collections.EmptyFolder"] = "У цій добірці поки немає доступних фільмів. Оберіть іншу.",
-        ["Collections.Unavailable"] = "Ця добірка більше недоступна на сайті. Виберіть іншу.",
-        ["Collections.NoSearchResults"] = "За вашим запитом добірок не знайдено.",
-        ["Collections.NoFolders"] = "Добірки зараз недоступні.",
         ["Nav.Search"] = "Поиск",
         ["Nav.Bookmarks"] = "Закладки",
         ["Nav.Continue"] = "Досмотреть",
@@ -353,7 +342,13 @@ public sealed class LocalizationService
         ["Comments.Likes"] = "Нравится",
         ["Comments.Show"] = "Показать комментарии",
         ["Comments.Hide"] = "Скрыть",
-    };
+            ["Details.Franchise"] = "Все части франшизы",
+        ["Details.Collections"] = "В подборках",
+        ["Catalog.GenreSelected"] = "Жанр:",
+        ["Catalog.ClearGenre"] = "Сбросить",
+        ["Person.Filmography"] = "Фильмография",
+        ["Person.Works"] = "работ",
+};
 
     private static readonly Dictionary<string, string> English = new()
     {
@@ -661,7 +656,13 @@ public sealed class LocalizationService
         ["Comments.Likes"] = "Like",
         ["Comments.Show"] = "Show comments",
         ["Comments.Hide"] = "Hide",
-    };
+            ["Details.Franchise"] = "Franchise",
+        ["Details.Collections"] = "In collections",
+        ["Catalog.GenreSelected"] = "Genre:",
+        ["Catalog.ClearGenre"] = "Clear",
+        ["Person.Filmography"] = "Filmography",
+        ["Person.Works"] = "titles",
+};
 
     private static readonly Dictionary<string, string> Ukrainian = new()
     {
@@ -669,6 +670,17 @@ public sealed class LocalizationService
         ["Home.MoreTitles"] = "Уся добірка",
         ["Home.OpenCatalog"] = "Відкрити каталог",
         ["Nav.Catalog"] = "Каталог",
+        ["Nav.Collections"] = "Добірки",
+        ["Collections.BrowseHint"] = "Виберіть добірку або знайдіть її за назвою. Фільми відкриються після вибору.",
+        ["Collections.Search"] = "Пошук добірок",
+        ["Collections.SearchPlaceholder"] = "Назва добірки…",
+        ["Collections.Back"] = "Усі добірки",
+        ["Collections.ItemsCount"] = "{0} фільмів",
+        ["Collections.SelectedHint"] = "Вміст добірки",
+        ["Collections.EmptyFolder"] = "У цій добірці поки немає доступних фільмів. Оберіть іншу.",
+        ["Collections.Unavailable"] = "Ця добірка більше недоступна на сайті. Виберіть іншу.",
+        ["Collections.NoSearchResults"] = "За вашим запитом добірок не знайдено.",
+        ["Collections.NoFolders"] = "Добірки зараз недоступні.",
         ["Nav.Search"] = "Пошук",
         ["Nav.Bookmarks"] = "Закладки",
         ["Nav.Continue"] = "Додивитися",
@@ -958,5 +970,11 @@ public sealed class LocalizationService
         ["Comments.Likes"] = "Подобається",
         ["Comments.Show"] = "Показати коментарі",
         ["Comments.Hide"] = "Сховати",
-    };
+            ["Details.Franchise"] = "Усі частини франшизи",
+        ["Details.Collections"] = "У добірках",
+        ["Catalog.GenreSelected"] = "Жанр:",
+        ["Catalog.ClearGenre"] = "Скинути",
+        ["Person.Filmography"] = "Фільмографія",
+        ["Person.Works"] = "робіт",
+};
 }
