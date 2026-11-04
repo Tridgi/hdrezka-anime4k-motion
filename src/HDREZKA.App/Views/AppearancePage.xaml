@@ -104,6 +104,48 @@
                               SelectionChanged="PosterSizeBox_SelectionChanged"/>
                     <TextBlock x:Name="PosterSizeHint" FontSize="12" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <!-- Live sample uses exact PosterMetrics proportions (2:3).
+                         A lightweight gradient placeholder needs no image request. -->
+                    <Border CornerRadius="12" Padding="16"
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                        <StackPanel Spacing="11">
+                            <TextBlock x:Name="PosterPreviewHeading" FontSize="13"
+                                       FontWeight="SemiBold"/>
+                            <TextBlock x:Name="PosterPreviewDimensions" FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <StackPanel x:Name="PosterPreviewCard" Width="132"
+                                        Spacing="7" HorizontalAlignment="Left">
+                                <Border x:Name="PosterPreviewArt" Width="132" Height="198"
+                                        CornerRadius="11" BorderThickness="1"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                                    <Grid>
+                                        <StackPanel VerticalAlignment="Center"
+                                                    HorizontalAlignment="Center" Spacing="9">
+                                            <FontIcon Glyph="&#xE714;" FontSize="32"
+                                                      Foreground="White"
+                                                      HorizontalAlignment="Center"/>
+                                            <TextBlock x:Name="PosterPreviewPlaceholderText"
+                                                       FontSize="11" FontWeight="SemiBold"
+                                                       Foreground="White" TextAlignment="Center"/>
+                                        </StackPanel>
+                                        <Border VerticalAlignment="Bottom"
+                                                HorizontalAlignment="Right" Margin="0,0,6,7"
+                                                Background="#AA20242A" CornerRadius="5"
+                                                Padding="5,3">
+                                            <TextBlock Text="HDREZKA" FontSize="9" Foreground="White"/>
+                                        </Border>
+                                    </Grid>
+                                </Border>
+                                <TextBlock x:Name="PosterPreviewFilmTitle"
+                                           FontSize="12" FontWeight="SemiBold"
+                                           MaxLines="2" TextWrapping="Wrap"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock x:Name="PosterPreviewFilmInfo"
+                                           FontSize="11" MaxLines="2" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
             </Border>
             <StackPanel Spacing="7" HorizontalAlignment="Left">
