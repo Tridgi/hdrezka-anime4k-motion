@@ -85,7 +85,6 @@ public sealed partial class SettingsPage : Page
         HeadersToggle.IsOn = settings.UseAndroidHeaders;
         ShowPlaybackStatsCheck.IsChecked = settings.ShowPlaybackStats;
         DirectPlayCheck.IsChecked = settings.PlayFromHomeDirectly;
-        SeriesToggle.IsOn = settings.SeriesUpdatesEnabled;
         VersionText.Text = $"HDREZKA Anime4K Motion · {ChannelUpdateService.CurrentDescription}";
         UpdateChannelBox.SelectedIndex = settings.PreferredUpdateChannel == UpdateChannel.Testing ? 1 : 0;
         InstalledBuildText.Text = "Установлено: " + ChannelUpdateService.CurrentDescription;
@@ -141,9 +140,6 @@ public sealed partial class SettingsPage : Page
         AutoMirrorButton.Content = Loc.Get("Settings.AutoMirror");
         UpdateHeader.Text = Loc.Get("Settings.Updates");
         CheckUpdatesButton.Content = Loc.Get("Settings.CheckUpdates");
-        SeriesHeader.Text = Loc.Get("Settings.SeriesUpdates");
-        SeriesHint.Text = Loc.Get("Settings.SeriesUpdatesHint");
-        CheckSeriesButton.Content = Loc.Get("Settings.CheckNow");
         AboutHeader.Text = Loc.Get("Settings.About");
         DisclaimerText.Text = Loc.Get("Settings.Disclaimer");
         LogoutButton.Content = Loc.Get("Common.Logout");
@@ -492,44 +488,6 @@ public sealed partial class SettingsPage : Page
         if (!_initialized) return;
         SettingsService.Instance.PlayFromHomeDirectly = DirectPlayCheck.IsChecked == true;
         SettingsService.Instance.Save();
-    }
-
-    private void SeriesToggle_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (!_initialized) return;
-        SettingsService.Instance.SeriesUpdatesEnabled = SeriesToggle.IsOn;
-        SettingsService.Instance.Save();
-    }
-
-    private async void CheckSeriesButton_Click(object sender, RoutedEventArgs e)
-    {
-        CheckSeriesButton.IsEnabled = false;
-        SeriesStatusText.Text = Loc.Get("Settings.SeriesChecking");
-        try
-        {
-            TrackedSeriesService.SeedFromHistory();
-            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-            var updates = await TrackedSeriesService.CheckForUpdatesAsync(cts.Token);
-            if (updates.Count == 0)
-            {
-                SeriesStatusText.Text = Loc.Get("Settings.SeriesUpToDate");
-            }
-            else
-            {
-                var first = updates.Take(3).Select(u => $"{u.Title}: {u.Text}");
-                SeriesStatusText.Text = Loc.Get("Settings.SeriesFound", updates.Count)
-                    + "\n" + string.Join("\n", first);
-                TrackedSeriesService.NotifyUpdates(updates);
-            }
-        }
-        catch
-        {
-            SeriesStatusText.Text = Loc.Get("Error.Network");
-        }
-        finally
-        {
-            CheckSeriesButton.IsEnabled = true;
-        }
     }
 
     private async void AutoMirrorButton_Click(object sender, RoutedEventArgs e)
