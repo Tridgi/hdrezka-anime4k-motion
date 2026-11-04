@@ -1,4 +1,5 @@
 using HDREZKA.App.Services;
+using HDREZKA.App.Controls;
 using HDREZKA.Core.Api;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -42,6 +43,11 @@ public sealed partial class DetailsPage : Page
     private double _lastWatchAlsoWidth = -1;
     private int _lastWatchAlsoOffset = -1;
     private bool _watchAlsoRefreshQueued;
+    private MovieCard? _hoverRecommendationCard;
+    private string? _hoverRecommendationId;
+    private CancellationTokenSource? _hoverRecommendationCts;
+    private readonly Dictionary<string, MovieDetailed> _recommendationPreviewCache =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public DetailsPage()
     {
@@ -52,7 +58,7 @@ public sealed partial class DetailsPage : Page
             UpdateAdaptiveLayout();
         };
         ActualThemeChanged += (_, _) => DispatcherQueue.TryEnqueue(RefreshPresentation);
-        SizeChanged += (_, _) => UpdateAdaptiveLayout();
+        SizeChanged += (_, _) => { HideRecommendationPreview(); UpdateAdaptiveLayout(); };
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -80,6 +86,7 @@ public sealed partial class DetailsPage : Page
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
+        HideRecommendationPreview();
         // Ушли со страницы: отменяем незавершённые запросы, чтобы не держать
         // семафор клиента и не обновлять уже невидимый UI.
         try { _loadCts?.Cancel(); } catch { }
@@ -570,6 +577,158 @@ public sealed partial class DetailsPage : Page
     /// never change Grid.Children/ColumnDefinitions synchronously in SizeChanged:
     /// that reenters native WinUI layout and can terminate the process.
     /// </summary>
+    // One overlay lives above the scroll viewer. MovieCards only emit pointer
+    // events: they cannot create popups clipped by their own ListView.
+    private void RecommendationCard_HoverChanged(object sender,
+        RecommendationHoverEventArgs e)
+    {
+        if (sender is not MovieCard card) return;
+        if (!e.IsEntering)
+        {
+            if (ReferenceEquals(card, _hoverRecommendationCard))
+                HideRecommendationPreview();
+            return;
+        }
+        if (e.Movie == null) return;
+
+        HideRecommendationPreview();
+        _hoverRecommendationCard = card;
+        _hoverRecommendationId = e.Movie.Id;
+        var cts = new CancellationTokenSource();
+        _hoverRecommendationCts = cts;
+        _ = ShowRecommendationPreviewAsync(card, e.Movie, cts.Token);
+    }
+
+    private void DetailsScrollViewer_ViewChanged(object sender,
+        ScrollViewerViewChangedEventArgs e) => HideRecommendationPreview();
+
+    private void HideRecommendationPreview()
+    {
+        try { _hoverRecommendationCts?.Cancel(); } catch { }
+        _hoverRecommendationCts = null;
+        _hoverRecommendationId = null;
+        _hoverRecommendationCard = null;
+        RecommendationPreviewOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private bool PreviewStillCurrent(MovieCard card, MovieSimple movie,
+        CancellationToken ct) =>
+        !ct.IsCancellationRequested &&
+        ReferenceEquals(_hoverRecommendationCard, card) &&
+        _hoverRecommendationId == movie.Id && card.Movie?.Id == movie.Id;
+
+    private void PositionRecommendationPreview(MovieCard card)
+    {
+        var viewportWidth = PreviewLayer.ActualWidth;
+        var viewportHeight = PreviewLayer.ActualHeight;
+        if (viewportWidth < 200 || viewportHeight < 220)
+        {
+            RecommendationPreviewOverlay.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var overlay = RecommendationPreviewOverlay;
+        overlay.Width = Math.Min(334, viewportWidth - 28);
+        overlay.MaxHeight = viewportHeight - 22;
+        PreviewDescription.MaxLines = viewportHeight < 560 ? 2 : 5;
+        PreviewCast.MaxLines = viewportHeight < 560 ? 1 : 3;
+
+        var relative = card.TransformToVisual(PreviewLayer)
+            .TransformPoint(new Windows.Foundation.Point(0, 0));
+        overlay.Measure(new Windows.Foundation.Size(overlay.Width,
+            overlay.MaxHeight));
+        var height = Math.Min(overlay.DesiredSize.Height, overlay.MaxHeight);
+        const double gap = 14;
+        var rightX = relative.X + card.ActualWidth + gap;
+        var leftX = relative.X - overlay.Width - gap;
+        var x = rightX + overlay.Width <= viewportWidth - 12
+            ? rightX : leftX >= 12 ? leftX
+            : Math.Max(12, (viewportWidth - overlay.Width) / 2);
+        var y = Math.Max(12, Math.Min(relative.Y - 4,
+            viewportHeight - height - 12));
+
+        Canvas.SetLeft(overlay, x);
+        Canvas.SetTop(overlay, y);
+    }
+
+    private void UpdateRecommendationPreview(MovieDetailed details)
+    {
+        PreviewTitle.Text = details.Name;
+        PreviewSubtitle.Text = details.OriginalName ?? "";
+        var ratings = new List<string>();
+        if (details.SiteRating?.Value is { } site)
+            ratings.Add("★ " + site.ToString("0.0",
+                System.Globalization.CultureInfo.CurrentCulture));
+        if (details.ImdbRating?.Value is { } imdb)
+            ratings.Add("IMDb " + imdb.ToString("0.0",
+                System.Globalization.CultureInfo.CurrentCulture));
+        if (details.KpRating?.Value is { } kp)
+            ratings.Add("КП " + kp.ToString("0.0",
+                System.Globalization.CultureInfo.CurrentCulture));
+        PreviewRating.Text = string.Join("   ·   ", ratings);
+        PreviewDescription.Text = details.Description ?? "";
+        PreviewGenres.Text = details.Genres is { Count: > 0 }
+            ? Loc.Get("Details.Genre") + ": " +
+                string.Join(", ", details.Genres.Take(5).Select(x => x.Name))
+            : "";
+        PreviewDirector.Text = details.Producers is { Count: > 0 }
+            ? Loc.Get("Details.Director") + ": " +
+                string.Join(", ", details.Producers.Take(3).Select(x => x.Name))
+            : "";
+        PreviewCast.Text = details.Actors is { Count: > 0 }
+            ? Loc.Get("Details.Actors") + ": " +
+                string.Join(", ", details.Actors.Take(5).Select(x => x.Name))
+            : "";
+    }
+
+    private async Task ShowRecommendationPreviewAsync(MovieCard card,
+        MovieSimple movie, CancellationToken ct)
+    {
+        try
+        {
+            // Local catalog data are drawn first, independently of network.
+            await Task.Delay(145, ct);
+            if (!PreviewStillCurrent(card, movie, ct)) return;
+            PreviewTitle.Text = movie.Name ?? "";
+            PreviewSubtitle.Text = movie.Details ?? "";
+            PreviewRating.Text = movie.Rating is { } score
+                ? "★ " + score.ToString("0.0",
+                    System.Globalization.CultureInfo.CurrentCulture)
+                : "";
+            PreviewDescription.Text = "";
+            PreviewGenres.Text = "";
+            PreviewDirector.Text = "";
+            PreviewCast.Text = "";
+            RecommendationPreviewOverlay.Visibility = Visibility.Visible;
+            PositionRecommendationPreview(card);
+
+            if (_recommendationPreviewCache.TryGetValue(movie.Id, out var cached))
+            {
+                UpdateRecommendationPreview(cached);
+                PositionRecommendationPreview(card);
+                return;
+            }
+
+            await Task.Delay(250, ct);
+            if (!PreviewStillCurrent(card, movie, ct)) return;
+            var details = await RezkaService.Instance.Client.GetDetailsAsync(
+                movie.Id, ct);
+            if (!PreviewStillCurrent(card, movie, ct)) return;
+
+            if (_recommendationPreviewCache.Count >= 20)
+                _recommendationPreviewCache.Remove(
+                    _recommendationPreviewCache.Keys.First());
+            _recommendationPreviewCache[movie.Id] = details;
+            UpdateRecommendationPreview(details);
+            PositionRecommendationPreview(card);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            // Hover data are optional; never take down a movie page for them.
+            Log.Info("[Details] Recommendation preview: " + ex.Message);
+        }
+    }
+
     private void RenderWatchAlso(MovieDetailed details)
     {
         _watchAlsoItems = details.WatchAlso ?? [];
