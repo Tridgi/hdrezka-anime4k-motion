@@ -1184,11 +1184,15 @@ public static class Parsers
                 continue;
             var root = heading.ParentElement;
             if (root == null) continue;
-            // Franchise lists are normally placed directly after their heading.
-            // Limit to the heading's container or its immediate next sibling.
-            var nodes = new List<IElement> { root };
-            if (root.NextElementSibling is { } next)
+            // A heading placed directly inside the main movie container must
+            // not accidentally turn unrelated movie links into a franchise.
+            var nodes = new List<IElement>();
+            if (heading.NextElementSibling is { } next)
                 nodes.Add(next);
+            else if (root.ClassList.Any(c =>
+                c.Contains("franchise", StringComparison.OrdinalIgnoreCase) ||
+                c.Contains("series", StringComparison.OrdinalIgnoreCase)))
+                nodes.Add(root);
             foreach (var node in nodes)
             foreach (var link in node.QuerySelectorAll("a[href]"))
             {
