@@ -238,18 +238,38 @@
                         CornerRadius="12" Padding="16"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
-                <StackPanel x:Name="SchedulePanel" Spacing="8">
-                    <TextBlock x:Name="ScheduleHeader" Style="{StaticResource SectionHeader}"/>
-                    <Border x:Name="ScheduleCountdownBadge" Background="{ThemeResource AccentFillColorDefaultBrush}"
-                            CornerRadius="8" Padding="12,6" HorizontalAlignment="Left" Visibility="Collapsed">
-                        <TextBlock x:Name="ScheduleCountdownText" Foreground="White" TextWrapping="Wrap"/>
+                <StackPanel x:Name="SchedulePanel" Spacing="12">
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ScheduleHeader" Style="{StaticResource SectionHeader}"
+                                   VerticalAlignment="Center"/>
+                        <Border Grid.Column="1" CornerRadius="9" Padding="9,5"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                            <TextBlock x:Name="ScheduleCountText" FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </Border>
+                    </Grid>
+                    <Border x:Name="ScheduleCountdownBadge"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            CornerRadius="9" Padding="12,8" HorizontalAlignment="Left"
+                            Visibility="Collapsed">
+                        <TextBlock x:Name="ScheduleCountdownText" Foreground="White"
+                                   TextWrapping="Wrap"/>
                     </Border>
-                    <TextBlock x:Name="ScheduleGroupText" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                    <StackPanel x:Name="ScheduleList" Spacing="0"/>
-                    <Button x:Name="ScheduleMoreButton" Click="ScheduleMoreButton_Click" Visibility="Collapsed"
-                            Background="Transparent" BorderThickness="0" Padding="8,4" HorizontalAlignment="Left"/>
+                    <TextBlock x:Name="ScheduleGroupText" FontWeight="SemiBold"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap"/>
+                    <!-- Expanding keeps rows in the page, with no nested ScrollViewer. -->
+                    <StackPanel x:Name="ScheduleList" Spacing="8"/>
+                    <Button x:Name="ScheduleMoreButton" Click="ScheduleMoreButton_Click"
+                            Visibility="Collapsed" HorizontalAlignment="Center"
+                            MinHeight="38" Padding="16,8"
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                            BorderThickness="0"/>
                 </StackPanel>
-
                 </Border>
                 <Border x:Name="WatchAlsoPanel" Grid.Row="4" Visibility="Collapsed"
                         CornerRadius="12" Padding="16" Margin="0,10,0,0"
@@ -328,18 +348,92 @@
                         </StackPanel>
                     </ToggleButton>
 
-                    <StackPanel x:Name="CommentsPanel" Spacing="10" Visibility="Collapsed">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox x:Name="CommentInput" PlaceholderText="Comment…" MaxLength="2000" HorizontalAlignment="Stretch" MaxWidth="640" AcceptsReturn="False" TextWrapping="Wrap"/>
-                            <Button Grid.Column="1" x:Name="CommentSendButton" Click="CommentSendButton_Click" Style="{ThemeResource AccentButtonStyle}" VerticalAlignment="Bottom"/>
-                        </Grid>
-                        <StackPanel x:Name="CommentsList" Spacing="4"/>
-                        <Button x:Name="CommentsMoreButton" Click="CommentsMoreButton_Click" Visibility="Collapsed"/>
-                    </StackPanel>
+                    <Border x:Name="CommentsCard" CornerRadius="14" Padding="16"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderThickness="1"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                        <StackPanel x:Name="CommentsPanel" Spacing="16" Visibility="Collapsed">
+                            <Grid ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="3">
+                                    <TextBlock x:Name="CommentsHeader" Style="{StaticResource SectionHeader}"/>
+                                    <TextBlock x:Name="CommentsSortHint" FontSize="11"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <ComboBox x:Name="CommentsSortBox" Grid.Column="1"
+                                          MinWidth="145" MaxWidth="230" VerticalAlignment="Center"
+                                          SelectionChanged="CommentsSortBox_SelectionChanged">
+                                    <ComboBoxItem Tag="site"/>
+                                    <ComboBoxItem Tag="popular"/>
+                                    <ComboBoxItem Tag="oldest"/>
+                                    <ComboBoxItem Tag="author"/>
+                                </ComboBox>
+                            </Grid>
+                            <Border CornerRadius="12" Padding="12"
+                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                <StackPanel Spacing="10">
+                                    <TextBlock x:Name="CommentComposerHeader" FontWeight="SemiBold"/>
+                                    <Grid x:Name="CommentReplyRow" Visibility="Collapsed" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="CommentReplyText" VerticalAlignment="Center"
+                                                   TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                        <Button x:Name="CommentCancelReplyButton" Grid.Column="1"
+                                                Click="CommentCancelReplyButton_Click" Padding="8,4"/>
+                                    </Grid>
+                                    <TextBox x:Name="CommentInput" PlaceholderText="Comment…"
+                                             MaxLength="2000" AcceptsReturn="True"
+                                             TextWrapping="Wrap" MinHeight="110" MaxHeight="220"
+                                             VerticalContentAlignment="Top"
+                                             TextChanged="CommentInput_TextChanged"/>
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <Button Content="🙂" Click="CommentEmoji_Click" Tag="🙂"
+                                                    Padding="8,5" MinWidth="0"/>
+                                            <Button Content="❤️" Click="CommentEmoji_Click" Tag="❤️"
+                                                    Padding="8,5" MinWidth="0"/>
+                                            <Button Content="🔥" Click="CommentEmoji_Click" Tag="🔥"
+                                                    Padding="8,5" MinWidth="0"/>
+                                            <Button Content="🎬" Click="CommentEmoji_Click" Tag="🎬"
+                                                    Padding="8,5" MinWidth="0"/>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10"
+                                                    VerticalAlignment="Center">
+                                            <TextBlock x:Name="CommentCharCount" FontSize="12"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       VerticalAlignment="Center"/>
+                                            <Button x:Name="CommentSendButton" Click="CommentSendButton_Click"
+                                                    Style="{ThemeResource AccentButtonStyle}"
+                                                    MinHeight="36" MinWidth="100">
+                                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                                    <FontIcon Glyph="&#xE724;" FontSize="15"/>
+                                                    <TextBlock x:Name="CommentSendText"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock x:Name="CommentStatusText" FontSize="12" TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                               Visibility="Collapsed"/>
+                                </StackPanel>
+                            </Border>
+                            <StackPanel x:Name="CommentsList" Spacing="10"/>
+                            <Button x:Name="CommentsMoreButton" Click="CommentsMoreButton_Click"
+                                    Visibility="Collapsed" HorizontalAlignment="Center"
+                                    Padding="16,8"/>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
             </Grid>
