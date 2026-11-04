@@ -10,6 +10,21 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <ItemsPanelTemplate x:Key="PersonFilmsPanel">
+            <ItemsWrapGrid Orientation="Horizontal"/>
+        </ItemsPanelTemplate>
+        <Style x:Key="PersonFilmsGridStyle" TargetType="GridView">
+            <Setter Property="ScrollViewer.VerticalScrollMode" Value="Disabled"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="SelectionMode" Value="None"/>
+            <Setter Property="IsItemClickEnabled" Value="False"/>
+        </Style>
+        <Style x:Key="PersonFilmItemStyle" TargetType="GridViewItem">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,0,12,14"/>
+            <Setter Property="MinWidth" Value="0"/>
+        </Style>
         <DataTemplate x:Key="PersonFilmTemplate" x:DataType="api:MovieSimple">
             <controls:MovieCard Movie="{x:Bind}" />
         </DataTemplate>
