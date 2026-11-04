@@ -41,6 +41,7 @@ public sealed partial class DetailsPage : Page
             try { Log.Info("[Details] Loaded"); } catch { }
             UpdateAdaptiveLayout();
         };
+        ActualThemeChanged += (_, _) => DispatcherQueue.TryEnqueue(RefreshPresentation);
         SizeChanged += (_, _) => UpdateAdaptiveLayout();
     }
 
@@ -318,7 +319,8 @@ public sealed partial class DetailsPage : Page
         DescriptionText.TextTrimming = TextTrimming.CharacterEllipsis;
         DescriptionPanel.Visibility = string.IsNullOrWhiteSpace(DescriptionText.Text)
             ? Visibility.Collapsed : Visibility.Visible;
-        DescriptionExpandButton.Visibility = DescriptionText.Text.Length > 180
+        DescriptionExpandButton.Visibility = DescriptionText.Text.Length >
+            (ActualWidth < 440 ? 85 : ActualWidth < 740 ? 135 : 180)
             ? Visibility.Visible : Visibility.Collapsed;
         DescriptionExpandButton.Content = Loc.Get("Details.ShowMore");
         RefreshPresentation();
@@ -672,7 +674,7 @@ public sealed partial class DetailsPage : Page
     private Border Chip(string text, MetadataTone tone)
     {
         var (background, foreground) = BadgeBrushes(tone);
-        return new Border
+        var badge = new Border
         {
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(10, 6, 10, 6),
@@ -688,9 +690,11 @@ public sealed partial class DetailsPage : Page
                 VerticalAlignment = VerticalAlignment.Center
             }
         };
+        ToolTipService.SetToolTip(badge, text);
+        return badge;
     }
 
-    private void AddMetaRow(string label, UIElement value)
+    private void AddMetaRow(string label, FrameworkElement value)
     {
         var grid = new Grid { ColumnSpacing = 12 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(MetaLabelWidth) });
@@ -701,7 +705,7 @@ public sealed partial class DetailsPage : Page
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             FontSize = 12,
             VerticalAlignment = VerticalAlignment.Center,
-            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
+            Foreground = IsLightTheme ? Brush(91, 96, 104) : Brush(191, 194, 199)
         });
         Grid.SetColumn(value, 1);
         grid.Children.Add(value);
@@ -733,8 +737,10 @@ public sealed partial class DetailsPage : Page
                 line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
                 used = 0;
             }
-            line.Children.Add(Chip(name, tone));
-            used += (used > 0 ? 6 : 0) + estimated;
+            var badge = Chip(name, tone);
+            badge.MaxWidth = Math.Max(124, Math.Min(220, available));
+            line.Children.Add(badge);
+            used += (used > 0 ? 6 : 0) + Math.Min(estimated, badge.MaxWidth);
         }
         if (line.Children.Count > 0) stack.Children.Add(line);
         return stack;
@@ -792,7 +798,16 @@ public sealed partial class DetailsPage : Page
 
     private void UpdateAgeBadgeStyle()
     {
-        var (background, foreground) = BadgeBrushes(MetadataTone.Age);
+        var age = AgeRatingText.Text;
+        var prefix = new string(age.TakeWhile(char.IsDigit).ToArray());
+        var tone = int.TryParse(prefix, out var number) ? number switch
+        {
+            <= 6 => MetadataTone.TimeShort,
+            <= 12 => MetadataTone.GenreBlue,
+            <= 16 => MetadataTone.TimeMedium,
+            _ => MetadataTone.Age
+        } : MetadataTone.Neutral;
+        var (background, foreground) = BadgeBrushes(tone);
         AgeRatingBorder.Background = background;
         AgeRatingText.Foreground = foreground;
     }
@@ -1052,7 +1067,7 @@ public sealed partial class DetailsPage : Page
             var more = new Microsoft.UI.Xaml.Documents.Hyperlink();
             more.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
             {
-                Text = "+" + (persons.Count - visible) + " " + Loc.Get("Details.ShowMore")
+                Text = "+" + (persons.Count - visible) + " " + Loc.Get("Details.MorePeople")
             });
             more.Click += (_, _) => { _peopleExpanded = true; if (_details != null) BuildMeta(_details); };
             text.Inlines.Add(more);
@@ -1197,6 +1212,8 @@ public sealed partial class DetailsPage : Page
     {
         var hasSeasons = _seasons is { Count: > 0 };
         SeasonsPanel.Visibility = hasSeasons ? Visibility.Visible : Visibility.Collapsed;
+        PlaybackChoiceBorder.Visibility = hasSeasons || VoicesPanel.Visibility == Visibility.Visible
+            ? Visibility.Visible : Visibility.Collapsed;
         EpisodesPanel.Visibility = hasSeasons && _season?.Episodes.Count > 0
             ? Visibility.Visible : Visibility.Collapsed;
         ArrangeSelectionControls();

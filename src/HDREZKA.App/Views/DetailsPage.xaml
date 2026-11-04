@@ -126,7 +126,7 @@
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Row="2" CornerRadius="12" Padding="16"
+                <Border x:Name="PlaybackChoiceBorder" Grid.Row="2" CornerRadius="12" Padding="16"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
                     <StackPanel x:Name="PlaybackChoicePanel" Spacing="14">
