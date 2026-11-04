@@ -16,7 +16,7 @@
     </Page.Resources>
 
     <Grid>
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" VerticalScrollMode="Auto">
             <Grid x:Name="MainPanel" Padding="36,16,36,24" RowSpacing="16">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -186,8 +186,8 @@
                                               MinWidth="185" MaxWidth="330" MaxDropDownHeight="380"
                                               SelectionChanged="VoiceBox_SelectionChanged"/>
                                     <Button x:Name="InlineWatchButton" Click="WatchButton_Click"
-                                            Width="40" Height="40" Padding="0" MinWidth="0" MinHeight="0"
-                                            VerticalAlignment="Center" Style="{ThemeResource AccentButtonStyle}">
+                                            Width="32" Height="32" Padding="0" MinWidth="0" MinHeight="0"
+                                            CornerRadius="8" VerticalAlignment="Center" Style="{ThemeResource AccentButtonStyle}">
                                         <FontIcon Glyph="&#xE768;" FontSize="16"/>
                                     </Button>
                                 </StackPanel>
@@ -247,9 +247,51 @@
                 </StackPanel>
 
                 </Border>
-                <StackPanel x:Name="CommentsSection" Grid.Row="4" Spacing="10" Margin="0,20,0,0" Visibility="Collapsed">                    <ToggleButton x:Name="CommentsToggle" Click="CommentsToggle_Click">
+                <Border x:Name="WatchAlsoPanel" Grid.Row="4" Visibility="Collapsed"
+                        CornerRadius="12" Padding="16" Margin="0,10,0,0"
+                        SizeChanged="WatchAlsoPanel_SizeChanged"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                    <Grid RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="WatchAlsoHeader" Style="{StaticResource RowHeaderText}"
+                                       VerticalAlignment="Center" TextWrapping="Wrap"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
+                                        VerticalAlignment="Center">
+                                <Button x:Name="WatchAlsoPreviousButton" Click="WatchAlsoPreviousButton_Click"
+                                        Background="Transparent" BorderThickness="0"
+                                        Width="32" Height="32" MinWidth="0" MinHeight="0"
+                                        Padding="0" Opacity="0.65">
+                                    <FontIcon Glyph="&#xE76B;" FontSize="15"/>
+                                </Button>
+                                <TextBlock x:Name="WatchAlsoPageText" FontSize="12" Opacity="0.7"
+                                           MinWidth="40" TextAlignment="Center" VerticalAlignment="Center"/>
+                                <Button x:Name="WatchAlsoNextButton" Click="WatchAlsoNextButton_Click"
+                                        Background="Transparent" BorderThickness="0"
+                                        Width="32" Height="32" MinWidth="0" MinHeight="0"
+                                        Padding="0" Opacity="0.65">
+                                    <FontIcon Glyph="&#xE76C;" FontSize="15"/>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+                        <!-- Only the current page of 1–3 cards is rendered.
+                             No nested scrollbar and no offscreen image loading. -->
+                        <Grid x:Name="WatchAlsoCards" Grid.Row="1" ColumnSpacing="12"/>
+                    </Grid>
+                </Border>
+                <StackPanel x:Name="CommentsSection" Grid.Row="5" Spacing="10" Margin="0,14,0,0" Visibility="Collapsed">
+                    <ToggleButton x:Name="CommentsToggle" Click="CommentsToggle_Click"
+                                  HorizontalAlignment="Center" MinHeight="42" Padding="18,9">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE90A;" FontSize="16"/>
+                            <FontIcon Glyph="&#xE90A;" FontSize="18"/>
                             <TextBlock x:Name="CommentsToggleText"/>
                         </StackPanel>
                     </ToggleButton>
@@ -268,32 +310,6 @@
                     </StackPanel>
                 </StackPanel>
 
-                <StackPanel x:Name="WatchAlsoPanel" Grid.Row="5" Spacing="0" Margin="0,20,0,0" Visibility="Collapsed">
-                    <TextBlock x:Name="WatchAlsoHeader" Style="{StaticResource RowHeaderText}"/>
-                    <ListView x:Name="WatchAlsoGrid" SelectionMode="None" IsItemClickEnabled="False"
-                              ItemTemplate="{StaticResource WatchAlsoTemplate}"
-                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                              ScrollViewer.HorizontalScrollMode="Enabled"
-                              ScrollViewer.VerticalScrollMode="Disabled"
-                              ScrollViewer.VerticalScrollBarVisibility="Disabled">
-                        <ListView.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <ItemsStackPanel Orientation="Horizontal"/>
-                            </ItemsPanelTemplate>
-                        </ListView.ItemsPanel>
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="Padding" Value="0"/>
-                                <Setter Property="Margin" Value="0,0,12,16"/>
-                                <Setter Property="MinWidth" Value="0"/>
-                                <Setter Property="MinHeight" Value="0"/>
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                <Setter Property="VerticalContentAlignment" Value="Top"/>
-                                <Setter Property="IsTabStop" Value="False"/>
-                            </Style>
-                        </ListView.ItemContainerStyle>
-                    </ListView>
-                </StackPanel>
             </Grid>
         </ScrollViewer>
 
