@@ -203,6 +203,19 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("SemanticPreviewGenreTone", details)
         self.assertIn("SemanticHomeGenreIndex", contents("HomePage.xaml.cs"))
 
+    def test_sidebar_button_has_one_xaml_content_element(self):
+        root = ET.fromstring(contents("../MainWindow.xaml"))
+        for element in root.iter():
+            if element.attrib.get(XAML_NAME) != "AppPaneButton":
+                continue
+            children = list(element)
+            self.assertEqual(len(children), 1,
+                             "WinUI Button.Content accepts exactly one child")
+            self.assertTrue(children[0].tag.endswith("Grid"))
+            self.assertEqual(len(children[0]), 2)
+            return
+        self.fail("AppPaneButton not found")
+
     def test_sidebar_glyph_changes_on_toggle(self):
         markup = contents("../MainWindow.xaml")
         code = contents("../MainWindow.xaml.cs")
