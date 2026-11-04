@@ -679,7 +679,7 @@ public sealed partial class HomePage : Page
             if (_hoverCache.TryGetValue(movie.Id, out var cached))
             {
                 FillHomePreview(cached);
-                card.SetRatingFromDetails(cached.SiteRating?.Value);
+
                 PositionHomePreview(card);
                 return;
             }
@@ -691,7 +691,7 @@ public sealed partial class HomePage : Page
                 _hoverCache.Remove(_hoverCache.Keys.First());
             _hoverCache[movie.Id] = details;
             FillHomePreview(details);
-            card.SetRatingFromDetails(details.SiteRating?.Value);
+
             PositionHomePreview(card);
         }
         catch (OperationCanceledException) { }
