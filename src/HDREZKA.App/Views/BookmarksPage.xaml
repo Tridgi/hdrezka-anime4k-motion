@@ -29,9 +29,9 @@
             <StackPanel x:Name="CategoriesPanel" Orientation="Horizontal" Spacing="8"/>
         </ScrollViewer>
 
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Hidden">
             <StackPanel>
-                <GridView x:Name="ItemsGrid" SelectionMode="None">
+                <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="ItemsGrid" SelectionMode="None">
                     <GridView.ItemsPanel>
                         <ItemsPanelTemplate>
                             <ItemsWrapGrid Orientation="Horizontal"/>
