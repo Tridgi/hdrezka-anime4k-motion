@@ -726,6 +726,21 @@ public sealed partial class DetailsPage : Page
     private (Microsoft.UI.Xaml.Media.SolidColorBrush Bg, Microsoft.UI.Xaml.Media.SolidColorBrush Fg)
         BadgeBrushes(MetadataTone tone)
     {
+        if (IsColorful && SettingsService.Instance.Theme == AppTheme.Manual &&
+            tone is MetadataTone.People or MetadataTone.Rating)
+        {
+            // The manually selected pair gives a coherent tint to the page's
+            // major badges while leaving genre and age semantics intact.
+            var accent = tone == MetadataTone.Rating
+                ? ThemeHelper.AccentBrush.Color : ThemeHelper.CompanionBrush.Color;
+            var surface = IsLightTheme
+                ? Windows.UI.Color.FromArgb(255, 249, 249, 251)
+                : Windows.UI.Color.FromArgb(255, 37, 38, 41);
+            var blend = IsLightTheme ? 0.16 : 0.28;
+            byte Mix(byte x, byte y) => (byte)Math.Clamp(Math.Round(x * blend + y * (1 - blend)), 0, 255);
+            return (Brush(Mix(accent.R, surface.R), Mix(accent.G, surface.G), Mix(accent.B, surface.B)),
+                IsLightTheme ? Brush(35, 38, 44) : Brush(242, 244, 248));
+        }
         if (!IsColorful)
             return IsLightTheme
                 ? (Brush(238, 239, 241), Brush(42, 43, 45))
