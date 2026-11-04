@@ -54,18 +54,27 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Border x:Name="HeroPosterBorder" Width="200" Height="300"
-                                CornerRadius="13" Background="#272C33"
-                                VerticalAlignment="Center">
-                            <Border.Clip>
-                                <RectangleGeometry x:Name="HeroPosterClip" Rect="0,0,200,300"/>
-                            </Border.Clip>
-                            <Image x:Name="HeroPoster" Stretch="UniformToFill"/>
-                        </Border>
+                        <!-- Oversized rank behind the poster: Netflix-style
+                             Top 5 number replaces the small kicker caption. -->
+                        <Grid x:Name="HeroArtwork" Width="310" Height="320"
+                              VerticalAlignment="Center">
+                            <TextBlock x:Name="HeroRankNumber" Text="1"
+                                       FontFamily="Arial Black" FontSize="245"
+                                       FontWeight="Black" Foreground="#8695A8"
+                                       Opacity="0.58" TextWrapping="NoWrap"
+                                       VerticalAlignment="Bottom" HorizontalAlignment="Left"
+                                       Margin="-12,0,0,-31"/>
+                            <Border x:Name="HeroPosterBorder" Width="200" Height="300"
+                                    CornerRadius="13" Background="#272C33"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Border.Clip>
+                                    <RectangleGeometry x:Name="HeroPosterClip" Rect="0,0,200,300"/>
+                                </Border.Clip>
+                                <Image x:Name="HeroPoster" Stretch="UniformToFill"/>
+                            </Border>
+                        </Grid>
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="9"
                                     MaxWidth="700">
-                            <TextBlock x:Name="HeroKicker" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="#FFCF69"/>
                             <TextBlock x:Name="HeroTitle" FontSize="31" FontWeight="Bold"
                                        Foreground="White" TextWrapping="Wrap"
                                        MaxLines="2" TextTrimming="CharacterEllipsis"/>
