@@ -1733,6 +1733,11 @@ public sealed partial class DetailsPage : Page
             AddMetaRow(Loc.Get("Details.Collections"),
                 WrapNavigationChips(collectionLinks, link => Nav.Go<CollectionsPage>(
                     new CollectionLaunch(link.Id, link.Name))), alignLabelTop: true);
+        if (details.SourceSeries is { Count: > 0 } sourceSeries)
+            AddMetaRow(Loc.Get("Details.FromSeries"),
+                WrapNavigationChips(sourceSeries, link => Nav.Go<CollectionsPage>(
+                    new CollectionLaunch(link.Id, link.Name, link.Id))),
+                alignLabelTop: true);
         if (details.Year != null)
             AddMetaRow(Loc.Get("Details.Year"), WrapChips([(details.Year, MetadataTone.Neutral)]));
         if (details.Slogan is { Length: > 0 })
