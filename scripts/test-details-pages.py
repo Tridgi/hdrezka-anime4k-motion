@@ -64,9 +64,37 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
     def test_recommendation_tooltip_uses_lazy_data(self):
         card = contents("../Controls/MovieCard.xaml.cs")
         self.assertIn("RecommendationPreviewProperty", card)
-        self.assertIn("Task.Delay(550, cts.Token)", card)
+        self.assertIn("FlyoutPlacementMode.Auto", card)
+        self.assertIn("Task.Delay(180, cts.Token)", card)
+        self.assertIn("Task.Delay(120, cts.Token)", card)
+        self.assertNotIn("ToolTipService.SetToolTip(CardButton", card)
         self.assertIn("PreviewCache.Count >= 18", card)
         self.assertIn("GetDetailsAsync(movie.Id, cts.Token)", card)
+
+    def test_inline_schedule_has_no_scroll_dialog(self):
+        markup = contents("DetailsPage.xaml")
+        code = contents("DetailsPage.xaml.cs")
+        self.assertIn('x:Name="ScheduleCountText"', markup)
+        self.assertIn('x:Name="ScheduleList"', markup)
+        self.assertIn("private void ScheduleMoreButton_Click", code)
+        handler = code.split("private void ScheduleMoreButton_Click", 1)[1]
+        handler = handler.split("private async void VoicesRatingButton_Click", 1)[0]
+        self.assertIn("_scheduleExpanded = !_scheduleExpanded", handler)
+        self.assertNotIn("new ContentDialog", handler)
+        self.assertNotIn("new ScrollViewer", handler)
+
+    def test_comment_sort_editor_and_thread_preservation(self):
+        markup = contents("DetailsPage.xaml")
+        code = contents("DetailsPage.xaml.cs")
+        for name in ("CommentsSortBox", "CommentInput", "CommentSendButton",
+                     "CommentReplyRow", "CommentCharCount", "CommentStatusText"):
+            self.assertIn('x:Name="' + name + '"', markup)
+        self.assertIn('AcceptsReturn="True"', markup)
+        self.assertIn("CommentsSortBox_SelectionChanged", code)
+        self.assertIn("ThenBy(x => x.index)", code)
+        self.assertIn("comment.Replies", code)
+        self.assertIn("UpdateCommentComposer()", code)
+        self.assertIn("CommentInput.SelectedText = emoji;", code)
 
     def test_notifications_preferences_only_on_notifications_page(self):
         settings = contents("SettingsPage.xaml")
