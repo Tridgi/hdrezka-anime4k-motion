@@ -234,14 +234,23 @@ public sealed partial class AppearancePage : Page
                 HorizontalAlignment = HorizontalAlignment.Center,
                 Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
             };
-            var tile = new Grid { MinHeight = 64 };
+            var tile = new Grid { MinHeight = 64, HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch };
             tile.Children.Add(new Border { Background = halves, CornerRadius = new CornerRadius(10) });
             tile.Children.Add(new Border
             {
                 Background = new SolidColorBrush(Windows.UI.Color.FromArgb(66, 0, 0, 0)),
                 CornerRadius = new CornerRadius(10)
             });
-            tile.Children.Add(label);
+            tile.Children.Add(new Border
+            {
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(108, 0, 0, 0)),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12, 6, 12, 6),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Child = label
+            });
             if (selected)
             {
                 var marker = new Border
@@ -271,6 +280,8 @@ public sealed partial class AppearancePage : Page
                 BorderBrush = ThemeHelper.AccentTextBrush,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                VerticalContentAlignment = VerticalAlignment.Stretch,
             };
             button.Click += AccentScheme_Click;
             ToolTipService.SetToolTip(button, scheme.Name + ": " + scheme.Primary + " / " + scheme.Companion);
