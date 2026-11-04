@@ -1224,7 +1224,7 @@ public sealed partial class DetailsPage : Page
             HorizontalScrollMode = ScrollMode.Disabled,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
             VerticalScrollMode = ScrollMode.Auto,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden
         };
         await window.ShowCenteredModalAsync(Loc.Get("Details.Ratings"), scroll);
     }
