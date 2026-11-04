@@ -27,8 +27,8 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
                      if XAML_NAME in node.attrib]
             self.assertEqual(len(names), len(set(names)), name)
             for handler in re.findall(
-                    r'\\b(?:Click|SizeChanged|Toggled|SelectionChanged|ItemClick)'
-                    r'="([A-Za-z_]\\w*)"', markup):
+                    r'\b(?:Click|SizeChanged|Toggled|SelectionChanged|ItemClick)'
+                    r'="([A-Za-z_]\w*)"', markup):
                 self.assertIn(handler + "(", code, (name, handler))
 
     def test_recommendations_are_paged_and_not_mutated_in_layout(self):
