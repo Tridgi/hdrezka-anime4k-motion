@@ -238,37 +238,21 @@
                         CornerRadius="12" Padding="16"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
-                <StackPanel x:Name="SchedulePanel" Spacing="12">
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="ScheduleHeader" Style="{StaticResource SectionHeader}"
-                                   VerticalAlignment="Center"/>
-                        <Border Grid.Column="1" CornerRadius="9" Padding="9,5"
-                                Background="{ThemeResource SubtleFillColorSecondaryBrush}">
-                            <TextBlock x:Name="ScheduleCountText" FontSize="12"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        </Border>
-                    </Grid>
+                <StackPanel x:Name="SchedulePanel" Spacing="8">
+                    <TextBlock x:Name="ScheduleHeader" Style="{StaticResource SectionHeader}"/>
                     <Border x:Name="ScheduleCountdownBadge"
                             Background="{ThemeResource AccentFillColorDefaultBrush}"
-                            CornerRadius="9" Padding="12,8" HorizontalAlignment="Left"
+                            CornerRadius="9" Padding="12,7" HorizontalAlignment="Left"
                             Visibility="Collapsed">
                         <TextBlock x:Name="ScheduleCountdownText" Foreground="White"
                                    TextWrapping="Wrap"/>
                     </Border>
-                    <TextBlock x:Name="ScheduleGroupText" FontWeight="SemiBold"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               TextWrapping="Wrap"/>
-                    <!-- Expanding keeps rows in the page, with no nested ScrollViewer. -->
-                    <StackPanel x:Name="ScheduleList" Spacing="8"/>
+                    <TextBlock x:Name="ScheduleGroupText"
+                               FontWeight="SemiBold" FontSize="12" TextWrapping="Wrap"/>
+                    <StackPanel x:Name="ScheduleList" Spacing="0"/>
                     <Button x:Name="ScheduleMoreButton" Click="ScheduleMoreButton_Click"
-                            Visibility="Collapsed" HorizontalAlignment="Center"
-                            MinHeight="38" Padding="16,8"
-                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                            BorderThickness="0"/>
+                            Visibility="Collapsed" HorizontalAlignment="Left"
+                            Padding="10,6" Background="Transparent" BorderThickness="0"/>
                 </StackPanel>
                 </Border>
                 <Border x:Name="WatchAlsoPanel" Grid.Row="4" Visibility="Collapsed"
