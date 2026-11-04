@@ -281,13 +281,13 @@ public static class Parsers
                             break;
                         case "Изсерии":
                         case "Входитвсписки":
-                            foreach (var a in valueEl.QuerySelectorAll("a[href]"))
+                            foreach (var seriesAnchor in valueEl.QuerySelectorAll("a[href]"))
                             {
-                                var path = CleanPath(a.GetAttribute("href"));
+                                var path = CleanPath(seriesAnchor.GetAttribute("href"));
                                 if (path == null || !System.Text.RegularExpressions.Regex.IsMatch(
                                     path, @"^(films|series|animation|cartoons|show)/(best|popular|year|genre|country|new)/[a-z0-9_-]+(?:/[a-z0-9_-]+)?$",
                                     System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
-                                var title = Text(a);
+                                var title = Text(seriesAnchor);
                                 if (title.Length > 0 &&
                                     !sourceSeries.Any(x => x.Id.Equals(path,
                                         StringComparison.OrdinalIgnoreCase)))
