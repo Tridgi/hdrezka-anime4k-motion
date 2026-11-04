@@ -39,10 +39,34 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn('ScrollViewer.HorizontalScrollMode="Disabled"', markup)
         self.assertIn('QueueWatchAlsoLayout()', code)
         self.assertIn('WatchAlsoGrid.ItemsSource = visible;', code)
-        self.assertIn('pageSize = available >= 590 ? 3', code)
+        self.assertIn('pageSize = contentWidth >= 780 ? 5', code)
+        self.assertIn('x:Name="WatchAlsoPreviousButton" Grid.Column="0"', markup)
+        self.assertIn('x:Name="WatchAlsoNextButton" Grid.Column="2"', markup)
+        self.assertIn('RecommendationPreview="True"', markup)
         self.assertNotIn("WatchAlsoCards.Children.Clear()", code)
         self.assertNotIn("WatchAlsoCards.ColumnDefinitions.Clear()", code)
         self.assertIn('Log.Error("[Details] Render failed', code)
+
+    def test_episode_right_click_does_not_recreate_focused_buttons(self):
+        code = contents("DetailsPage.xaml.cs")
+        handler = code.split("private void EpisodeButton_RightTapped", 1)[1]
+        handler = handler.split("private void EpisodeButton_Click", 1)[0]
+        self.assertNotIn("RenderEpisodes()", handler)
+        self.assertIn("button.Content = nowWatched", handler)
+        self.assertIn("DetailsScrollViewer.VerticalOffset", handler)
+
+    def test_japan_badge_is_white_and_cast_heading_is_top_aligned(self):
+        code = contents("DetailsPage.xaml.cs")
+        self.assertIn('flag == "🇯🇵" ? Brush(33, 37, 44)', code)
+        self.assertIn('Windows.UI.Color.FromArgb(255, 247, 247, 249)', code)
+        self.assertIn('AddMetaRow(label, wrap, alignLabelTop: isCast)', code)
+
+    def test_recommendation_tooltip_uses_lazy_data(self):
+        card = contents("../Controls/MovieCard.xaml.cs")
+        self.assertIn("RecommendationPreviewProperty", card)
+        self.assertIn("Task.Delay(550, cts.Token)", card)
+        self.assertIn("PreviewCache.Count >= 18", card)
+        self.assertIn("GetDetailsAsync(movie.Id, cts.Token)", card)
 
     def test_notifications_preferences_only_on_notifications_page(self):
         settings = contents("SettingsPage.xaml")
