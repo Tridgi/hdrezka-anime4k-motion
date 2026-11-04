@@ -27,7 +27,7 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
                      if XAML_NAME in node.attrib]
             self.assertEqual(len(names), len(set(names)), name)
             for handler in re.findall(
-                    r'\b(?:Click|SizeChanged|Toggled|SelectionChanged|ItemClick)'
+                    r'\b(?:Click|SizeChanged|Toggled|SelectionChanged|ItemClick|ViewChanged|RecommendationHoverChanged)'
                     r'="([A-Za-z_]\w*)"', markup):
                 self.assertIn(handler + "(", code, (name, handler))
 
@@ -61,27 +61,32 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn('Windows.UI.Color.FromArgb(255, 247, 247, 249)', code)
         self.assertIn('AddMetaRow(label, wrap, alignLabelTop: isCast)', code)
 
-    def test_recommendation_tooltip_uses_lazy_data(self):
+    def test_hover_is_page_owned_and_clamped_to_viewport(self):
+        markup = contents("DetailsPage.xaml")
+        details = contents("DetailsPage.xaml.cs")
         card = contents("../Controls/MovieCard.xaml.cs")
-        self.assertIn("RecommendationPreviewProperty", card)
-        self.assertIn("FlyoutPlacementMode.Auto", card)
-        self.assertIn("Task.Delay(180, cts.Token)", card)
-        self.assertIn("Task.Delay(120, cts.Token)", card)
-        self.assertNotIn("ToolTipService.SetToolTip(CardButton", card)
-        self.assertIn("PreviewCache.Count >= 18", card)
-        self.assertIn("GetDetailsAsync(movie.Id, cts.Token)", card)
+        self.assertIn('x:Name="PreviewLayer"', markup)
+        self.assertIn('IsHitTestVisible="False"', markup)
+        self.assertIn('x:Name="RecommendationPreviewOverlay"', markup)
+        self.assertIn('RecommendationHoverChanged="RecommendationCard_HoverChanged"', markup)
+        self.assertIn("RecommendationHoverChanged?.Invoke(", card)
+        self.assertIn("PositionRecommendationPreview(MovieCard card)", details)
+        self.assertIn("Canvas.SetLeft(overlay, x)", details)
+        self.assertIn("Task.Delay(145, ct)", details)
+        self.assertIn("GetDetailsAsync(", details)
+        self.assertNotIn("FlyoutPlacementMode.Auto", card)
 
-    def test_inline_schedule_has_no_scroll_dialog(self):
+    def test_compact_schedule_and_full_modal_without_visible_scrollbar(self):
         markup = contents("DetailsPage.xaml")
         code = contents("DetailsPage.xaml.cs")
-        self.assertIn('x:Name="ScheduleCountText"', markup)
         self.assertIn('x:Name="ScheduleList"', markup)
-        self.assertIn("private void ScheduleMoreButton_Click", code)
-        handler = code.split("private void ScheduleMoreButton_Click", 1)[1]
+        self.assertNotIn('x:Name="ScheduleCountText"', markup)
+        self.assertIn("Take(5)", code)
+        handler = code.split("private async void ScheduleMoreButton_Click", 1)[1]
         handler = handler.split("private async void VoicesRatingButton_Click", 1)[0]
-        self.assertIn("_scheduleExpanded = !_scheduleExpanded", handler)
-        self.assertNotIn("new ContentDialog", handler)
-        self.assertNotIn("new ScrollViewer", handler)
+        self.assertIn("ShowCenteredModalAsync", handler)
+        self.assertIn("VerticalScrollBarVisibility = ScrollBarVisibility.Hidden", handler)
+        self.assertNotIn("_scheduleExpanded = !_scheduleExpanded", handler)
 
     def test_comment_sort_editor_and_thread_preservation(self):
         markup = contents("DetailsPage.xaml")
@@ -95,6 +100,9 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("comment.Replies", code)
         self.assertIn("UpdateCommentComposer()", code)
         self.assertIn("CommentInput.SelectedText = emoji;", code)
+        self.assertIn("CommentOpenSiteButton_Click", code)
+        self.assertIn('x:Name="CommentOpenSiteButton"', markup)
+        self.assertIn("ex.Kind == RezkaError.Site ? ex.Message", code)
 
     def test_notifications_preferences_only_on_notifications_page(self):
         settings = contents("SettingsPage.xaml")
