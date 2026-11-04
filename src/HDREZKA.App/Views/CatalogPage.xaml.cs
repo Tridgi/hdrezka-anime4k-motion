@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml.Navigation;
 namespace HDREZKA.App.Views;
 
 public sealed record CatalogLaunch(Section Section, ListFilter Filter);
+public sealed record CatalogGenreLaunch(MovieGenre Genre);
 
 public sealed partial class CatalogPage : Page
 {
@@ -27,6 +28,8 @@ public sealed partial class CatalogPage : Page
     private Section _section = Section.Films;
     private ListFilter _filter = ListFilter.Latest;
     private int _page = 1;
+    private string? _genrePath;
+    private string? _genreName;
     private bool _hasMore = true;
     private bool _loading;
     private bool _mirrorRecovered;
@@ -47,8 +50,18 @@ public sealed partial class CatalogPage : Page
         ApplyLocalization();
         LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
 
-        if (e.Parameter is CatalogLaunch launch)
+        if (e.Parameter is CatalogGenreLaunch genre)
         {
+            _genrePath = genre.Genre.Id;
+            _genreName = genre.Genre.Name;
+            _page = 1;
+            _items.Clear();
+            ItemsGrid.ItemsSource = null;
+        }
+        else if (e.Parameter is CatalogLaunch launch)
+        {
+            _genrePath = null;
+            _genreName = null;
             _section = launch.Section;
             _filter = launch.Filter;
             // Fresh target state: drop stale items so the new section loads.
@@ -74,6 +87,7 @@ public sealed partial class CatalogPage : Page
 
         MarkSection(_section);
         BuildFilters();
+        UpdateGenreFilter();
         if (_items.Count == 0)
         {
             Reload();
@@ -100,6 +114,8 @@ public sealed partial class CatalogPage : Page
     private void ApplyLocalization()
     {
         TitleText.Text = Loc.Get("Catalog.Title");
+        ClearGenreButton.Content = Loc.Get("Catalog.ClearGenre");
+        UpdateGenreFilter();
         CatalogPreviewHeader.Text = Loc.Get("Details.AboutMovie");
         MoreButton.Content = Loc.Get("Common.LoadMore");
         RetryButton.Content = Loc.Get("Common.Retry");
@@ -148,12 +164,31 @@ public sealed partial class CatalogPage : Page
         FilterBox.SelectionChanged += FilterBox_SelectionChanged;
     }
 
+    private void UpdateGenreFilter()
+    {
+        if (GenreFilterPanel == null) return;
+        GenreFilterPanel.Visibility = string.IsNullOrWhiteSpace(_genrePath)
+            ? Visibility.Collapsed : Visibility.Visible;
+        GenreFilterText.Text = Loc.Get("Catalog.GenreSelected") + " " + (_genreName ?? "");
+    }
+
+    private void ClearGenreButton_Click(object sender, RoutedEventArgs e)
+    {
+        _genreName = null;
+        _genrePath = null;
+        UpdateGenreFilter();
+        Reload();
+    }
+
     private void SectionButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not ToggleButton button || button.Tag is not string tag) return;
         if (!Enum.TryParse<Section>(tag, out var section) || section == _section) return;
 
         _section = section;
+        _genrePath = null;
+        _genreName = null;
+        UpdateGenreFilter();
         MarkSection(section);
         Reload();
     }
@@ -188,7 +223,9 @@ public sealed partial class CatalogPage : Page
 
         try
         {
-            var (_, items) = await RezkaService.Instance.Client.GetSectionListAsync(_section, _filter, 0, _page);
+            var (_, items) = _genrePath is { Length: > 0 } genre
+                ? await RezkaService.Instance.Client.GetGenreListAsync(genre, _page)
+                : await RezkaService.Instance.Client.GetSectionListAsync(_section, _filter, 0, _page);
             _items.AddRange(items);
             ItemsGrid.ItemsSource = _items.ToList();
             _hasMore = items.Count > 0;
