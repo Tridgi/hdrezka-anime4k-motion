@@ -124,19 +124,6 @@
                 </StackPanel>
             </Expander>
 
-            <Expander x:Name="SeriesExpander" IsExpanded="False"
-                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                <Expander.Header>
-                    <TextBlock x:Name="SeriesHeader" Style="{StaticResource SectionHeader}"/>
-                </Expander.Header>
-                <StackPanel Spacing="4">
-                    <ToggleSwitch x:Name="SeriesToggle" Toggled="SeriesToggle_Toggled"/>
-                    <TextBlock x:Name="SeriesHint" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxWidth="640"/>
-                    <TextBlock x:Name="SeriesStatusText" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxWidth="640"/>
-                    <Button x:Name="CheckSeriesButton" Click="CheckSeriesButton_Click" Margin="0,8,0,0" HorizontalAlignment="Left"/>
-                </StackPanel>
-            </Expander>
-
             <Expander x:Name="UpdateExpander" IsExpanded="False"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <Expander.Header>
