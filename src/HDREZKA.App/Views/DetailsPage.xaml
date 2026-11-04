@@ -14,13 +14,15 @@
             <!-- WinUI owns the visuals: never manually create/remove MovieCard
                  from a SizeChanged event, which can destabilize layout. -->
             <Viewbox Stretch="Uniform" StretchDirection="Both" HorizontalAlignment="Stretch">
-                <controls:MovieCard Movie="{x:Bind}" RecommendationPreview="True"/>
+                <controls:MovieCard Movie="{x:Bind}" RecommendationPreview="True"
+                                    RecommendationHoverChanged="RecommendationCard_HoverChanged"/>
             </Viewbox>
         </DataTemplate>
     </Page.Resources>
 
     <Grid>
-        <ScrollViewer x:Name="DetailsScrollViewer" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" VerticalScrollMode="Auto">
+        <ScrollViewer x:Name="DetailsScrollViewer" ViewChanged="DetailsScrollViewer_ViewChanged"
+                      VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" VerticalScrollMode="Auto">
             <Grid x:Name="MainPanel" Padding="36,16,36,24" RowSpacing="16">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -443,5 +445,53 @@
             <TextBlock x:Name="ErrorText" HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center"/>
             <Button x:Name="RetryButton" Click="RetryButton_Click" HorizontalAlignment="Center" Style="{ThemeResource AccentButtonStyle}"/>
         </StackPanel>
+
+        <!-- The single preview is a page-level overlay, NOT a ToolTip/Flyout
+             inside the clipped/virtualized ListView. Placement is clamped to
+             PreviewLayer's visible bounds by DetailsPage.xaml.cs. -->
+        <Canvas x:Name="PreviewLayer" Canvas.ZIndex="100" IsHitTestVisible="False"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Border x:Name="RecommendationPreviewOverlay" Width="332"
+                    Visibility="Collapsed" CornerRadius="16"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" Padding="17">
+                <StackPanel Spacing="9">
+                    <StackPanel Spacing="3">
+                        <TextBlock Text="HDREZKA  /  PREVIEW" FontSize="10"
+                                   FontWeight="SemiBold"
+                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                        <Border Height="3" Width="44" CornerRadius="2"
+                                HorizontalAlignment="Left"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}"/>
+                    </StackPanel>
+                    <TextBlock x:Name="PreviewTitle" FontSize="18" FontWeight="Bold"
+                               MaxLines="2" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="PreviewSubtitle" FontSize="12" MaxLines="2"
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <Border HorizontalAlignment="Left" CornerRadius="9"
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                            Padding="10,6">
+                        <TextBlock x:Name="PreviewRating" FontSize="13"
+                                   FontWeight="SemiBold"
+                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                   TextWrapping="Wrap"/>
+                    </Border>
+                    <TextBlock x:Name="PreviewDescription" FontSize="12"
+                               MaxLines="5" TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="PreviewGenres" FontSize="12" MaxLines="2"
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock x:Name="PreviewDirector" FontSize="12" MaxLines="2"
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock x:Name="PreviewCast" FontSize="12" MaxLines="3"
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Border>
+        </Canvas>
     </Grid>
 </Page>
