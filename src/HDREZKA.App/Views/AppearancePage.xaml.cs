@@ -17,7 +17,11 @@ public sealed partial class AppearancePage : Page
     public AppearancePage()
     {
         InitializeComponent();
-        ActualThemeChanged += (_, _) => DispatcherQueue.TryEnqueue(UpdatePreview);
+        ActualThemeChanged += (_, _) => DispatcherQueue.TryEnqueue(() =>
+        {
+            UpdatePreview();
+            UpdatePosterPreview();
+        });
         SizeChanged += (_, _) => UpdateAccentMatrixWidth();
     }
 
@@ -43,11 +47,16 @@ public sealed partial class AppearancePage : Page
 
     private void OnLanguageChanged() => DispatcherQueue.TryEnqueue(ApplyLocalization);
     private void OnPaletteChanged() => DispatcherQueue.TryEnqueue(UpdatePreview);
-    private void OnPosterSizeChanged() => DispatcherQueue.TryEnqueue(SyncPosterSize);
+    private void OnPosterSizeChanged() => DispatcherQueue.TryEnqueue(() =>
+    {
+        SyncPosterSize();
+        UpdatePosterPreview();
+    });
     private void OnAccentChanged() => DispatcherQueue.TryEnqueue(() =>
     {
         UpdateAccentPreview();
         UpdatePreview();
+        UpdatePosterPreview();
     });
 
     private void LoadControls()
@@ -85,6 +94,7 @@ public sealed partial class AppearancePage : Page
         UpdateAccentPreview();
         _initialized = true;
         UpdatePreview();
+        UpdatePosterPreview();
     }
 
     private void ApplyLocalization()
@@ -101,6 +111,10 @@ public sealed partial class AppearancePage : Page
         PaletteHint.Text = Loc.Get("Settings.PaletteHint");
         PosterSizeHeader.Text = Loc.Get("Settings.PosterSize");
         PosterSizeHint.Text = Loc.Get("Appearance.PosterHint");
+        PosterPreviewHeading.Text = Loc.Get("Appearance.PosterPreview");
+        PosterPreviewPlaceholderText.Text = Loc.Get("Appearance.PosterPlaceholder");
+        PosterPreviewFilmTitle.Text = Loc.Get("Appearance.PosterSampleTitle");
+        PosterPreviewFilmInfo.Text = Loc.Get("Appearance.PosterSampleInfo");
         PreviewHeading.Text = Loc.Get("Appearance.Preview");
         ResetAppearanceButton.Content = Loc.Get("Appearance.Reset");
         ResetHint.Text = Loc.Get("Appearance.ResetHint");
@@ -123,6 +137,7 @@ public sealed partial class AppearancePage : Page
             ((ComboBoxItem)PaletteBox.Items[1]).Content = Loc.Get("Settings.PaletteColorful");
         }
         UpdatePreview();
+        UpdatePosterPreview();
     }
 
     private void ThemeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -180,6 +195,32 @@ public sealed partial class AppearancePage : Page
                 }
                 break;
             }
+    }
+
+    /// <summary>
+    /// A lightweight, real-scale poster example: it follows the same
+    /// PosterMetrics used by the catalog. No website requests or images.
+    /// </summary>
+    private void UpdatePosterPreview()
+    {
+        if (PosterPreviewArt == null) return;
+        var width = PosterMetrics.CardWidth;
+        var height = PosterMetrics.CardHeight;
+        PosterPreviewCard.Width = width;
+        PosterPreviewArt.Width = width;
+        PosterPreviewArt.Height = height;
+        PosterPreviewDimensions.Text = Loc.Get("Appearance.PosterDimensions", width, height);
+
+        var primary = ThemeHelper.AccentBrush.Color;
+        var secondary = ThemeHelper.CompanionBrush.Color;
+        var background = new LinearGradientBrush
+        {
+            StartPoint = new Windows.Foundation.Point(0, 0),
+            EndPoint = new Windows.Foundation.Point(1, 1)
+        };
+        background.GradientStops.Add(new GradientStop { Offset = 0, Color = primary });
+        background.GradientStops.Add(new GradientStop { Offset = 1, Color = secondary });
+        PosterPreviewArt.Background = background;
     }
 
     private void UpdateAccentMatrixWidth()
