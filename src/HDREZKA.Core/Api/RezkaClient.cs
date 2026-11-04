@@ -550,6 +550,19 @@ public sealed class RezkaClient : IDisposable
         return result;
     }
 
+    public Task<(string Title, IReadOnlyList<MovieSimple> Items)> GetSourceSeriesListAsync(
+        string sourcePath, int page = 1, CancellationToken ct = default)
+    {
+        // A source "Из серии" entry can be a category/year/best list rather
+        // than a real /collections/ folder. Only permit local browse paths.
+        var path = sourcePath.Trim('/');
+        if (!System.Text.RegularExpressions.Regex.IsMatch(path,
+            @"^(films|series|animation|cartoons|show)/(best|popular|year|genre|country|new)/[a-z0-9_-]+(?:/[a-z0-9_-]+)?$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            throw new ArgumentException("Unsupported source list path", nameof(sourcePath));
+        return GetListAsync(PageUrl(path + "/", page), ct);
+    }
+
     public Task<(string Title, IReadOnlyList<MovieSimple> Items)> GetGenreListAsync(
         string genrePath, int page = 1, CancellationToken ct = default)
     {
