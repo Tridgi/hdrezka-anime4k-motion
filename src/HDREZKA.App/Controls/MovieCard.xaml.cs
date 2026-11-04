@@ -35,9 +35,14 @@ public sealed partial class MovieCard : UserControl
     // recommendation ListView or the poster's Viewbox.
     public event EventHandler<RecommendationHoverEventArgs>? RecommendationHoverChanged;
 
+    private readonly ScaleTransform _hoverScale = new() { ScaleX = 1, ScaleY = 1 };
+    private bool _hovering;
+
     public MovieCard()
     {
         InitializeComponent();
+        CardButton.RenderTransform = _hoverScale;
+        CardButton.RenderTransformOrigin = new Windows.Foundation.Point(.5, .5);
         Loaded += (_, _) =>
         {
             ApplyPosterSize();
@@ -92,8 +97,22 @@ public sealed partial class MovieCard : UserControl
 
         PosterCache.SetSource(PosterImage, Movie.Poster);
 
-        RatingText.Text = Movie.Rating?.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) ?? "";
-        (RatingText.Parent as FrameworkElement)!.Visibility = Movie.Rating != null ? Visibility.Visible : Visibility.Collapsed;
+        RatingBadge.Visibility = Movie.Rating.HasValue ? Visibility.Visible : Visibility.Collapsed;
+        if (Movie.Rating is { } score)
+        {
+            RatingText.Text = "R " + score.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+            // Smooth red -> orange -> green on the 0–10 scale.
+            var t = Math.Clamp(score, 0f, 10f) / 10f;
+            var start = t < .5f
+                ? (r: 218.0, g: 64.0, b: 70.0, endR: 237.0, endG: 148.0, endB: 48.0, w: t * 2)
+                : (r: 237.0, g: 148.0, b: 48.0, endR: 27.0, endG: 155.0, endB: 100.0, w: (t - .5f) * 2);
+            byte Mix(double a, double b, double weight) =>
+                (byte)Math.Clamp(Math.Round(a + (b - a) * weight), 0, 255);
+            RatingBadge.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(239,
+                Mix(start.r, start.endR, start.w),
+                Mix(start.g, start.endG, start.w),
+                Mix(start.b, start.endB, start.w)));
+        }
 
         if (Movie.Info == MediaInfoType.Series && Movie.Season is { } s && Movie.Episode is { } e)
         {
@@ -124,7 +143,8 @@ public sealed partial class MovieCard : UserControl
 
     private void CardButton_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
-        AnimateScale(RecommendationPreview ? 1.025f : 1.05f);
+        _hovering = true;
+        AnimateScale(1.045f);
         AnimateOpacity(HoverOverlay, 1);
         if (RecommendationPreview)
             RecommendationHoverChanged?.Invoke(this,
@@ -133,6 +153,7 @@ public sealed partial class MovieCard : UserControl
 
     private void CardButton_PointerExited(object sender, PointerRoutedEventArgs e)
     {
+        _hovering = false;
         AnimateScale(1.0f);
         AnimateOpacity(HoverOverlay, 0);
         if (RecommendationPreview)
@@ -142,30 +163,24 @@ public sealed partial class MovieCard : UserControl
 
     private void CardButton_PointerPressed(object sender, PointerRoutedEventArgs e) => AnimateScale(0.97f);
 
-    private void CardButton_PointerReleased(object sender, PointerRoutedEventArgs e) => AnimateScale(1.0f);
+    private void CardButton_PointerReleased(object sender, PointerRoutedEventArgs e) => AnimateScale(_hovering ? 1.045f : 1.0f);
 
     private void AnimateScale(float to)
     {
-        var transform = new ScaleTransform
-        {
-            CenterX = OuterGrid.Width / 2,
-            CenterY = PosterGrid.Height / 2,
-        };
-        CardButton.RenderTransform = transform;
         var storyboard = new Storyboard();
         foreach (var property in new[] { "ScaleX", "ScaleY" })
         {
             var animation = new DoubleAnimation
             {
                 To = to,
-                Duration = TimeSpan.FromMilliseconds(140),
+                Duration = TimeSpan.FromMilliseconds(210),
                 EnableDependentAnimation = true,
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
             };
-            Storyboard.SetTarget(animation, transform);
+            Storyboard.SetTarget(animation, _hoverScale);
             Storyboard.SetTargetProperty(animation, property);
             storyboard.Children.Add(animation);
         }
-
         storyboard.Begin();
     }
 
