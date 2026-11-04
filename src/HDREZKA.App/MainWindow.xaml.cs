@@ -3,6 +3,7 @@ using HDREZKA.App.Views;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace HDREZKA.App;
@@ -71,6 +72,10 @@ public sealed partial class MainWindow : Window
         };
         RefreshTitleBarLayout();
         RefreshCaptionButtons();
+        // Catch mouse Back/Forward side buttons even when a nested control
+        // marks PointerPressed as handled. This follows Frame's history.
+        RootGrid.AddHandler(UIElement.PointerPressedEvent,
+            new PointerEventHandler(RootGrid_PointerPressed), true);
         Nav.SetFrame(ContentFrame);
         ContentFrame.Navigated += ContentFrame_Navigated;
         LocalizationService.Instance.LanguageChanged += ApplyLocalization;
@@ -301,6 +306,7 @@ public sealed partial class MainWindow : Window
                 NavBookmarks.Content = Loc.Get("Nav.Bookmarks");
                 NavContinue.Content = Loc.Get("Nav.Continue");
                 NavCollections.Content = Loc.Get("Nav.Collections");
+                NavAppearance.Content = Loc.Get("Nav.Appearance");
                 NavSupport.Content = Loc.Get("Nav.Support");
                 NavUpdates.Content = Loc.Get("Nav.Updates");
                 NavAccount.Content = Loc.Get("Nav.Account");
@@ -365,6 +371,7 @@ private void ContentFrame_Navigated(object sender, NavigationEventArgs e)
                 var t when t == typeof(CatalogPage) => "Catalog",
                 var t when t == typeof(BookmarksPage) => "Bookmarks",
                 var t when t == typeof(SettingsPage) => "Settings",
+                var t when t == typeof(AppearancePage) => "Appearance",
                 var t when t == typeof(SupportPage) => "Support",
                 var t when t == typeof(ContinueWatchingPage) => "Continue",
                 var t when t == typeof(CollectionsPage) => "Collections",
@@ -385,6 +392,7 @@ else
                     "Catalog" => NavCatalog,
                     "Bookmarks" => NavBookmarks,
                     "Settings" => NavSettings,
+                    "Appearance" => NavAppearance,
                     "Support" => NavSupport,
                     "Continue" => NavContinue,
                     "Collections" => NavCollections,
@@ -428,6 +436,9 @@ else
             case "Settings":
                 if (ContentFrame.Content is not SettingsPage) ContentFrame.Navigate(typeof(SettingsPage));
                 break;
+            case "Appearance":
+                if (ContentFrame.Content is not AppearancePage) ContentFrame.Navigate(typeof(AppearancePage));
+                break;
             case "Support":
                 if (ContentFrame.Content is not SupportPage) ContentFrame.Navigate(typeof(SupportPage));
                 break;
@@ -463,6 +474,29 @@ else
     private void GoBack()
     {
         if (ContentFrame.CanGoBack) ContentFrame.GoBack();
+    }
+
+    private void GoForward()
+    {
+        if (ContentFrame.CanGoForward) ContentFrame.GoForward();
+    }
+
+    private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        // XButton1/XButton2 are the two side buttons found on most mice.
+        // The modal owns input while displayed.
+        if (CenteredModalLayer.Visibility == Visibility.Visible) return;
+        var properties = e.GetCurrentPoint(RootGrid).Properties;
+        if (properties.IsXButton1Pressed && ContentFrame.CanGoBack)
+        {
+            GoBack();
+            e.Handled = true;
+        }
+        else if (properties.IsXButton2Pressed && ContentFrame.CanGoForward)
+        {
+            GoForward();
+            e.Handled = true;
+        }
     }
 
     private void AppBackButton_Click(object sender, RoutedEventArgs e) => GoBack();
