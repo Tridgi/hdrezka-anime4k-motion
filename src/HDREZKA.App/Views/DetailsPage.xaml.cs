@@ -779,7 +779,7 @@ public sealed partial class DetailsPage : Page
             if (_recommendationPreviewCache.TryGetValue(movie.Id, out var cached))
             {
                 UpdateRecommendationPreview(cached);
-                card.SetRatingFromDetails(cached.SiteRating?.Value);
+
                 PositionRecommendationPreview(card);
                 return;
             }
@@ -795,7 +795,7 @@ public sealed partial class DetailsPage : Page
                     _recommendationPreviewCache.Keys.First());
             _recommendationPreviewCache[movie.Id] = details;
             UpdateRecommendationPreview(details);
-            card.SetRatingFromDetails(details.SiteRating?.Value);
+
             PositionRecommendationPreview(card);
         }
         catch (OperationCanceledException) { }
