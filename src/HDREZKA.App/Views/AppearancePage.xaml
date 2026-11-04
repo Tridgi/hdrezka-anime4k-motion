@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="HDREZKA.App.Views.AppearancePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer VerticalScrollBarVisibility="Hidden"
+                  HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Padding="28,18,28,36" MaxWidth="900"
+                    HorizontalAlignment="Left" Spacing="16">
+            <TextBlock x:Name="TitleText" FontSize="28" FontWeight="Bold"/>
+            <TextBlock x:Name="IntroText" TextWrapping="Wrap" FontSize="13"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+            <Border CornerRadius="14" Padding="20"
+                    BorderThickness="1"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="ThemeHeader" FontSize="18" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="ThemeBox" MinWidth="225"
+                              HorizontalAlignment="Left"
+                              SelectionChanged="ThemeBox_SelectionChanged"/>
+                    <StackPanel x:Name="ManualThemePanel" Visibility="Collapsed" Spacing="13">
+                        <TextBlock x:Name="ManualBrightnessHeader" FontWeight="SemiBold"/>
+                        <ComboBox x:Name="ManualBrightnessBox" MinWidth="210"
+                                  HorizontalAlignment="Left"
+                                  SelectionChanged="ManualBrightnessBox_SelectionChanged"/>
+                        <TextBlock x:Name="AccentMatrixHeader" FontWeight="SemiBold"/>
+                        <Grid x:Name="AccentMatrixGrid" ColumnSpacing="8"
+                              RowSpacing="8" MaxWidth="440"
+                              HorizontalAlignment="Left"/>
+                        <TextBlock x:Name="ManualAccentLabel" FontWeight="SemiBold"/>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBox x:Name="AccentHexBox" Width="140" MaxLength="7"
+                                     PlaceholderText="#377DFF" VerticalAlignment="Center"/>
+                            <Button x:Name="ApplyAccentButton"
+                                    Click="ApplyAccentButton_Click" MinHeight="36"/>
+                        </StackPanel>
+                        <TextBlock x:Name="AccentValidationText" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Border x:Name="AccentPreviewMain" CornerRadius="7"
+                                    Width="52" Height="22"/>
+                            <Border x:Name="AccentPreviewCompanion" CornerRadius="7"
+                                    Width="52" Height="22"/>
+                            <TextBlock x:Name="AccentPreviewLabel" FontSize="12"
+                                       VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border CornerRadius="14" Padding="20" BorderThickness="1"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="PaletteHeader" FontSize="18" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="PaletteBox" MinWidth="240"
+                              HorizontalAlignment="Left"
+                              SelectionChanged="PaletteBox_SelectionChanged"/>
+                    <TextBlock x:Name="PaletteHint" TextWrapping="Wrap" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <Border CornerRadius="12" Padding="16"
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                        <StackPanel Spacing="12">
+                            <TextBlock x:Name="PreviewHeading" FontWeight="SemiBold" FontSize="14"/>
+                            <TextBlock Text="Киберпанк: Бегущие по краю" FontWeight="SemiBold"
+                                       FontSize="17" TextWrapping="Wrap"/>
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <Border x:Name="PreviewRezkaBadge" CornerRadius="8" Padding="9,6">
+                                    <TextBlock Text="R  8.8" FontSize="12" FontWeight="SemiBold"/>
+                                </Border>
+                                <Border x:Name="PreviewImdbBadge" CornerRadius="8" Padding="9,6">
+                                    <TextBlock Text="IMDb  8.3" FontSize="12" FontWeight="SemiBold"/>
+                                </Border>
+                                <Border x:Name="PreviewKpBadge" CornerRadius="8" Padding="9,6">
+                                    <TextBlock Text="КП  7.9" FontSize="12" FontWeight="SemiBold"/>
+                                </Border>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <Border x:Name="PreviewGenre1" CornerRadius="8" Padding="9,6">
+                                    <TextBlock Text="Фантастика" FontSize="12"/>
+                                </Border>
+                                <Border x:Name="PreviewGenre2" CornerRadius="8" Padding="9,6">
+                                    <TextBlock Text="Боевики" FontSize="12"/>
+                                </Border>
+                                <Border x:Name="PreviewGenre3" CornerRadius="8" Padding="9,6">
+                                    <TextBlock Text="Приключения" FontSize="12"/>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <Border CornerRadius="14" Padding="20" BorderThickness="1"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <StackPanel Spacing="12">
+                    <TextBlock x:Name="PosterSizeHeader" FontSize="18" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="PosterSizeBox" MinWidth="220"
+                              HorizontalAlignment="Left"
+                              SelectionChanged="PosterSizeBox_SelectionChanged"/>
+                    <TextBlock x:Name="PosterSizeHint" FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Border>
+            <StackPanel Spacing="7" HorizontalAlignment="Left">
+                <Button x:Name="ResetAppearanceButton" Click="ResetAppearanceButton_Click"
+                        MinHeight="38" Padding="16,8"/>
+                <TextBlock x:Name="ResetHint" FontSize="12" TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
