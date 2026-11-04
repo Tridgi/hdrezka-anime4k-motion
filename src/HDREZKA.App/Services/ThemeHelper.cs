@@ -36,6 +36,8 @@ public static class ThemeHelper
     public static SolidColorBrush CompanionBrush { get; } = new(Windows.UI.Color.FromArgb(255, 90, 214, 207));
     public static SolidColorBrush AccentForegroundBrush { get; } =
         new(Windows.UI.Color.FromArgb(255, 255, 255, 255));
+    public static SolidColorBrush AccentTextBrush { get; } =
+        new(Windows.UI.Color.FromArgb(255, 120, 180, 255));
 
     public static event Action? AccentChanged;
 
@@ -103,6 +105,25 @@ public static class ThemeHelper
             ? Windows.UI.Color.FromArgb(255, 26, 30, 36)
             : Windows.UI.Color.FromArgb(255, 255, 255, 255);
 
+        // On dark surfaces, brighten the accent used for small labels; on
+        // light surfaces darken it until contrast reaches WCAG 4.5:1.
+        var darkTheme = theme == AppTheme.Dark ||
+            (theme == AppTheme.Manual && settings.ManualThemeDark) ||
+            (theme == AppTheme.System &&
+                (Root?.ActualTheme == ElementTheme.Dark));
+        var targetLuminance = darkTheme ? .016 : .93;
+        var r = accent.R; var g = accent.G; var b = accent.B;
+        for (var step = 0; step <= 18; step++)
+        {
+            var y = .2126 * Channel(r) + .7152 * Channel(g) + .0722 * Channel(b);
+            var ratio = (Math.Max(y, targetLuminance) + .05) /
+                        (Math.Min(y, targetLuminance) + .05);
+            if (ratio >= 4.5) break;
+            r = (byte)Math.Clamp(Math.Round((r * 8.0 + (darkTheme ? 255 : 0)) / 9.0), 0, 255);
+            g = (byte)Math.Clamp(Math.Round((g * 8.0 + (darkTheme ? 255 : 0)) / 9.0), 0, 255);
+            b = (byte)Math.Clamp(Math.Round((b * 8.0 + (darkTheme ? 255 : 0)) / 9.0), 0, 255);
+        }
+        AccentTextBrush.Color = Windows.UI.Color.FromArgb(255, r, g, b);
         AccentChanged?.Invoke();
     }
 
