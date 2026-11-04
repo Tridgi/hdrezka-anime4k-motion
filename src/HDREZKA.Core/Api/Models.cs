@@ -112,6 +112,8 @@ public sealed class MovieDetailed
     public IReadOnlyList<NamedLink>? FranchiseParts { get; init; }
     /// <summary>Actual /collections/ links found on the source movie page.</summary>
     public IReadOnlyList<NamedLink>? CollectionLinks { get; init; }
+    /// <summary>Source-page "Из серии" / ranked-category links.</summary>
+    public IReadOnlyList<NamedLink>? SourceSeries { get; init; }
     public IReadOnlyList<PersonSimple>? Producers { get; init; }
     public IReadOnlyList<PersonSimple>? Actors { get; init; }
     public MovieRating? SiteRating { get; init; }
