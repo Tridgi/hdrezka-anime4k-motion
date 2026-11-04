@@ -561,8 +561,8 @@ public sealed class RezkaClient : IDisposable
             throw new ArgumentException("Expected a genre page path", nameof(genrePath));
         if (normalized.Contains("..", StringComparison.Ordinal) ||
             normalized.Contains("://", StringComparison.Ordinal) ||
-            normalized.Contains('?', StringComparison.Ordinal) ||
-            normalized.Contains('#', StringComparison.Ordinal))
+            normalized.Contains('?') ||
+            normalized.Contains('#'))
             throw new ArgumentException("Unsafe genre path", nameof(genrePath));
         return GetListAsync(PageUrl(normalized + "/", page), ct);
     }
