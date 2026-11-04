@@ -19,7 +19,7 @@ def contents(name):
 
 class DetailsLayoutSmokeTests(unittest.TestCase):
     def test_xaml_well_formed_and_handlers_exist(self):
-        for name in ("DetailsPage", "SettingsPage", "UpdatesPage", "AppearancePage"):
+        for name in ("DetailsPage", "SettingsPage", "UpdatesPage", "AppearancePage", "HomePage"):
             markup = contents(name + ".xaml")
             code = contents(name + ".xaml.cs")
             root = ET.fromstring(markup)
@@ -151,6 +151,68 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("BadgeBrushes(MetadataTone.Rating)", code)
         self.assertIn("RenderPreviewGenres(IReadOnlyList<MovieGenre>? genres)", code)
         self.assertIn('Loc.Get("Details.AboutMovie")', code)
+
+    def test_home_has_horizontal_carousels_with_catalog_end_tiles(self):
+        markup = contents("HomePage.xaml")
+        code = contents("HomePage.xaml.cs")
+        for id in ("Films", "Series", "Cartoons", "Popular", "Watching", "Soon"):
+            self.assertIn('x:Name="' + id + 'Scroll"', markup)
+            self.assertIn('x:Name="' + id + 'Row"', markup)
+            self.assertIn('x:Name="' + id + 'Previous"', markup)
+            self.assertIn('x:Name="' + id + 'Next"', markup)
+            self.assertNotIn('x:Name="' + id + 'Grid"', markup)
+            self.assertIn('HorizontalScrollMode="Enabled"', markup)
+        self.assertIn('Click="CarouselPrevious_Click"', markup)
+        self.assertIn('Click="CarouselNext_Click"', markup)
+        self.assertIn("ui.Scroll.ChangeView", code)
+        self.assertIn("allButton.Click += ShowAll_Click", code)
+        self.assertIn("new MovieCard", code)
+        self.assertIn("RecommendationPreview = true", code)
+
+    def test_home_hero_is_centered_slower_and_has_spherical_indicators(self):
+        markup = contents("HomePage.xaml")
+        code = contents("HomePage.xaml.cs")
+        self.assertIn('Margin="58,0,58,0"', markup)
+        self.assertIn('x:Name="HeroSynopsis"', markup)
+        self.assertIn('TimeSpan.FromSeconds(10)', code)
+        self.assertIn("HeroCard_PointerEntered", code)
+        self.assertIn("HeroCard_PointerExited", code)
+        self.assertIn("LoadHeroSynopsisAsync", code)
+        self.assertIn("dot.Width = dot.Height", code)
+        self.assertNotIn("i == _heroIndex ? 20 : 8", code)
+
+    def test_home_preview_and_poster_rating_alignment(self):
+        markup = contents("HomePage.xaml")
+        code = contents("HomePage.xaml.cs")
+        movie = contents("../Controls/MovieCard.xaml")
+        card = contents("../Controls/MovieCard.xaml.cs")
+        for name in ("HomePreviewLayer", "HomePreviewPanel", "HomePreviewTitle",
+                     "HomePreviewR", "HomePreviewImdb", "HomePreviewKp"):
+            self.assertIn('x:Name="' + name + '"', markup)
+        self.assertIn('IsHitTestVisible="False"', markup)
+        self.assertIn('HomeRecommendationCard_HoverChanged', code)
+        self.assertIn('HomePreviewPanel.Visibility = Visibility.Visible', code)
+        self.assertIn("Math.Clamp(spot.Y - 7", code)
+        self.assertIn('RowDefinition Height="86"', movie)
+        self.assertIn('x:Name="RatingBadge"', movie)
+        self.assertIn('SetRatingColor(rating)', card)
+        self.assertIn('AnimateScale(1.045f)', card)
+        self.assertIn('EasingMode.EaseOut', card)
+
+    def test_manual_theme_tiles_have_two_full_size_colors(self):
+        code = contents("AppearancePage.xaml.cs")
+        self.assertIn("background.GradientStops.Add", code)
+        self.assertIn("Offset = .5", code)
+        self.assertIn("Text = scheme.Name", code)
+        self.assertIn("FontSize = 16", code)
+        self.assertIn("Contrast(1, luminanceA)", code)
+
+    def test_genres_in_hover_preview_are_colored_runs_not_chips(self):
+        code = contents("DetailsPage.xaml.cs")
+        self.assertIn("new Microsoft.UI.Xaml.Documents.Run", code)
+        self.assertIn("PreviewGenreTone", code)
+        self.assertIn("PreviewGenreChips.Children.Add(text)", code)
+        self.assertNotIn("var badge = Chip(genres[index].Name", code)
 
     def test_notifications_preferences_only_on_notifications_page(self):
         settings = contents("SettingsPage.xaml")
