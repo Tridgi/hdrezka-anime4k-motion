@@ -51,6 +51,11 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         catalog = contents("CatalogPage.xaml.cs")
         self.assertIn("FranchiseParts { get; init; }", models)
         self.assertIn("CollectionLinks { get; init; }", models)
+        self.assertIn("SourceSeries { get; init; }", models)
+        self.assertIn("new CollectionLaunch(link.Id, link.Name, link.Id)", details)
+        self.assertIn('Loc.Get("Details.FromSeries")', details)
+        self.assertIn("GetSourceSeriesListAsync(sourcePath, page)",
+                      contents("CollectionsPage.xaml.cs"))
         self.assertIn("ParseFranchiseParts(doc, pagePath)", parser)
         self.assertIn("ParseDetailCollectionLinks(doc)", parser)
         self.assertIn("WrapNavigationChips(parts", details)
