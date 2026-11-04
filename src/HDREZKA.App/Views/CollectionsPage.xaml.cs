@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Navigation;
+using Microsoft.UI.Xaml.Media;
 
 namespace HDREZKA.App.Views;
 
@@ -17,6 +18,9 @@ public sealed partial class CollectionsPage : Page
     private bool _loading;
     private bool _collectionsLoaded;
     private bool _mirrorRecovered;
+    private bool _collectionViewActive;
+    private long _requestVersion;
+    private long _activeRequestVersion;
 
     public CollectionsPage()
     {
@@ -26,23 +30,16 @@ public sealed partial class CollectionsPage : Page
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        ApplyLocalization();
         LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
         SettingsService.Instance.PosterSizeChanged += OnPosterSizeChanged;
+        ApplyLocalization();
 
-        if (!_collectionsLoaded)
-        {
-            LoadCollections();
-        }
-        else if (CollectionsPanel.Children.Count > 0 && _items.Count == 0)
-        {
-            // Select first collection by default
-            if (CollectionsPanel.Children[0] is ToggleButton firstButton)
-            {
-                firstButton.IsChecked = true;
-                SelectCollection(firstButton.Tag?.ToString() ?? "");
-            }
-        }
+        // Do not open the first folder automatically: it can be stale,
+        // removed or blocked and then the page appears completely empty.
+        if (!_collectionsLoaded) LoadCollections();
+        else if (_collectionViewActive && !string.IsNullOrEmpty(_currentCollectionId))
+            SetView(selected: true);
+        else SetView(selected: false);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -54,73 +51,83 @@ public sealed partial class CollectionsPage : Page
 
     private void OnPosterSizeChanged() => DispatcherQueue.TryEnqueue(RebuildFolderCards);
 
-    private void RebuildFolderCards()
-    {
-        if (!_collectionsLoaded || _collections.Count == 0) return;
-        var selected = _currentCollectionId;
-        CollectionsPanel.Children.Clear();
-        foreach (var col in _collections)
-        {
-            var button = BuildFolderCard(col);
-            button.IsChecked = col.Id == selected;
-            CollectionsPanel.Children.Add(button);
-        }
-    }
-
-    private void OnLanguageChanged()
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            ApplyLocalization();
-        });
-    }
+    private void OnLanguageChanged() => DispatcherQueue.TryEnqueue(ApplyLocalization);
 
     private void ApplyLocalization()
     {
         TitleText.Text = Loc.Get("Nav.Collections");
+        BrowseHint.Text = Loc.Get("Collections.BrowseHint");
+        BrowseSearchLabel.Text = Loc.Get("Collections.Search");
+        BrowseSearchBox.PlaceholderText = Loc.Get("Collections.SearchPlaceholder");
+        BackToCollectionsText.Text = Loc.Get("Collections.Back");
+        DetailsBackButton.Content = Loc.Get("Collections.Back");
         MoreButton.Content = Loc.Get("Common.LoadMore");
         RetryButton.Content = Loc.Get("Common.Retry");
-        StateText.Text = Loc.Get("Common.Loading");
+        BrowseRetryButton.Content = Loc.Get("Common.Retry");
+        if (_collectionViewActive) UpdateSelectionHeading();
+    }
+
+    private void SetView(bool selected)
+    {
+        _collectionViewActive = selected;
+        BrowseScroll.Visibility = selected ? Visibility.Collapsed : Visibility.Visible;
+        CollectionDetailsPanel.Visibility = selected ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void SetBrowseState(bool visible, string text = "",
+        bool loading = false, bool retry = false)
+    {
+        BrowseStatePanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        BrowseStateText.Text = text;
+        BrowseRing.IsActive = loading;
+        BrowseRing.Visibility = loading ? Visibility.Visible : Visibility.Collapsed;
+        BrowseRetryButton.Visibility = retry ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RebuildFolderCards()
+    {
+        FoldersGrid.Items.Clear();
+        if (!_collectionsLoaded) return;
+        var query = (BrowseSearchBox.Text ?? "").Trim();
+        var matches = _collections.Where(col =>
+            query.Length == 0 || col.Title.Contains(query,
+                StringComparison.CurrentCultureIgnoreCase)).ToList();
+        foreach (var collection in matches)
+            FoldersGrid.Items.Add(BuildFolderCard(collection));
+
+        // Search is local: even when there are no results or an individual
+        // folder is unavailable, the user can change the query immediately.
+        if (matches.Count == 0)
+            SetBrowseState(true, _collections.Count == 0
+                ? Loc.Get("Collections.NoFolders")
+                : Loc.Get("Collections.NoSearchResults"));
+        else
+            SetBrowseState(false);
+    }
+
+    private void BrowseSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_collectionsLoaded) RebuildFolderCards();
     }
 
     private async void LoadCollections()
     {
-        LoadingRing.IsActive = true;
-        StatePanel.Visibility = Visibility.Visible;
-        StateText.Text = Loc.Get("Common.Loading");
-
+        SetView(selected: false);
+        SetBrowseState(true, Loc.Get("Common.Loading"), loading: true);
         try
         {
             var collections = await RezkaService.Instance.Client.GetAllCollectionsAsync();
             _collections.Clear();
             _collections.AddRange(collections);
-
-            Log.Info($"[Collections] folders={collections.Count} ids={string.Join(",", collections.Select(c => c.Id))}");
-
             _collectionsLoaded = true;
-
-            CollectionsPanel.Children.Clear();
-            foreach (var col in collections)
-            {
-                CollectionsPanel.Children.Add(BuildFolderCard(col));
-            }
-
-            // Select first collection by default
-            if (CollectionsPanel.Children.Count > 0 && CollectionsPanel.Children[0] is ToggleButton firstButton)
-            {
-                firstButton.IsChecked = true;
-                SelectCollection(firstButton.Tag?.ToString() ?? "");
-            }
-            else
-            {
-                ShowState(true, Loc.Get("Common.Empty"), showRetry: true);
-            }
+            Log.Info($"[Collections] available folders={collections.Count}");
+            RebuildFolderCards();
         }
         catch (RezkaException ex)
         {
-            App.TryLog(new Exception("[Collections] folders failed: " + ex.Message));
-
-            if (!_mirrorRecovered && ex.Kind is RezkaError.Network or RezkaError.AccessDenied or RezkaError.MirrorBanned)
+            Log.Error("[Collections] Folder list failed", ex);
+            if (!_mirrorRecovered &&
+                ex.Kind is RezkaError.Network or RezkaError.AccessDenied or RezkaError.MirrorBanned)
             {
                 _mirrorRecovered = true;
                 if (await MirrorRecovery.TryRecoverAsync())
@@ -129,14 +136,44 @@ public sealed partial class CollectionsPage : Page
                     return;
                 }
             }
-
-            ShowState(true, RezkaService.Instance.ErrorText(ex), showRetry: true);
+            SetBrowseState(true, RezkaService.Instance.ErrorText(ex), retry: true);
         }
         catch (Exception ex)
         {
-            App.TryLog(ex);
-            ShowState(true, Loc.Get("Error.Network"), showRetry: true);
+            Log.Error("[Collections] Folder list failed", ex);
+            SetBrowseState(true, Loc.Get("Error.Network"), retry: true);
         }
+    }
+
+    private void BrowseRetryButton_Click(object sender, RoutedEventArgs e) => LoadCollections();
+
+    private void BackToCollectionsButton_Click(object sender, RoutedEventArgs e)
+        => ReturnToBrowse();
+
+    private void ReturnToBrowse(string? notice = null)
+    {
+        _requestVersion++;
+        _currentCollectionId = "";
+        _loading = false;
+        _page = 1;
+        _items.Clear();
+        ItemsGrid.ItemsSource = null;
+        MorePanel.Visibility = Visibility.Collapsed;
+        SetView(selected: false);
+        BrowseScroll.ChangeView(null, 0, null, true);
+        if (notice != null)
+            SetBrowseState(true, notice);
+        else
+            RebuildFolderCards();
+    }
+
+    private void UpdateSelectionHeading()
+    {
+        var selected = _collections.FirstOrDefault(c => c.Id == _currentCollectionId);
+        SelectedCollectionTitle.Text = selected?.Title ?? Loc.Get("Nav.Collections");
+        SelectedCollectionCount.Text = selected != null && selected.Count > 0
+            ? Loc.Get("Collections.ItemsCount", selected.Count)
+            : Loc.Get("Collections.SelectedHint");
     }
 
     private ToggleButton BuildFolderCard(CollectionSimple col)
