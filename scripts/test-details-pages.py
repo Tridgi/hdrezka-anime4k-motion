@@ -185,10 +185,10 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn('Height="92"', card)
         self.assertIn('MinHeight="37"', card)
         self.assertIn('x:Name="RatingBadge"', card)
-        self.assertIn("Math.Clamp(score, 0f, 10f)", card_code)
+        self.assertIn("RezkaScoreColors.Gradient(score.Value)", card_code)
         self.assertIn("new CubicEase", card_code)
         self.assertIn("RatingBadge.Margin = InfoBadge.Visibility", card_code)
-        self.assertIn("score >= 4.4f", card_code)
+        self.assertIn("SetRatingFromDetails(float? rating)", card_code)
 
     def test_color_schemes_are_full_bleed_and_hover_genres_text_only(self):
         appearance = contents("AppearancePage.xaml.cs")
@@ -200,8 +200,42 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
             "private void UpdateRecommendationPreview", 1)[0]
         self.assertIn("new TextBlock", func)
         self.assertNotIn("Chip(", func)
-        self.assertIn("SemanticPreviewGenreTone", details)
-        self.assertIn("SemanticHomeGenreIndex", contents("HomePage.xaml.cs"))
+        self.assertIn("GenreColors.Palette(", details)
+        self.assertIn("GenreColors.Palette(", contents("HomePage.xaml.cs"))
+
+    def test_category_colors_distinct_and_score_dependent(self):
+        genre = contents("../Services/GenreColors.cs")
+        details = contents("DetailsPage.xaml.cs")
+        home = contents("HomePage.xaml.cs")
+        self.assertIn("AngularDistance(old, hue) < 28", genre)
+        self.assertIn("name.Contains(\"мелодрам\")", genre)
+        self.assertIn("name.Contains(\"фэнтез\")", genre)
+        self.assertIn("public static LinearGradientBrush Gradient(float score)", genre)
+        self.assertIn('label == "Rezka"', details)
+        self.assertIn("RezkaScoreColors.Gradient(rating.Value.Value)", details)
+        self.assertIn("HomePreviewRezka.Background = RezkaScoreColors.Gradient(score)", home)
+
+    def test_only_arrows_scroll_horizontal_home_rails(self):
+        markup = contents("HomePage.xaml")
+        code = contents("HomePage.xaml.cs")
+        self.assertEqual(markup.count('HorizontalScrollBarVisibility="Disabled"'), 6)
+        self.assertEqual(markup.count('HorizontalScrollMode="Enabled"'), 6)
+        self.assertIn("HomeRailNav_Click", code)
+        self.assertIn("rail.Scroll.ChangeView(target, null, null, false)", code)
+        for name in ("Films", "Series", "Cartoons", "Popular", "Watching", "Soon"):
+            self.assertIn('x:Name="' + name + 'Scroll"', markup)
+
+    def test_catalog_end_tiles_larger_and_posters_never_dim(self):
+        markup = contents("HomePage.xaml")
+        home = contents("HomePage.xaml.cs")
+        poster = contents("../Controls/MovieCard.xaml")
+        for name in ("Films", "Series", "Cartoons", "Popular", "Watching", "Soon"):
+            self.assertIn('x:Name="' + name + 'EndHint"', markup)
+        self.assertIn("PosterMetrics.CardWidth * 1.30", home)
+        self.assertIn("button.Background = gradient;", home)
+        self.assertIn('Background="Transparent" CornerRadius="12" Opacity="0"', poster)
+        self.assertIn('card.SetRatingFromDetails(details.SiteRating?.Value)', home)
+        self.assertIn('RezkaScoreColors.Gradient(score.Value)', contents("../Controls/MovieCard.xaml.cs"))
 
     def test_sidebar_button_has_one_xaml_content_element(self):
         root = ET.fromstring(contents("../MainWindow.xaml"))
