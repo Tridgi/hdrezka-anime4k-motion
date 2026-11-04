@@ -10,10 +10,10 @@
     mc:Ignorable="d">
 
     <Grid Padding="28,12,28,12">
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer VerticalScrollBarVisibility="Hidden">
             <StackPanel Spacing="12">
                 <TextBlock x:Name="QueryText" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                <GridView x:Name="ItemsGrid" SelectionMode="None">
+                <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="ItemsGrid" SelectionMode="None">
                     <GridView.ItemsPanel>
                         <ItemsPanelTemplate>
                             <ItemsWrapGrid Orientation="Horizontal"/>
