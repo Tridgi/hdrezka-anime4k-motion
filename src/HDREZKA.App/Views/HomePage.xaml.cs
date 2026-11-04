@@ -370,14 +370,14 @@ public sealed partial class HomePage : Page
 
     private async Task LoadHeroDescriptionAsync(MovieSimple movie)
     {
-        try { _heroDescriptionCts?.Cancel(); } catch { }
-        var cts = new CancellationTokenSource();
-        _heroDescriptionCts = cts;
         if (_heroDescriptions.TryGetValue(movie.Id, out var existing))
         {
             HeroDescription.Text = existing;
             return;
         }
+        try { _heroDescriptionCts?.Cancel(); } catch { }
+        var cts = new CancellationTokenSource();
+        _heroDescriptionCts = cts;
         try
         {
             var details = await RezkaService.Instance.Client.GetDetailsAsync(movie.Id, cts.Token);
