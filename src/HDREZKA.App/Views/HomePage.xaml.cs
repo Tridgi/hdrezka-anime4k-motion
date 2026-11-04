@@ -250,12 +250,14 @@ public sealed partial class HomePage : Page
         HeroDots.Children.Clear();
         for (var i = 0; i < _heroItems.Count; i++)
         {
-            var dot = new Microsoft.UI.Xaml.Shapes.Ellipse
+            var dot = new Border
             {
-                Width = 8,
-                Height = 8,
-                Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
-                Tag = i,
+                Width = 10,
+                Height = 10,
+                CornerRadius = new CornerRadius(5),
+                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(100, 255, 255, 255)),
+                BorderThickness = new Thickness(0),
+                Tag = i
             };
             dot.Tapped += HeroDot_Tapped;
             HeroDots.Children.Add(dot);
@@ -301,6 +303,10 @@ public sealed partial class HomePage : Page
         HeroKicker.Text = $"{Loc.Get("Filter.Hot")} · #{_heroIndex + 1}";
         HeroTitle.Text = movie.Name ?? "";
         HeroDetails.Text = movie.Details ?? "";
+        _heroSynopsisCancellation?.Cancel();
+        HeroSynopsis.Text = "";
+        _heroSynopsisCancellation = new CancellationTokenSource();
+        _ = LoadHeroSynopsisAsync(movie, _heroSynopsisCancellation.Token);
 
         if (!string.IsNullOrEmpty(movie.Poster))
         {
@@ -326,13 +332,50 @@ public sealed partial class HomePage : Page
 
         for (var i = 0; i < HeroDots.Children.Count; i++)
         {
-            if (HeroDots.Children[i] is Microsoft.UI.Xaml.Shapes.Ellipse dot)
+            if (HeroDots.Children[i] is Border dot)
             {
-                dot.Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                    i == _heroIndex ? Microsoft.UI.Colors.White : Windows.UI.Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
-                dot.Width = i == _heroIndex ? 20 : 8;
+                // Selected page remains a perfect circle (never a pill).
+                var selected = i == _heroIndex;
+                dot.Width = dot.Height = selected ? 11 : 9;
+                dot.CornerRadius = new CornerRadius(selected ? 5.5 : 4.5);
+                dot.BorderThickness = selected ? new Thickness(2) : new Thickness(0);
+                dot.BorderBrush = new SolidColorBrush(Microsoft.UI.Colors.White);
+                dot.Background = selected ? ThemeHelper.AccentBrush :
+                    new SolidColorBrush(Windows.UI.Color.FromArgb(120, 255, 255, 255));
             }
         }
+    }
+
+    private async Task LoadHeroSynopsisAsync(MovieSimple movie, CancellationToken token)
+    {
+        try
+        {
+            if (!_heroDetailsCache.TryGetValue(movie.Id, out var details))
+            {
+                await Task.Delay(250, token);
+                details = await RezkaService.Instance.Client.GetDetailsAsync(movie.Id, token);
+                if (token.IsCancellationRequested) return;
+                if (_heroDetailsCache.Count >= 5)
+                    _heroDetailsCache.Remove(_heroDetailsCache.Keys.First());
+                _heroDetailsCache[movie.Id] = details;
+            }
+            if (!token.IsCancellationRequested && _heroItems.Count > _heroIndex &&
+                _heroItems[_heroIndex].Id == movie.Id)
+                HeroSynopsis.Text = details.Description ?? "";
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Log.Info("[Home] Hero synopsis unavailable: " + ex.Message);
+        }
+    }
+
+    private void HeroCard_PointerEntered(object sender, PointerRoutedEventArgs e)
+        => _heroTimer.Stop();
+
+    private void HeroCard_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (_heroItems.Count > 1) RestartHeroTimer();
     }
 
     private void FadeHeroCard(Action apply)
