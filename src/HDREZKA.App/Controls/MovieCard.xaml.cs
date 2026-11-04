@@ -265,10 +265,10 @@ public sealed partial class MovieCard : UserControl
         {
             // Most pointer transits across a row should trigger no network I/O.
             await Task.Delay(550, cts.Token);
-            MovieDetailed details;
+            MovieDetailed? details;
             lock (PreviewGate)
             {
-                PreviewCache.TryGetValue(movie.Id, out details!);
+                PreviewCache.TryGetValue(movie.Id, out details);
             }
             if (details == null)
             {
