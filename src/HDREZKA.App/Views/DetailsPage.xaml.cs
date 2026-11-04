@@ -242,6 +242,7 @@ public sealed partial class DetailsPage : Page
         CommentComposerHeader.Text = Loc.Get("Comments.Write");
         CommentCancelReplyButton.Content = Loc.Get("Comments.CancelReply");
         CommentSendText.Text = Loc.Get("Common.Send");
+        CommentOpenSiteText.Text = Loc.Get("Comments.OpenOnSite");
         if (CommentsSortBox.Items.Count >= 4)
         {
             ((ComboBoxItem)CommentsSortBox.Items[0]).Content = Loc.Get("Comments.SortSite");
@@ -2436,6 +2437,7 @@ public sealed partial class DetailsPage : Page
         _commentSending = true;
         UpdateCommentComposer();
         CommentStatusText.Visibility = Visibility.Collapsed;
+        CommentOpenSiteButton.Visibility = Visibility.Collapsed;
         try
         {
             await RezkaService.Instance.Client.SendCommentAsync(
@@ -2450,16 +2452,60 @@ public sealed partial class DetailsPage : Page
             CommentStatusText.Text = Loc.Get("Comments.Sent");
             CommentStatusText.Visibility = Visibility.Visible;
         }
+        catch (RezkaException ex)
+        {
+            Log.Error("[Comments] Site rejected comment", ex);
+            CommentStatusText.Text = Loc.Get("Comments.SendFailed") + "\n" +
+                (ex.Kind == RezkaError.Site ? ex.Message :
+                 RezkaService.Instance.ErrorText(ex));
+            CommentStatusText.Visibility = Visibility.Visible;
+            CommentOpenSiteButton.Visibility = Visibility.Visible;
+        }
         catch (Exception ex)
         {
             Log.Error("[Comments] Sending failed", ex);
-            CommentStatusText.Text = Loc.Get("Comments.SendFailed");
+            CommentStatusText.Text = Loc.Get("Comments.SendFailed") + "\n" +
+                Loc.Get("Comments.RetryBrowser");
             CommentStatusText.Visibility = Visibility.Visible;
+            CommentOpenSiteButton.Visibility = Visibility.Visible;
         }
         finally
         {
             _commentSending = false;
             UpdateCommentComposer();
+        }
+    }
+
+    private async void CommentOpenSiteButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_details == null) return;
+        try
+        {
+            var draft = CommentInput.Text;
+            if (!string.IsNullOrWhiteSpace(draft))
+            {
+                var data = new DataPackage();
+                data.SetText(draft);
+                Clipboard.SetContent(data);
+            }
+
+            var baseUri = new Uri(RezkaService.Instance.Client.Options.Mirror);
+            if (baseUri.Scheme != Uri.UriSchemeHttps)
+            {
+                CommentStatusText.Text = Loc.Get("Comments.HttpsRequired");
+                CommentStatusText.Visibility = Visibility.Visible;
+                return;
+            }
+            var uri = new Uri(baseUri, _details.Id.TrimStart('/'));
+            await Windows.System.Launcher.LaunchUriAsync(uri);
+            CommentStatusText.Text = Loc.Get("Comments.DraftCopied");
+            CommentStatusText.Visibility = Visibility.Visible;
+        }
+        catch (Exception ex)
+        {
+            Log.Error("[Comments] Browser fallback failed", ex);
+            CommentStatusText.Text = Loc.Get("Comments.RetryBrowser");
+            CommentStatusText.Visibility = Visibility.Visible;
         }
     }
 
