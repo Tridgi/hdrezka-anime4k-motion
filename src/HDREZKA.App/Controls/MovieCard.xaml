@@ -16,7 +16,7 @@
         <Grid x:Name="OuterGrid" Width="130">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="75"/>
+                <RowDefinition Height="92"/>
             </Grid.RowDefinitions>
 
             <Grid x:Name="PosterGrid" Width="130" Height="195">
