@@ -184,7 +184,7 @@
                         </Button>
                         <ScrollViewer x:Name="FilmsScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
@@ -200,18 +200,22 @@
                                 <Button x:Name="FilmsEndButton"
                                         Tag="Films" Click="ShowAll_Click"
                                         VerticalAlignment="Top" Margin="0,12,12,12"
-                                        Width="132" Height="198"
-                                        Padding="12" CornerRadius="12" BorderThickness="1"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                                    <StackPanel VerticalAlignment="Center" Spacing="12">
-                                        <FontIcon Glyph="&#xE8A7;" FontSize="27"
+                                        Width="178" Height="198"
+                                        Padding="16" CornerRadius="16" BorderThickness="1"
+                                        BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
+                                        Background="{ThemeResource AccentFillColorSecondaryBrush}">
+                                    <StackPanel VerticalAlignment="Center" Spacing="15">
+                                        <FontIcon Glyph="&#xE8A7;" FontSize="34"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="FilmsEndText" FontSize="14"
+                                        <TextBlock x:Name="FilmsEndText" FontSize="18"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
-                                        <FontIcon Glyph="&#xE76C;" FontSize="14"
+                                        <TextBlock x:Name="FilmsEndHint" FontSize="11"
+                                                   Opacity="0.82" HorizontalAlignment="Center"
+                                                   TextAlignment="Center" TextWrapping="Wrap"
+                                                   Foreground="White"/>
+                                        <FontIcon Glyph="&#xE76C;" FontSize="19"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                                     </StackPanel>
                                 </Button>
@@ -260,7 +264,7 @@
                         </Button>
                         <ScrollViewer x:Name="SeriesScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
@@ -276,18 +280,22 @@
                                 <Button x:Name="SeriesEndButton"
                                         Tag="Series" Click="ShowAll_Click"
                                         VerticalAlignment="Top" Margin="0,12,12,12"
-                                        Width="132" Height="198"
-                                        Padding="12" CornerRadius="12" BorderThickness="1"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                                    <StackPanel VerticalAlignment="Center" Spacing="12">
-                                        <FontIcon Glyph="&#xE8A7;" FontSize="27"
+                                        Width="178" Height="198"
+                                        Padding="16" CornerRadius="16" BorderThickness="1"
+                                        BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
+                                        Background="{ThemeResource AccentFillColorSecondaryBrush}">
+                                    <StackPanel VerticalAlignment="Center" Spacing="15">
+                                        <FontIcon Glyph="&#xE8A7;" FontSize="34"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="SeriesEndText" FontSize="14"
+                                        <TextBlock x:Name="SeriesEndText" FontSize="18"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
-                                        <FontIcon Glyph="&#xE76C;" FontSize="14"
+                                        <TextBlock x:Name="SeriesEndHint" FontSize="11"
+                                                   Opacity="0.82" HorizontalAlignment="Center"
+                                                   TextAlignment="Center" TextWrapping="Wrap"
+                                                   Foreground="White"/>
+                                        <FontIcon Glyph="&#xE76C;" FontSize="19"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                                     </StackPanel>
                                 </Button>
@@ -336,7 +344,7 @@
                         </Button>
                         <ScrollViewer x:Name="CartoonsScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
@@ -352,18 +360,22 @@
                                 <Button x:Name="CartoonsEndButton"
                                         Tag="Cartoons" Click="ShowAll_Click"
                                         VerticalAlignment="Top" Margin="0,12,12,12"
-                                        Width="132" Height="198"
-                                        Padding="12" CornerRadius="12" BorderThickness="1"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                                    <StackPanel VerticalAlignment="Center" Spacing="12">
-                                        <FontIcon Glyph="&#xE8A7;" FontSize="27"
+                                        Width="178" Height="198"
+                                        Padding="16" CornerRadius="16" BorderThickness="1"
+                                        BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
+                                        Background="{ThemeResource AccentFillColorSecondaryBrush}">
+                                    <StackPanel VerticalAlignment="Center" Spacing="15">
+                                        <FontIcon Glyph="&#xE8A7;" FontSize="34"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="CartoonsEndText" FontSize="14"
+                                        <TextBlock x:Name="CartoonsEndText" FontSize="18"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
-                                        <FontIcon Glyph="&#xE76C;" FontSize="14"
+                                        <TextBlock x:Name="CartoonsEndHint" FontSize="11"
+                                                   Opacity="0.82" HorizontalAlignment="Center"
+                                                   TextAlignment="Center" TextWrapping="Wrap"
+                                                   Foreground="White"/>
+                                        <FontIcon Glyph="&#xE76C;" FontSize="19"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                                     </StackPanel>
                                 </Button>
@@ -412,7 +424,7 @@
                         </Button>
                         <ScrollViewer x:Name="PopularScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
@@ -428,18 +440,22 @@
                                 <Button x:Name="PopularEndButton"
                                         Tag="Popular" Click="ShowAll_Click"
                                         VerticalAlignment="Top" Margin="0,12,12,12"
-                                        Width="132" Height="198"
-                                        Padding="12" CornerRadius="12" BorderThickness="1"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                                    <StackPanel VerticalAlignment="Center" Spacing="12">
-                                        <FontIcon Glyph="&#xE8A7;" FontSize="27"
+                                        Width="178" Height="198"
+                                        Padding="16" CornerRadius="16" BorderThickness="1"
+                                        BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
+                                        Background="{ThemeResource AccentFillColorSecondaryBrush}">
+                                    <StackPanel VerticalAlignment="Center" Spacing="15">
+                                        <FontIcon Glyph="&#xE8A7;" FontSize="34"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="PopularEndText" FontSize="14"
+                                        <TextBlock x:Name="PopularEndText" FontSize="18"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
-                                        <FontIcon Glyph="&#xE76C;" FontSize="14"
+                                        <TextBlock x:Name="PopularEndHint" FontSize="11"
+                                                   Opacity="0.82" HorizontalAlignment="Center"
+                                                   TextAlignment="Center" TextWrapping="Wrap"
+                                                   Foreground="White"/>
+                                        <FontIcon Glyph="&#xE76C;" FontSize="19"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                                     </StackPanel>
                                 </Button>
@@ -488,7 +504,7 @@
                         </Button>
                         <ScrollViewer x:Name="WatchingScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
@@ -504,18 +520,22 @@
                                 <Button x:Name="WatchingEndButton"
                                         Tag="Watching" Click="ShowAll_Click"
                                         VerticalAlignment="Top" Margin="0,12,12,12"
-                                        Width="132" Height="198"
-                                        Padding="12" CornerRadius="12" BorderThickness="1"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                                    <StackPanel VerticalAlignment="Center" Spacing="12">
-                                        <FontIcon Glyph="&#xE8A7;" FontSize="27"
+                                        Width="178" Height="198"
+                                        Padding="16" CornerRadius="16" BorderThickness="1"
+                                        BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
+                                        Background="{ThemeResource AccentFillColorSecondaryBrush}">
+                                    <StackPanel VerticalAlignment="Center" Spacing="15">
+                                        <FontIcon Glyph="&#xE8A7;" FontSize="34"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="WatchingEndText" FontSize="14"
+                                        <TextBlock x:Name="WatchingEndText" FontSize="18"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
-                                        <FontIcon Glyph="&#xE76C;" FontSize="14"
+                                        <TextBlock x:Name="WatchingEndHint" FontSize="11"
+                                                   Opacity="0.82" HorizontalAlignment="Center"
+                                                   TextAlignment="Center" TextWrapping="Wrap"
+                                                   Foreground="White"/>
+                                        <FontIcon Glyph="&#xE76C;" FontSize="19"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                                     </StackPanel>
                                 </Button>
@@ -564,7 +584,7 @@
                         </Button>
                         <ScrollViewer x:Name="SoonScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Hidden"
+                                      HorizontalScrollBarVisibility="Disabled"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
@@ -580,18 +600,22 @@
                                 <Button x:Name="SoonEndButton"
                                         Tag="Soon" Click="ShowAll_Click"
                                         VerticalAlignment="Top" Margin="0,12,12,12"
-                                        Width="132" Height="198"
-                                        Padding="12" CornerRadius="12" BorderThickness="1"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-                                    <StackPanel VerticalAlignment="Center" Spacing="12">
-                                        <FontIcon Glyph="&#xE8A7;" FontSize="27"
+                                        Width="178" Height="198"
+                                        Padding="16" CornerRadius="16" BorderThickness="1"
+                                        BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
+                                        Background="{ThemeResource AccentFillColorSecondaryBrush}">
+                                    <StackPanel VerticalAlignment="Center" Spacing="15">
+                                        <FontIcon Glyph="&#xE8A7;" FontSize="34"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="SoonEndText" FontSize="14"
+                                        <TextBlock x:Name="SoonEndText" FontSize="18"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
-                                        <FontIcon Glyph="&#xE76C;" FontSize="14"
+                                        <TextBlock x:Name="SoonEndHint" FontSize="11"
+                                                   Opacity="0.82" HorizontalAlignment="Center"
+                                                   TextAlignment="Center" TextWrapping="Wrap"
+                                                   Foreground="White"/>
+                                        <FontIcon Glyph="&#xE76C;" FontSize="19"
                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                                     </StackPanel>
                                 </Button>
