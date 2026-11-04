@@ -3,66 +3,95 @@
     x:Class="HDREZKA.App.Views.PersonPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:HDREZKA.App.Controls"
+    xmlns:api="using:HDREZKA.Core.Api"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="PersonFilmTemplate">
-            <Grid Padding="0,8" ColumnSpacing="14">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Border CornerRadius="8" Width="64" Height="96" Background="#22000000">
-                    <Image Source="{Binding Poster}" Stretch="UniformToFill"/>
-                </Border>
-                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                    <TextBlock Text="{Binding Details}" FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                </StackPanel>
-            </Grid>
+        <DataTemplate x:Key="PersonFilmTemplate" x:DataType="api:MovieSimple">
+            <controls:MovieCard Movie="{x:Bind}" />
         </DataTemplate>
     </Page.Resources>
 
     <Grid>
-        <ScrollViewer VerticalScrollBarVisibility="Hidden">
-            <Grid x:Name="MainPanel" Padding="36,16,36,24" RowSpacing="16">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <Grid ColumnSpacing="28">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
+        <ScrollViewer VerticalScrollBarVisibility="Hidden"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel x:Name="MainPanel" Padding="28,18,28,36"
+                        Spacing="24" MaxWidth="1500">
+                <!-- Responsive person hero with theme-native rounded panel. -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="16" Padding="20">
+                    <Grid x:Name="PersonHeroGrid" ColumnSpacing="24"
+                          RowSpacing="14" SizeChanged="PersonHeroGrid_SizeChanged">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition x:Name="PersonPhotoColumn" Width="200"/>
+                            <ColumnDefinition x:Name="PersonInfoColumn" Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Border x:Name="PersonPhotoFrame" Grid.Column="0"
+                                CornerRadius="13" Width="200" Height="300"
+                                HorizontalAlignment="Left"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                            <Image x:Name="PersonPoster" Width="200" Height="300"
+                                   Stretch="UniformToFill"/>
+                        </Border>
+                        <StackPanel x:Name="PersonBioPanel" Grid.Column="1"
+                                    Spacing="11">
+                            <TextBlock x:Name="NameText" FontSize="29"
+                                       FontWeight="Bold" TextWrapping="Wrap"/>
+                            <TextBlock x:Name="OrigText" FontSize="15"
+                                       TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <Border Width="56" Height="3" CornerRadius="2"
+                                    HorizontalAlignment="Left"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"/>
+                            <StackPanel x:Name="MetaPanel" Spacing="9"
+                                        Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
 
-                    <Border CornerRadius="10" VerticalAlignment="Top">
-                        <Image x:Name="PersonPoster" Width="200" Height="300" Stretch="UniformToFill"/>
-                    </Border>
-
-                    <StackPanel Grid.Column="1" Spacing="10">
-                        <TextBlock x:Name="NameText" FontSize="28" FontWeight="Bold" TextWrapping="Wrap"/>
-                        <TextBlock x:Name="OrigText" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
-                        <StackPanel x:Name="MetaPanel" Spacing="0" Margin="0,8,0,0"/>
-                    </StackPanel>
-                </Grid>
-
-                <StackPanel x:Name="FilmographyPanel" Grid.Row="1" Spacing="12"/>
-            </Grid>
+                <StackPanel Spacing="14">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="FilmographyHeader" FontSize="22"
+                                   FontWeight="Bold" VerticalAlignment="Center"/>
+                        <Border Grid.Column="1" CornerRadius="10" Padding="10,6"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                            <TextBlock x:Name="FilmographyCountText"
+                                       FontSize="12" FontWeight="SemiBold"/>
+                        </Border>
+                    </Grid>
+                    <StackPanel x:Name="FilmographyPanel" Spacing="12"/>
+                </StackPanel>
+            </StackPanel>
         </ScrollViewer>
 
-        <StackPanel x:Name="LoadingPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+        <StackPanel x:Name="LoadingPanel" HorizontalAlignment="Center"
+                    VerticalAlignment="Center" Spacing="12">
             <ProgressRing IsActive="True" Width="44" Height="44"/>
         </StackPanel>
 
-        <StackPanel x:Name="ErrorPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" Visibility="Collapsed">
+        <StackPanel x:Name="ErrorPanel" HorizontalAlignment="Center"
+                    VerticalAlignment="Center" Spacing="12" Visibility="Collapsed">
             <FontIcon Glyph="&#xE783;" FontSize="36"/>
-            <TextBlock x:Name="ErrorText" HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center"/>
-            <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-                <Button x:Name="RetryButton" Click="RetryButton_Click" Style="{ThemeResource AccentButtonStyle}"/>
-                <Button x:Name="MirrorButton" Click="MirrorButton_Click" Visibility="Collapsed"/>
+            <TextBlock x:Name="ErrorText" HorizontalAlignment="Center"
+                       TextWrapping="Wrap" MaxWidth="420" TextAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" Spacing="10"
+                        HorizontalAlignment="Center">
+                <Button x:Name="RetryButton" Click="RetryButton_Click"
+                        Style="{ThemeResource AccentButtonStyle}"/>
+                <Button x:Name="MirrorButton" Click="MirrorButton_Click"
+                        Visibility="Collapsed"/>
             </StackPanel>
         </StackPanel>
     </Grid>
