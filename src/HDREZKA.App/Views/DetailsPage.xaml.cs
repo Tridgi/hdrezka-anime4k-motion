@@ -100,7 +100,17 @@ public sealed partial class DetailsPage : Page
 
     private void OnPosterSizeChanged() => DispatcherQueue.TryEnqueue(ApplyPosterMetrics);
 
-    private void OnDetailPaletteChanged() => DispatcherQueue.TryEnqueue(RefreshPresentation);
+    private void OnDetailPaletteChanged() => DispatcherQueue.TryEnqueue(() =>
+    {
+        RefreshPresentation();
+        if (RecommendationPreviewOverlay.Visibility == Visibility.Visible)
+        {
+            if (_hoverRecommendationId != null &&
+                _recommendationPreviewCache.TryGetValue(_hoverRecommendationId, out var details))
+                UpdateRecommendationPreview(details);
+            StyleRecommendationPreview();
+        }
+    });
     private void OnAccentChanged() => DispatcherQueue.TryEnqueue(() =>
     {
         RefreshPresentation();
@@ -222,6 +232,8 @@ public sealed partial class DetailsPage : Page
 
     private void ApplyLocalization()
     {
+        PreviewHeader.Text = Loc.Get("Details.AboutMovie");
+        PreviewGenresHeader.Text = Loc.Get("Details.Genre");
         WatchText.Text = Loc.Get("Common.Watch");
         UpdateBookmarkLabel();
         YourRatingHeader.Text = Loc.Get("Details.YourRating");
@@ -650,26 +662,69 @@ public sealed partial class DetailsPage : Page
         Canvas.SetTop(overlay, y);
     }
 
+    private void StyleRecommendationPreview()
+    {
+        // Exactly the same neutral/colorful semantic palette as movie metadata.
+        var (rBg, rFg) = BadgeBrushes(MetadataTone.Rating);
+        var (iBg, iFg) = BadgeBrushes(MetadataTone.TimeMedium);
+        var (kBg, kFg) = BadgeBrushes(MetadataTone.TimeLong);
+        PreviewRezkaBadge.Background = rBg;
+        PreviewImdbBadge.Background = iBg;
+        PreviewKpBadge.Background = kBg;
+        PreviewRezkaValue.Foreground = rFg;
+        PreviewImdbValue.Foreground = iFg;
+        PreviewKpValue.Foreground = kFg;
+    }
+
+    private void RenderPreviewGenres(IReadOnlyList<NamedLink>? genres)
+    {
+        PreviewGenreChips.Children.Clear();
+        if (genres is not { Count: > 0 })
+        {
+            PreviewGenresSection.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        PreviewGenresSection.Visibility = Visibility.Visible;
+        StackPanel? row = null;
+        var tones = new[]
+        {
+            MetadataTone.GenreBlue, MetadataTone.GenreRose,
+            MetadataTone.GenreGreen, MetadataTone.GenrePurple
+        };
+        for (var index = 0; index < Math.Min(4, genres.Count); index++)
+        {
+            if (index % 2 == 0)
+            {
+                row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                PreviewGenreChips.Children.Add(row);
+            }
+            var badge = Chip(genres[index].Name, tones[index]);
+            badge.MaxWidth = 142;
+            if (badge.Child is TextBlock label)
+                label.MaxWidth = 117;
+            row!.Children.Add(badge);
+        }
+    }
+
     private void UpdateRecommendationPreview(MovieDetailed details)
     {
         PreviewTitle.Text = details.Name;
         PreviewSubtitle.Text = details.OriginalName ?? "";
-        var ratings = new List<string>();
-        if (details.SiteRating?.Value is { } site)
-            ratings.Add("★ " + site.ToString("0.0",
-                System.Globalization.CultureInfo.CurrentCulture));
-        if (details.ImdbRating?.Value is { } imdb)
-            ratings.Add("IMDb " + imdb.ToString("0.0",
-                System.Globalization.CultureInfo.CurrentCulture));
-        if (details.KpRating?.Value is { } kp)
-            ratings.Add("КП " + kp.ToString("0.0",
-                System.Globalization.CultureInfo.CurrentCulture));
-        PreviewRating.Text = string.Join("   ·   ", ratings);
+        var r = details.SiteRating?.Value;
+        var imdb = details.ImdbRating?.Value;
+        var kp = details.KpRating?.Value;
+        PreviewRezkaBadge.Visibility = r != null ? Visibility.Visible : Visibility.Collapsed;
+        PreviewImdbBadge.Visibility = imdb != null ? Visibility.Visible : Visibility.Collapsed;
+        PreviewKpBadge.Visibility = kp != null ? Visibility.Visible : Visibility.Collapsed;
+        PreviewRezkaValue.Text = r?.ToString("0.0",
+            System.Globalization.CultureInfo.CurrentCulture) ?? "";
+        PreviewImdbValue.Text = imdb?.ToString("0.0",
+            System.Globalization.CultureInfo.CurrentCulture) ?? "";
+        PreviewKpValue.Text = kp?.ToString("0.0",
+            System.Globalization.CultureInfo.CurrentCulture) ?? "";
         PreviewDescription.Text = details.Description ?? "";
-        PreviewGenres.Text = details.Genres is { Count: > 0 }
-            ? Loc.Get("Details.Genre") + ": " +
-                string.Join(", ", details.Genres.Take(5).Select(x => x.Name))
-            : "";
+        RenderPreviewGenres(details.Genres);
         PreviewDirector.Text = details.Producers is { Count: > 0 }
             ? Loc.Get("Details.Director") + ": " +
                 string.Join(", ", details.Producers.Take(3).Select(x => x.Name))
@@ -678,6 +733,7 @@ public sealed partial class DetailsPage : Page
             ? Loc.Get("Details.Actors") + ": " +
                 string.Join(", ", details.Actors.Take(5).Select(x => x.Name))
             : "";
+        StyleRecommendationPreview();
     }
 
     private async Task ShowRecommendationPreviewAsync(MovieCard card,
@@ -690,14 +746,17 @@ public sealed partial class DetailsPage : Page
             if (!PreviewStillCurrent(card, movie, ct)) return;
             PreviewTitle.Text = movie.Name ?? "";
             PreviewSubtitle.Text = movie.Details ?? "";
-            PreviewRating.Text = movie.Rating is { } score
-                ? "★ " + score.ToString("0.0",
-                    System.Globalization.CultureInfo.CurrentCulture)
-                : "";
+            PreviewRezkaBadge.Visibility = movie.Rating != null
+                ? Visibility.Visible : Visibility.Collapsed;
+            PreviewImdbBadge.Visibility = Visibility.Collapsed;
+            PreviewKpBadge.Visibility = Visibility.Collapsed;
+            PreviewRezkaValue.Text = movie.Rating?.ToString("0.0",
+                System.Globalization.CultureInfo.CurrentCulture) ?? "";
             PreviewDescription.Text = "";
-            PreviewGenres.Text = "";
+            RenderPreviewGenres(null);
             PreviewDirector.Text = "";
             PreviewCast.Text = "";
+            StyleRecommendationPreview();
             RecommendationPreviewOverlay.Visibility = Visibility.Visible;
             PositionRecommendationPreview(card);
 
