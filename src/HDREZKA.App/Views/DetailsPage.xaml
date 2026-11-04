@@ -51,14 +51,21 @@
                                 <TextBlock x:Name="TrailerText" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Button>
-                        <Button x:Name="WatchButton" Click="WatchButton_Click"
-                                Style="{ThemeResource AccentButtonStyle}"
-                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="42">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE768;" FontSize="16"/>
-                                <TextBlock x:Name="WatchText" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                            </StackPanel>
-                        </Button>
+                        <!-- Static two-ring halo: zero animation or per-frame work. -->
+                        <Grid Margin="4">
+                            <Border x:Name="WatchGlowOuter" Margin="-4" CornerRadius="12"
+                                    IsHitTestVisible="False" Opacity="0.25"/>
+                            <Border x:Name="WatchGlowInner" Margin="-2" CornerRadius="10"
+                                    IsHitTestVisible="False" Opacity="0.4"/>
+                            <Button x:Name="WatchButton" Click="WatchButton_Click"
+                                    Style="{ThemeResource AccentButtonStyle}"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="42">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE768;" FontSize="16"/>
+                                    <TextBlock x:Name="WatchText" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
                         <Button x:Name="BookmarkButton" Click="BookmarkButton_Click"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" MinHeight="38">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -98,16 +105,26 @@
                             </StackPanel>
                         </ScrollViewer>
 
-                        <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Hidden"
-                                      VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled"
-                                      HorizontalAlignment="Left">
-                            <Border x:Name="UserRatingBorder" CornerRadius="10" Padding="8,6"
-                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                    BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
-                                <StackPanel x:Name="UserRatingPanel" Orientation="Horizontal"
-                                            Spacing="8" Visibility="Collapsed"/>
-                            </Border>
-                        </ScrollViewer>
+                        <!-- Label on the metadata baseline; only stars are a badge. -->
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition x:Name="YourRatingLabelColumn" Width="110"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock x:Name="YourRatingHeader" Grid.Column="0" FontSize="12"
+                                       FontWeight="SemiBold" VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <ScrollViewer Grid.Column="1" HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled"
+                                          HorizontalAlignment="Left">
+                                <Border x:Name="UserRatingBorder" CornerRadius="10" Padding="8,5"
+                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                                    <StackPanel x:Name="UserRatingPanel" Orientation="Horizontal"
+                                                Spacing="8" Visibility="Collapsed"/>
+                                </Border>
+                            </ScrollViewer>
+                        </Grid>
 
                         <StackPanel x:Name="MetaPanel" Spacing="8" Margin="0,8,0,0"/>
                         <Border x:Name="DescriptionPanel" CornerRadius="12" Margin="0,8,0,0"
@@ -128,6 +145,7 @@
                 </Grid>
 
                 <Border x:Name="PlaybackChoiceBorder" Grid.Row="1" CornerRadius="12" Padding="16"
+                        SizeChanged="PlaybackChoiceBorder_SizeChanged"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
                     <StackPanel x:Name="PlaybackChoicePanel" Spacing="14">
@@ -162,11 +180,17 @@
                                         <FontIcon Glyph="&#xE946;" FontSize="14"/>
                                     </Button>
                                 </StackPanel>
-                                <ComboBox x:Name="VoiceBox" HorizontalAlignment="Left"
-                                          HorizontalContentAlignment="Left"
-                                          MinWidth="210" MaxWidth="330"
-                                          MaxDropDownHeight="380"
-                                          SelectionChanged="VoiceBox_SelectionChanged"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <ComboBox x:Name="VoiceBox" HorizontalAlignment="Left"
+                                              HorizontalContentAlignment="Left"
+                                              MinWidth="185" MaxWidth="330" MaxDropDownHeight="380"
+                                              SelectionChanged="VoiceBox_SelectionChanged"/>
+                                    <Button x:Name="InlineWatchButton" Click="WatchButton_Click"
+                                            Width="40" Height="40" Padding="0" MinWidth="0" MinHeight="0"
+                                            VerticalAlignment="Center" Style="{ThemeResource AccentButtonStyle}">
+                                        <FontIcon Glyph="&#xE768;" FontSize="16"/>
+                                    </Button>
+                                </StackPanel>
                             </StackPanel>
                         </Grid>
 
@@ -181,27 +205,22 @@
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
-                            <!-- Wrap ten compact episode chips into a new row
-                                 at 480 DIP. No infinite horizontal scroll. -->
-                            <ItemsControl x:Name="EpisodesList" HorizontalAlignment="Left" MaxWidth="480">
+                            <!-- Bounded dynamically by the playback card, fills to the edge. -->
+                            <ItemsControl x:Name="EpisodesList" HorizontalAlignment="Left">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <ItemsWrapGrid Orientation="Horizontal" ItemWidth="46" ItemHeight="40"/>
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>
+                            <TextBlock x:Name="EpisodeRightClickHint" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <StackPanel x:Name="ActionsRow" Grid.Row="2" Orientation="Horizontal"
-                            Spacing="10" Visibility="Visible">
-                    <ToggleButton x:Name="WatchedButton" Click="WatchedButton_Click" MinHeight="36">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE73E;" FontSize="15"/>
-                            <TextBlock x:Name="WatchedText" TextWrapping="Wrap"/>
-                        </StackPanel>
-                    </ToggleButton>
+                            Spacing="10" Visibility="Collapsed">
                     <Button x:Name="DownloadButton" Click="DownloadButton_Click" MinHeight="36"
                             Visibility="Collapsed">
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -211,7 +230,11 @@
                     </Button>
                 </StackPanel>
 
-                <StackPanel x:Name="SchedulePanel" Grid.Row="3" Spacing="8" Margin="0,20,0,0" Visibility="Collapsed">
+                <Border x:Name="ScheduleCard" Grid.Row="3" Visibility="Collapsed"
+                        CornerRadius="12" Padding="16"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                <StackPanel x:Name="SchedulePanel" Spacing="8">
                     <TextBlock x:Name="ScheduleHeader" Style="{StaticResource SectionHeader}"/>
                     <Border x:Name="ScheduleCountdownBadge" Background="{ThemeResource AccentFillColorDefaultBrush}"
                             CornerRadius="8" Padding="12,6" HorizontalAlignment="Left" Visibility="Collapsed">
@@ -223,6 +246,7 @@
                             Background="Transparent" BorderThickness="0" Padding="8,4" HorizontalAlignment="Left"/>
                 </StackPanel>
 
+                </Border>
                 <StackPanel x:Name="CommentsSection" Grid.Row="4" Spacing="10" Margin="0,20,0,0" Visibility="Collapsed">                    <ToggleButton x:Name="CommentsToggle" Click="CommentsToggle_Click">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE90A;" FontSize="16"/>
