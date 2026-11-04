@@ -9,7 +9,7 @@ namespace HDREZKA.App.Views;
 
 public sealed partial class HomePage : Page
 {
-    private const int SectionPreviewCount = 16;
+    private const int SectionPreviewCount = 12;
     private const int HeroCount = 5;
     private const int HomeContinueCount = 3;
 
