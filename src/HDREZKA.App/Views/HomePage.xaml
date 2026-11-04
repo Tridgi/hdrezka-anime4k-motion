@@ -27,7 +27,8 @@
     </Page.Resources>
 
     <Grid Padding="28,12,28,12">
-        <ScrollViewer VerticalScrollBarVisibility="Hidden">
+        <ScrollViewer x:Name="HomeVerticalScroll" VerticalScrollBarVisibility="Hidden"
+                      ViewChanged="HomeVerticalScroll_ViewChanged">
             <StackPanel x:Name="ContentPanel" Spacing="4">
                 <Grid x:Name="HeroCard" Height="380" CornerRadius="18"
                       Margin="0,8,0,14" SizeChanged="HeroCard_SizeChanged">
@@ -47,7 +48,7 @@
                         </Border.Background>
                     </Border>
                     <!-- Navigation arrows own 40-DIP side gutters and never cover the poster. -->
-                    <Grid HorizontalAlignment="Center" MaxWidth="1180"
+                    <Grid x:Name="HeroInnerGrid" HorizontalAlignment="Center" MaxWidth="1180"
                           Padding="70,20,70,34" ColumnSpacing="30">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
