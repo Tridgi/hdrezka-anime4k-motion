@@ -581,9 +581,16 @@ public sealed partial class DetailsPage : Page
         if (_watchAlsoItems.Count == 0 || WatchAlsoPanel.Visibility != Visibility.Visible)
             return;
 
+        // Reserve room for the left/right arrows and their column gaps.
+        // On a typical desktop width five titles are visible; with nine
+        // recommendations the second page naturally contains four.
         var available = WatchAlsoPanel.ActualWidth - 36;
-        if (!double.IsFinite(available) || available < 100) return;
-        var pageSize = available >= 590 ? 3 : available >= 365 ? 2 : 1;
+        if (!double.IsFinite(available) || available < 130) return;
+        var contentWidth = Math.Max(70, available - 84);
+        var pageSize = contentWidth >= 780 ? 5
+            : contentWidth >= 625 ? 4
+            : contentWidth >= 475 ? 3
+            : contentWidth >= 320 ? 2 : 1;
         if (pageSize != _watchAlsoPageSize)
         {
             _watchAlsoOffset = (_watchAlsoOffset / pageSize) * pageSize;
@@ -599,8 +606,10 @@ public sealed partial class DetailsPage : Page
         _lastWatchAlsoOffset = _watchAlsoOffset;
 
         var visible = _watchAlsoItems.Skip(_watchAlsoOffset).Take(pageSize).ToArray();
-        var slotWidth = (available - 12 * pageSize) / pageSize;
-        var cardWidth = Math.Clamp(slotWidth, 86, 230);
+        // 24 DIP between posters; scale recommendation cards only, not
+        // cards in the main catalog. Avoid the oversized 230-DIP posters.
+        var slotWidth = (contentWidth - 24 * pageSize) / pageSize;
+        var cardWidth = Math.Clamp(slotWidth, 90, 158);
 
         // Apply width to ListView containers, not to manually constructed
         // MovieCard controls. Viewbox scales the existing MovieCard template.
@@ -608,7 +617,7 @@ public sealed partial class DetailsPage : Page
         var itemStyle = new Style(typeof(ListViewItem));
         itemStyle.Setters.Add(new Setter(FrameworkElement.WidthProperty, cardWidth));
         itemStyle.Setters.Add(new Setter(FrameworkElement.MarginProperty,
-            new Thickness(0, 0, 12, 0)));
+            new Thickness(0, 0, 24, 0)));
         itemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(0)));
         itemStyle.Setters.Add(new Setter(Control.MinWidthProperty, 0d));
         itemStyle.Setters.Add(new Setter(Control.MinHeightProperty, 0d));
@@ -619,7 +628,7 @@ public sealed partial class DetailsPage : Page
         itemStyle.Setters.Add(new Setter(Control.IsTabStopProperty, false));
 
         WatchAlsoGrid.ItemContainerStyle = itemStyle;
-        WatchAlsoGrid.Width = Math.Min(available, (cardWidth + 12) * visible.Length);
+        WatchAlsoGrid.Width = Math.Min(contentWidth, (cardWidth + 24) * visible.Length);
         WatchAlsoGrid.ItemsSource = visible;
         WatchAlsoPreviousButton.IsEnabled = _watchAlsoOffset > 0;
         WatchAlsoNextButton.IsEnabled = _watchAlsoOffset + pageSize < _watchAlsoItems.Count;
@@ -949,11 +958,12 @@ public sealed partial class DetailsPage : Page
                     Windows.UI.Color.FromArgb(255, 46, 88, 66))
                 : (Windows.UI.Color.FromArgb(255, 247, 248, 251), Windows.UI.Color.FromArgb(255, 243, 208, 165),
                     Windows.UI.Color.FromArgb(255, 207, 235, 214)),
+            // Japan is white and red, NEVER black and red in dark mode.
             "🇯🇵" => dark
-                ? (Windows.UI.Color.FromArgb(255, 59, 52, 56), Windows.UI.Color.FromArgb(255, 107, 57, 70),
-                    Windows.UI.Color.FromArgb(255, 59, 52, 56))
-                : (Windows.UI.Color.FromArgb(255, 247, 247, 249), Windows.UI.Color.FromArgb(255, 250, 209, 217),
-                    Windows.UI.Color.FromArgb(255, 247, 247, 249)),
+                ? (Windows.UI.Color.FromArgb(255, 247, 247, 249), Windows.UI.Color.FromArgb(255, 242, 177, 187),
+                    Windows.UI.Color.FromArgb(255, 247, 247, 249))
+                : (Windows.UI.Color.FromArgb(255, 255, 255, 255), Windows.UI.Color.FromArgb(255, 248, 200, 208),
+                    Windows.UI.Color.FromArgb(255, 255, 255, 255)),
             "🇺🇦" => dark
                 ? (Windows.UI.Color.FromArgb(255, 40, 65, 95), Windows.UI.Color.FromArgb(255, 105, 88, 44),
                     Windows.UI.Color.FromArgb(255, 105, 88, 44))
@@ -999,10 +1009,11 @@ public sealed partial class DetailsPage : Page
         badge.Background = gradient;
         if (badge.Child is StackPanel content)
             foreach (var label in content.Children.OfType<TextBlock>())
-                label.Foreground = dark ? Brush(246, 246, 248) : Brush(33, 37, 44);
+                label.Foreground = flag == "🇯🇵" ? Brush(33, 37, 44)
+                    : dark ? Brush(246, 246, 248) : Brush(33, 37, 44);
     }
 
-    private void AddMetaRow(string label, FrameworkElement value)
+    private void AddMetaRow(string label, FrameworkElement value, bool alignLabelTop = false)
     {
         var grid = new Grid { ColumnSpacing = 12 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(MetaLabelWidth) });
@@ -1012,7 +1023,8 @@ public sealed partial class DetailsPage : Page
             Text = label,
             FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             FontSize = 12,
-            VerticalAlignment = VerticalAlignment.Center,
+            VerticalAlignment = alignLabelTop ? VerticalAlignment.Top : VerticalAlignment.Center,
+            Margin = alignLabelTop ? new Thickness(0, 7, 0, 0) : new Thickness(0),
             Foreground = IsLightTheme ? Brush(91, 96, 104) : Brush(191, 194, 199)
         });
         Grid.SetColumn(value, 1);
@@ -1560,7 +1572,8 @@ public sealed partial class DetailsPage : Page
             Append(more, 25 + caption.Length * 7);
         }
         if (row.Children.Count > 0) wrap.Children.Add(row);
-        AddMetaRow(label, wrap);
+        // For multi-line cast the heading belongs next to the first row.
+        AddMetaRow(label, wrap, alignLabelTop: isCast);
     }
 
     private void AddMeta(string label, string value)
@@ -1846,12 +1859,24 @@ public sealed partial class DetailsPage : Page
             _details == null || _voice == null || _season == null) return;
 
         var movieId = ExtractNumericId(_details.Id) ?? _details.Id;
-        PositionService.Instance.ToggleWatched(movieId, _voice.TranslatorId,
+        var scrollOffset = DetailsScrollViewer.VerticalOffset;
+        var nowWatched = PositionService.Instance.ToggleWatched(movieId, _voice.TranslatorId,
             _season.SeasonId, episode.EpisodeId);
         TrackedSeriesService.Touch(_details.Id, _details.Name, _details.Poster);
-        // Recreate only the episode buttons. Right-click must not select a
-        // different episode or launch a player.
-        RenderEpisodes();
+        // Never clear/rebuild the ItemsControl after a right click: replacing
+        // a focused element made the outer ScrollViewer jump to the top.
+        if (sender is ToggleButton button)
+        {
+            var originalLabel = button.Content?.ToString() ?? episode.Name;
+            if (originalLabel.StartsWith("✓", StringComparison.Ordinal))
+                originalLabel = originalLabel[1..];
+            button.Content = nowWatched ? "✓" + originalLabel : originalLabel;
+        }
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (Math.Abs(DetailsScrollViewer.VerticalOffset - scrollOffset) > 1)
+                DetailsScrollViewer.ChangeView(null, scrollOffset, null, true);
+        });
     }
 
     private void EpisodeButton_Click(object sender, RoutedEventArgs e)
