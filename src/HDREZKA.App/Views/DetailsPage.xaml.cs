@@ -52,6 +52,7 @@ public sealed partial class DetailsPage : Page
         LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
         SettingsService.Instance.PosterSizeChanged += OnPosterSizeChanged;
         SettingsService.Instance.DetailPaletteChanged += OnDetailPaletteChanged;
+        ThemeHelper.AccentChanged += OnAccentChanged;
         ApplyPosterMetrics();
 
         if (e.Parameter is MovieSimple movie && _movie?.Id != movie.Id)
@@ -77,11 +78,18 @@ public sealed partial class DetailsPage : Page
         LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
         SettingsService.Instance.PosterSizeChanged -= OnPosterSizeChanged;
         SettingsService.Instance.DetailPaletteChanged -= OnDetailPaletteChanged;
+        ThemeHelper.AccentChanged -= OnAccentChanged;
     }
 
     private void OnPosterSizeChanged() => DispatcherQueue.TryEnqueue(ApplyPosterMetrics);
 
     private void OnDetailPaletteChanged() => DispatcherQueue.TryEnqueue(RefreshPresentation);
+    private void OnAccentChanged() => DispatcherQueue.TryEnqueue(() =>
+    {
+        RefreshPresentation();
+        BuildVoiceChoices();
+        UpdateAccentActions();
+    });
 
     private bool _isNarrow;
     private bool _stackSelectors;
@@ -332,6 +340,7 @@ public sealed partial class DetailsPage : Page
         DescriptionExpandButton.Content = Loc.Get("Details.ShowMore");
         RefreshPresentation();
         BuildRateRow();
+        UpdateAccentActions();
 
         // Preserve translator IDs and selected instance: the episode endpoint
         // needs the MovieVoiceActing object, not a localized display string.
@@ -344,27 +353,7 @@ public sealed partial class DetailsPage : Page
 
         VoicesPanel.Visibility = details.VoiceActings is { Count: > 0 }
             ? Visibility.Visible : Visibility.Collapsed;
-        VoiceBox.SelectionChanged -= VoiceBox_SelectionChanged;
-        VoiceBox.Items.Clear();
-        if (details.VoiceActings != null)
-        {
-            foreach (var voice in details.VoiceActings)
-            {
-                var display = new TextBlock
-                {
-                    Text = voice.Name + (voice.IsPremium ? " ★" : ""),
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                    MaxWidth = 420
-                };
-                ToolTipService.SetToolTip(display, voice.Name);
-                VoiceBox.Items.Add(new ComboBoxItem { Content = display, Tag = voice });
-            }
-        }
-
-        var voiceIndex = details.VoiceActings?.ToList()
-            .FindIndex(voice => voice.TranslatorId == _voice?.TranslatorId) ?? -1;
-        VoiceBox.SelectedIndex = voiceIndex;
-        VoiceBox.SelectionChanged += VoiceBox_SelectionChanged;
+        BuildVoiceChoices();
 
         AgeRatingBorder.Visibility = string.IsNullOrWhiteSpace(details.AgeRestriction)
             ? Visibility.Collapsed : Visibility.Visible;
@@ -409,6 +398,89 @@ public sealed partial class DetailsPage : Page
             ? TextTrimming.None : TextTrimming.CharacterEllipsis;
         DescriptionExpandButton.Content = Loc.Get(_descriptionExpanded
             ? "Details.ShowLess" : "Details.ShowMore");
+    }
+
+    private static string NormalizeVoiceName(string name) =>
+        new(name.Where(char.IsLetterOrDigit)
+            .Select(char.ToLowerInvariant).ToArray());
+
+    /// <summary>
+    /// Rebuilding the ComboBox never fires voice change requests. The selected
+    /// translator is restored by immutable TranslatorId, not display text.
+    /// Ratings are supplemental and may not exist for every translation.
+    /// </summary>
+    private void BuildVoiceChoices()
+    {
+        if (_details?.VoiceActings == null) return;
+        VoiceBox.SelectionChanged -= VoiceBox_SelectionChanged;
+        VoiceBox.Items.Clear();
+
+        var ratingByName = _details.VoiceActingRatings?
+            .Where(v => float.IsFinite(v.Percent))
+            .GroupBy(v => NormalizeVoiceName(v.Name))
+            .ToDictionary(g => g.Key, g => g.First().Percent);
+
+        foreach (var voice in _details.VoiceActings)
+        {
+            var line = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            var name = new TextBlock
+            {
+                Text = voice.Name + (voice.IsPremium ? " ★" : ""),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                MaxWidth = 215,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            ToolTipService.SetToolTip(name, voice.Name);
+            line.Children.Add(name);
+
+            if (ratingByName != null &&
+                ratingByName.TryGetValue(NormalizeVoiceName(voice.Name), out var percent))
+            {
+                line.Children.Add(new TextBlock
+                {
+                    Text = percent.ToString("0.#", System.Globalization.CultureInfo.CurrentCulture) + " %",
+                    Foreground = ThemeHelper.AccentTextBrush,
+                    FontSize = 12,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    TextWrapping = TextWrapping.NoWrap
+                });
+            }
+            var item = new ComboBoxItem
+            {
+                Content = line,
+                Tag = voice,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+            };
+            ToolTipService.SetToolTip(item, voice.Name);
+            VoiceBox.Items.Add(item);
+        }
+        var selected = VoiceBox.Items.OfType<ComboBoxItem>()
+            .FirstOrDefault(item => item.Tag is MovieVoiceActing voice &&
+                                     voice.TranslatorId == _voice?.TranslatorId);
+        VoiceBox.SelectedItem = selected;
+        VoiceBox.SelectionChanged += VoiceBox_SelectionChanged;
+    }
+
+    private void UpdateAccentActions()
+    {
+        if (SettingsService.Instance.Theme == AppTheme.Manual)
+        {
+            WatchButton.Background = ThemeHelper.AccentBrush;
+            WatchButton.Foreground = ThemeHelper.AccentForegroundBrush;
+        }
+        else
+        {
+            WatchButton.ClearValue(Button.BackgroundProperty);
+            WatchButton.ClearValue(Button.ForegroundProperty);
+        }
     }
 
     private void RenderWatchAlso(MovieDetailed details)
@@ -701,6 +773,61 @@ public sealed partial class DetailsPage : Page
         return badge;
     }
 
+    /// <summary>
+    /// Low-saturation flag-color gradients keep country labels readable even
+    /// against dark backgrounds. The flag icon is retained for recognition.
+    /// </summary>
+    private void ApplyCountryTint(Border badge, string name)
+    {
+        if (!IsColorful) return;
+        var flag = CountryFlag(name);
+        var dark = !IsLightTheme;
+        (Windows.UI.Color A, Windows.UI.Color B, Windows.UI.Color C) colors = flag switch
+        {
+            "🇯🇵" => dark
+                ? (Windows.UI.Color.FromArgb(255, 59, 52, 56), Windows.UI.Color.FromArgb(255, 107, 57, 70),
+                    Windows.UI.Color.FromArgb(255, 59, 52, 56))
+                : (Windows.UI.Color.FromArgb(255, 247, 247, 249), Windows.UI.Color.FromArgb(255, 250, 209, 217),
+                    Windows.UI.Color.FromArgb(255, 247, 247, 249)),
+            "🇺🇦" => dark
+                ? (Windows.UI.Color.FromArgb(255, 40, 65, 95), Windows.UI.Color.FromArgb(255, 105, 88, 44),
+                    Windows.UI.Color.FromArgb(255, 105, 88, 44))
+                : (Windows.UI.Color.FromArgb(255, 213, 232, 252), Windows.UI.Color.FromArgb(255, 249, 237, 177),
+                    Windows.UI.Color.FromArgb(255, 249, 237, 177)),
+            "🇺🇸" or "🇷🇺" or "🇬🇧" or "🇫🇷" => dark
+                ? (Windows.UI.Color.FromArgb(255, 44, 58, 97), Windows.UI.Color.FromArgb(255, 75, 64, 81),
+                    Windows.UI.Color.FromArgb(255, 112, 52, 65))
+                : (Windows.UI.Color.FromArgb(255, 212, 231, 252), Windows.UI.Color.FromArgb(255, 245, 246, 248),
+                    Windows.UI.Color.FromArgb(255, 250, 217, 222)),
+            "🇩🇪" => dark
+                ? (Windows.UI.Color.FromArgb(255, 50, 51, 55), Windows.UI.Color.FromArgb(255, 99, 52, 58),
+                    Windows.UI.Color.FromArgb(255, 103, 83, 49))
+                : (Windows.UI.Color.FromArgb(255, 220, 222, 227), Windows.UI.Color.FromArgb(255, 252, 220, 224),
+                    Windows.UI.Color.FromArgb(255, 252, 239, 204)),
+            "🇨🇳" => dark
+                ? (Windows.UI.Color.FromArgb(255, 91, 48, 51), Windows.UI.Color.FromArgb(255, 119, 73, 55),
+                    Windows.UI.Color.FromArgb(255, 91, 48, 51))
+                : (Windows.UI.Color.FromArgb(255, 250, 220, 222), Windows.UI.Color.FromArgb(255, 252, 232, 193),
+                    Windows.UI.Color.FromArgb(255, 250, 220, 222)),
+            _ => dark
+                ? (Windows.UI.Color.FromArgb(255, 50, 64, 77), Windows.UI.Color.FromArgb(255, 57, 70, 78),
+                    Windows.UI.Color.FromArgb(255, 63, 58, 78))
+                : (Windows.UI.Color.FromArgb(255, 224, 236, 249), Windows.UI.Color.FromArgb(255, 229, 241, 240),
+                    Windows.UI.Color.FromArgb(255, 237, 230, 248))
+        };
+        var gradient = new Microsoft.UI.Xaml.Media.LinearGradientBrush
+        {
+            StartPoint = new Windows.Foundation.Point(0, .5),
+            EndPoint = new Windows.Foundation.Point(1, .5),
+        };
+        gradient.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop { Color = colors.A, Offset = 0 });
+        gradient.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop { Color = colors.B, Offset = .5 });
+        gradient.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop { Color = colors.C, Offset = 1 });
+        badge.Background = gradient;
+        if (badge.Child is TextBlock label)
+            label.Foreground = dark ? Brush(246, 246, 248) : Brush(33, 37, 44);
+    }
+
     private void AddMetaRow(string label, FrameworkElement value)
     {
         var grid = new Grid { ColumnSpacing = 12 };
@@ -745,6 +872,7 @@ public sealed partial class DetailsPage : Page
                 used = 0;
             }
             var badge = Chip(name, tone);
+            if (tone == MetadataTone.Country) ApplyCountryTint(badge, name);
             badge.MaxWidth = Math.Max(124, Math.Min(220, available));
             line.Children.Add(badge);
             used += (used > 0 ? 6 : 0) + Math.Min(estimated, badge.MaxWidth);
@@ -789,8 +917,31 @@ public sealed partial class DetailsPage : Page
             var minutes = int.TryParse(mins.ToString(), out var parsed) ? parsed : 0;
             var tone = minutes is > 0 and <= 30 ? MetadataTone.TimeShort
                 : minutes is > 30 and <= 90 ? MetadataTone.TimeMedium : MetadataTone.TimeLong;
-            AddMetaRow(Loc.Get("Details.Duration"),
-                WrapChips([( "⏱ " + mins + " " + Loc.Get("Common.Minutes"), tone)]));
+            var (bg, fg) = BadgeBrushes(tone);
+            var content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            content.Children.Add(new FontIcon
+            {
+                Glyph = "\uE823", FontSize = 13, Foreground = fg,
+                VerticalAlignment = VerticalAlignment.Center
+            });
+            content.Children.Add(new TextBlock
+            {
+                Text = mins + " " + Loc.Get("Common.Minutes"),
+                FontSize = 12, Foreground = fg, VerticalAlignment = VerticalAlignment.Center
+            });
+            AddMetaRow(Loc.Get("Details.Duration"), new Border
+            {
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(10, 6, 10, 6),
+                Background = bg,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Child = content
+            });
         }
 
         if (details.Producers is { Count: > 0 })
@@ -828,6 +979,7 @@ public sealed partial class DetailsPage : Page
         AddRating("KP", details.KpRating);
         BuildMeta(details);
         UpdateAgeBadgeStyle();
+        UserRatingBorder.Background = BadgeBrushes(MetadataTone.Rating).Bg;
     }
 
     private void AddRating(string label, MovieRating? rating)
@@ -1055,38 +1207,84 @@ public sealed partial class DetailsPage : Page
 
     private void AddPersonsMeta(string label, IReadOnlyList<PersonSimple> persons)
     {
-        // Keep person navigation intact. A capped inline list avoids turning a
-        // large anime cast into dozens of rows; 'more' expands in-place.
-        var text = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
-        var visible = _peopleExpanded ? persons.Count : Math.Min(6, persons.Count);
-        for (var i = 0; i < visible; i++)
+        // Each person is an independently clickable pill. This preserves
+        // navigation to PersonPage while preventing unbounded wall-of-text.
+        var available = ActualWidth > 0 ? ActualWidth : 1024;
+        available -= (available < 510 ? 24 : available < 850 ? 40 : 56) + MetaLabelWidth + 32;
+        if (!_isNarrow) available -= PosterPanel.Width + HeaderGrid.ColumnSpacing;
+        available = Math.Max(145, available);
+
+        var wrap = new StackPanel { Spacing = 6 };
+        StackPanel row = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
+        double used = 0;
+
+        void Append(Button pill, double width)
         {
-            if (i > 0) text.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = ", " });
-            var person = persons[i];
-            var link = new Microsoft.UI.Xaml.Documents.Hyperlink();
-            link.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = person.Name });
-            link.Click += (_, _) => Nav.Go<PersonPage>(person);
-            text.Inlines.Add(link);
-        }
-        if (visible < persons.Count)
-        {
-            text.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = "  ·  " });
-            var more = new Microsoft.UI.Xaml.Documents.Hyperlink();
-            more.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
+            width = Math.Min(width, Math.Min(220, available));
+            if (row.Children.Count > 0 && used + width + 6 > available)
             {
-                Text = "+" + (persons.Count - visible) + " " + Loc.Get("Details.MorePeople")
-            });
-            more.Click += (_, _) => { _peopleExpanded = true; if (_details != null) BuildMeta(_details); };
-            text.Inlines.Add(more);
+                wrap.Children.Add(row);
+                row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                used = 0;
+            }
+            pill.MaxWidth = Math.Max(100, width);
+            row.Children.Add(pill);
+            used += width + (row.Children.Count > 1 ? 6 : 0);
         }
 
-        AddMetaRow(label, new Border
+        var isCast = _details?.Actors != null && ReferenceEquals(persons, _details.Actors);
+        var visible = _peopleExpanded || !isCast ? persons.Count : Math.Min(6, persons.Count);
+        var (bg, fg) = BadgeBrushes(MetadataTone.People);
+        for (var i = 0; i < visible; i++)
         {
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(10, 7, 10, 7),
-            Background = BadgeBrushes(MetadataTone.People).Bg,
-            Child = text
-        });
+            var person = persons[i];
+            var pill = new Button
+            {
+                Content = new TextBlock
+                {
+                    Text = person.Name,
+                    MaxWidth = 200,
+                    FontSize = 12,
+                    TextTrimming = TextTrimming.CharacterEllipsis,
+                    Foreground = fg
+                },
+                Background = bg,
+                Foreground = fg,
+                BorderThickness = new Thickness(0),
+                CornerRadius = new CornerRadius(9),
+                Padding = new Thickness(9, 5, 9, 5),
+                MinWidth = 0,
+                MinHeight = 28,
+                HorizontalAlignment = HorizontalAlignment.Left,
+            };
+            ToolTipService.SetToolTip(pill, person.Name);
+            pill.Click += (_, _) => Nav.Go<PersonPage>(person);
+            Append(pill, 20 + person.Name.Length * 7);
+        }
+
+        if (isCast && persons.Count > 6)
+        {
+            var caption = _peopleExpanded ? Loc.Get("Details.ShowLess") :
+                "+" + (persons.Count - visible) + " " + Loc.Get("Details.MorePeople");
+            var more = new Button
+            {
+                Content = caption,
+                Background = bg, Foreground = ThemeHelper.AccentTextBrush,
+                BorderThickness = new Thickness(0),
+                CornerRadius = new CornerRadius(9),
+                Padding = new Thickness(9, 5, 9, 5),
+                MinWidth = 0, MinHeight = 28,
+                HorizontalAlignment = HorizontalAlignment.Left
+            };
+            more.Click += (_, _) =>
+            {
+                _peopleExpanded = !_peopleExpanded;
+                if (_details != null) BuildMeta(_details);
+            };
+            Append(more, 25 + caption.Length * 7);
+        }
+        if (row.Children.Count > 0) wrap.Children.Add(row);
+        AddMetaRow(label, wrap);
     }
 
     private void AddMeta(string label, string value)
