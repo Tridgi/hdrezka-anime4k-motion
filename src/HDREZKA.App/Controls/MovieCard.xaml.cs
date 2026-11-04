@@ -38,6 +38,8 @@ public sealed partial class MovieCard : UserControl
     public MovieCard()
     {
         InitializeComponent();
+        CardButton.RenderTransformOrigin = new Windows.Foundation.Point(.5, .36);
+        CardButton.RenderTransform = _cardScale;
         Loaded += (_, _) =>
         {
             ApplyPosterSize();
@@ -53,6 +55,8 @@ public sealed partial class MovieCard : UserControl
     }
 
     private double _cardWidthOverride;
+    private bool _hovered;
+    private readonly ScaleTransform _cardScale = new() { ScaleX = 1, ScaleY = 1 };
 
     /// <summary>
     /// Details recommendations may scale to their grid slot without changing
@@ -92,8 +96,13 @@ public sealed partial class MovieCard : UserControl
 
         PosterCache.SetSource(PosterImage, Movie.Poster);
 
-        RatingText.Text = Movie.Rating?.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) ?? "";
-        (RatingText.Parent as FrameworkElement)!.Visibility = Movie.Rating != null ? Visibility.Visible : Visibility.Collapsed;
+        RatingText.Text = Movie.Rating is { } score
+            ? "R " + score.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)
+            : "";
+        RatingBadge.Visibility = Movie.Rating != null
+            ? Visibility.Visible : Visibility.Collapsed;
+        if (Movie.Rating is { } rating)
+            SetRatingColor(rating);
 
         if (Movie.Info == MediaInfoType.Series && Movie.Season is { } s && Movie.Episode is { } e)
         {
@@ -114,6 +123,34 @@ public sealed partial class MovieCard : UserControl
         {
             InfoBadge.Visibility = Visibility.Collapsed;
         }
+
+        RatingBadge.Margin = InfoBadge.Visibility == Visibility.Visible
+            ? new Thickness(0, 0, 6, 36)
+            : new Thickness(0, 0, 6, 6);
+    }
+
+    private void SetRatingColor(float value)
+    {
+        // 0 = red; 5 = warm orange; 10 = green. This is the
+        // HDREZKA rating, not KP/IMDb.
+        var clamped = Math.Clamp(value, 0f, 10f);
+        var t = clamped < 5 ? clamped / 5f : (clamped - 5) / 5f;
+        (byte R, byte G, byte B) from = clamped < 5
+            ? ((byte)195, (byte)59, (byte)68)
+            : ((byte)232, (byte)150, (byte)52);
+        (byte R, byte G, byte B) to = clamped < 5
+            ? ((byte)232, (byte)150, (byte)52)
+            : ((byte)37, (byte)158, (byte)103);
+        static byte Interpolate(byte a, byte b, float amount) =>
+            (byte)Math.Clamp((int)Math.Round(a + (b - a) * amount), 0, 255);
+        RatingBadge.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(255,
+            Interpolate(from.R, to.R, t),
+            Interpolate(from.G, to.G, t),
+            Interpolate(from.B, to.B, t)));
+        RatingText.Foreground = new SolidColorBrush(
+            value >= 4.5f && value < 7f
+                ? Windows.UI.Color.FromArgb(255, 29, 34, 35)
+                : Microsoft.UI.Colors.White);
     }
 
     private void CardButton_Click(object sender, RoutedEventArgs e)
@@ -124,7 +161,8 @@ public sealed partial class MovieCard : UserControl
 
     private void CardButton_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
-        AnimateScale(RecommendationPreview ? 1.025f : 1.05f);
+        _hovered = true;
+        AnimateScale(1.045f);
         AnimateOpacity(HoverOverlay, 1);
         if (RecommendationPreview)
             RecommendationHoverChanged?.Invoke(this,
@@ -133,6 +171,7 @@ public sealed partial class MovieCard : UserControl
 
     private void CardButton_PointerExited(object sender, PointerRoutedEventArgs e)
     {
+        _hovered = false;
         AnimateScale(1.0f);
         AnimateOpacity(HoverOverlay, 0);
         if (RecommendationPreview)
@@ -142,30 +181,27 @@ public sealed partial class MovieCard : UserControl
 
     private void CardButton_PointerPressed(object sender, PointerRoutedEventArgs e) => AnimateScale(0.97f);
 
-    private void CardButton_PointerReleased(object sender, PointerRoutedEventArgs e) => AnimateScale(1.0f);
+    private void CardButton_PointerReleased(object sender, PointerRoutedEventArgs e)
+        => AnimateScale(_hovered ? 1.045f : 1.0f);
 
     private void AnimateScale(float to)
     {
-        var transform = new ScaleTransform
-        {
-            CenterX = OuterGrid.Width / 2,
-            CenterY = PosterGrid.Height / 2,
-        };
-        CardButton.RenderTransform = transform;
+        // Reuse one GPU-friendly transform; repeated pointer events must
+        // not replace it or create clipping/flicker at viewport boundaries.
         var storyboard = new Storyboard();
         foreach (var property in new[] { "ScaleX", "ScaleY" })
         {
             var animation = new DoubleAnimation
             {
                 To = to,
-                Duration = TimeSpan.FromMilliseconds(140),
-                EnableDependentAnimation = true,
+                Duration = TimeSpan.FromMilliseconds(230),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut },
+                EnableDependentAnimation = true
             };
-            Storyboard.SetTarget(animation, transform);
+            Storyboard.SetTarget(animation, _cardScale);
             Storyboard.SetTargetProperty(animation, property);
             storyboard.Children.Add(animation);
         }
-
         storyboard.Begin();
     }
 
