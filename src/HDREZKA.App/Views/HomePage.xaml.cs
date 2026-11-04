@@ -3,6 +3,8 @@ using HDREZKA.App.Services;
 using HDREZKA.Core.Api;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace HDREZKA.App.Views;
@@ -21,7 +23,19 @@ public sealed partial class HomePage : Page
     private bool _mirrorRecovered;
     private readonly List<MovieSimple> _heroItems = new();
     private int _heroIndex;
-    private readonly DispatcherTimer _heroTimer = new() { Interval = TimeSpan.FromSeconds(6) };
+    private readonly DispatcherTimer _heroTimer = new()
+        { Interval = TimeSpan.FromSeconds(10) };
+    private CancellationTokenSource? _heroSynopsisCancellation;
+    private readonly Dictionary<string, MovieDetailed> _heroDetailsCache = new();
+    private readonly Dictionary<string, IReadOnlyList<MovieSimple>> _sectionItems = new();
+    private readonly Dictionary<string, (StackPanel Row, ScrollViewer Scroll,
+        Button Previous, Button Next, Grid Frame)> _carouselWidgets = new();
+    private readonly Dictionary<string, CatalogLaunch> _carouselLaunches = new();
+    private MovieCard? _activePreviewCard;
+    private string? _activePreviewId;
+    private CancellationTokenSource? _previewCancellation;
+    private readonly Dictionary<string, MovieDetailed> _previewCache = new();
+
 
     public HomePage()
     {
@@ -38,6 +52,25 @@ public sealed partial class HomePage : Page
         PopularAllButton.Tag = new CatalogLaunch(Section.Films, ListFilter.Popular);
         WatchingAllButton.Tag = new CatalogLaunch(Section.Films, ListFilter.WatchingNow);
         SoonAllButton.Tag = new CatalogLaunch(Section.Films, ListFilter.Soon);
+
+        _carouselWidgets["Films"] = (FilmsRow, FilmsScroll, FilmsPrevious, FilmsNext, FilmsCarousel);
+        _carouselWidgets["Series"] = (SeriesRow, SeriesScroll, SeriesPrevious, SeriesNext, SeriesCarousel);
+        _carouselWidgets["Cartoons"] = (CartoonsRow, CartoonsScroll, CartoonsPrevious, CartoonsNext, CartoonsCarousel);
+        _carouselWidgets["Popular"] = (PopularRow, PopularScroll, PopularPrevious, PopularNext, PopularCarousel);
+        _carouselWidgets["Watching"] = (WatchingRow, WatchingScroll, WatchingPrevious, WatchingNext, WatchingCarousel);
+        _carouselWidgets["Soon"] = (SoonRow, SoonScroll, SoonPrevious, SoonNext, SoonCarousel);
+        _carouselLaunches["Films"] = (CatalogLaunch)FilmsAllButton.Tag;
+        _carouselLaunches["Series"] = (CatalogLaunch)SeriesAllButton.Tag;
+        _carouselLaunches["Cartoons"] = (CatalogLaunch)CartoonsAllButton.Tag;
+        _carouselLaunches["Popular"] = (CatalogLaunch)PopularAllButton.Tag;
+        _carouselLaunches["Watching"] = (CatalogLaunch)WatchingAllButton.Tag;
+        _carouselLaunches["Soon"] = (CatalogLaunch)SoonAllButton.Tag;
+        foreach (var pair in _carouselWidgets)
+        {
+            var id = pair.Key;
+            pair.Value.Scroll.SizeChanged += (_, _) =>
+                DispatcherQueue.TryEnqueue(() => UpdateCarouselButtons(id));
+        }
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -67,6 +100,8 @@ public sealed partial class HomePage : Page
     {
         base.OnNavigatedFrom(e);
         _heroTimer.Stop();
+        _heroSynopsisCancellation?.Cancel();
+        HideHomePreview();
         try { _loadCts?.Cancel(); } catch { }
         SettingsService.Instance.PosterSizeChanged -= OnPosterSizeChanged;
         TrackedSeriesService.UpdatesChanged -= OnTrackedUpdatesChanged;
@@ -78,14 +113,21 @@ public sealed partial class HomePage : Page
         DispatcherQueue.TryEnqueue(RenderTracked);
     }
 
-    private void OnPosterSizeChanged() => DispatcherQueue.TryEnqueue(ApplyHeroMetrics);
+    private void OnPosterSizeChanged() => DispatcherQueue.TryEnqueue(() =>
+    {
+        ApplyHeroMetrics();
+        RefreshCarousels();
+    });
 
     private void ApplyHeroMetrics()
     {
         HeroCard.Height = PosterMetrics.HeroCardHeight;
         HeroPosterBorder.Width = PosterMetrics.HeroWidth;
         HeroPosterBorder.Height = PosterMetrics.HeroHeight;
-        HeroPosterClip.Rect = new Windows.Foundation.Rect(0, 0, PosterMetrics.HeroWidth, PosterMetrics.HeroHeight);
+        HeroPosterClip.Rect = new Windows.Foundation.Rect(0, 0,
+            PosterMetrics.HeroWidth, PosterMetrics.HeroHeight);
+        foreach (var section in _carouselWidgets.Values)
+            section.Frame.Height = PosterMetrics.CardHeight + 120;
     }
 
     private void OnLanguageChanged()
@@ -104,6 +146,8 @@ public sealed partial class HomePage : Page
         RetryButton.Content = Loc.Get("Common.Retry");
         MirrorButton.Content = Loc.Get("Settings.AutoMirror");
         HeroWatchButton.Content = Loc.Get("Common.Watch");
+        HomePreviewHeading.Text = Loc.Get("Details.AboutMovie");
+        RefreshCarousels();
         ContinueHeader.Text = Loc.Get("Continue.Home");
         TrackedHeader.Text = Loc.Get("Home.Tracked");
         FilmsHeader.Text = Loc.Get("Section.Films") + " — " + Loc.Get("Filter.Latest");
@@ -163,12 +207,12 @@ public sealed partial class HomePage : Page
             if (token.IsCancellationRequested) return;
 
             BindHero(hot.Result.Take(HeroCount).ToList());
-            BindSection("Films", FilmsSection, FilmsGrid, films.Result.Items);
-            BindSection("Series", SeriesSection, SeriesGrid, series.Result.Items);
-            BindSection("Cartoons", CartoonsSection, CartoonsGrid, cartoons.Result.Items);
-            BindSection("Popular", PopularSection, PopularGrid, popular.Result.Items);
-            BindSection("Watching", WatchingSection, WatchingGrid, watching.Result.Items);
-            BindSection("Soon", SoonSection, SoonGrid, soon.Result.Items);
+            BindSection("Films", FilmsSection, films.Result.Items);
+            BindSection("Series", SeriesSection, series.Result.Items);
+            BindSection("Cartoons", CartoonsSection, cartoons.Result.Items);
+            BindSection("Popular", PopularSection, popular.Result.Items);
+            BindSection("Watching", WatchingSection, watching.Result.Items);
+            BindSection("Soon", SoonSection, soon.Result.Items);
             ApplySectionLayout();
 
             LoadingPanel.Visibility = Visibility.Collapsed;
@@ -328,14 +372,132 @@ public sealed partial class HomePage : Page
         _heroTimer.Start();
     }
 
-    private void BindSection(string id, StackPanel section, GridView grid, IReadOnlyList<MovieSimple> items)
+    private void BindSection(string id, StackPanel section,
+        IReadOnlyList<MovieSimple> items)
     {
         var preview = items.Take(SectionPreviewCount).ToList();
-        grid.ItemsSource = preview;
-        var show = preview.Count > 0;
-        _sectionHasContent[id] = show;
-        section.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        _sectionItems[id] = preview;
+        _sectionHasContent[id] = preview.Count > 0;
+        section.Visibility = preview.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        RenderCarousel(id);
     }
+
+    private void RefreshCarousels()
+    {
+        foreach (var id in _sectionItems.Keys.ToArray())
+            RenderCarousel(id);
+    }
+
+    private void RenderCarousel(string id)
+    {
+        if (!_carouselWidgets.TryGetValue(id, out var ui) ||
+            !_sectionItems.TryGetValue(id, out var items)) return;
+        HideHomePreview();
+        ui.Row.Children.Clear();
+        var cardWidth = PosterMetrics.CardWidth;
+        var posterHeight = PosterMetrics.CardHeight;
+        ui.Frame.Height = posterHeight + 120;
+
+        foreach (var movie in items)
+        {
+            var card = new MovieCard
+            {
+                Movie = movie,
+                RecommendationPreview = true,
+                Margin = new Thickness(7, 15, 7, 9),
+                VerticalAlignment = VerticalAlignment.Top
+            };
+            card.RecommendationHoverChanged += HomeRecommendationCard_HoverChanged;
+            ui.Row.Children.Add(card);
+        }
+
+        // A clearly distinct final slide navigates to the same catalog/filter
+        // as the header's "Show all" button.
+        var endPanel = new StackPanel
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center, Spacing = 12
+        };
+        endPanel.Children.Add(new FontIcon
+        {
+            Glyph = "\uE8A7", FontSize = 26,
+            Foreground = ThemeHelper.AccentTextBrush,
+            HorizontalAlignment = HorizontalAlignment.Center
+        });
+        endPanel.Children.Add(new TextBlock
+        {
+            Text = Loc.Get("Home.MoreTitles"),
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            FontSize = 15
+        });
+        endPanel.Children.Add(new TextBlock
+        {
+            Text = Loc.Get("Home.OpenCatalog"),
+            FontSize = 12, Opacity = .76, TextAlignment = TextAlignment.Center,
+            TextWrapping = TextWrapping.Wrap
+        });
+        var allButton = new Button
+        {
+            Content = endPanel,
+            Tag = _carouselLaunches[id],
+            Width = cardWidth,
+            Height = posterHeight,
+            Margin = new Thickness(7, 15, 7, 9),
+            CornerRadius = new CornerRadius(12),
+            BorderThickness = new Thickness(1),
+            Background = (Brush)Application.Current.Resources[
+                "SubtleFillColorSecondaryBrush"],
+            BorderBrush = ThemeHelper.AccentBrush,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Top
+        };
+        allButton.Click += ShowAll_Click;
+        ui.Row.Children.Add(allButton);
+        ui.Scroll.ChangeView(0, null, null, true);
+        DispatcherQueue.TryEnqueue(() => UpdateCarouselButtons(id));
+    }
+
+    private void UpdateCarouselButtons(string id)
+    {
+        if (!_carouselWidgets.TryGetValue(id, out var ui)) return;
+        ui.Previous.IsEnabled = ui.Scroll.HorizontalOffset > 2;
+        ui.Next.IsEnabled = ui.Scroll.HorizontalOffset <
+            ui.Scroll.ScrollableWidth - 2;
+    }
+
+    private void ScrollCarousel(string id, int direction)
+    {
+        if (!_carouselWidgets.TryGetValue(id, out var ui)) return;
+        HideHomePreview();
+        var step = Math.Max(PosterMetrics.CardWidth + 32,
+            ui.Scroll.ActualWidth - PosterMetrics.CardWidth * .5);
+        var next = Math.Clamp(ui.Scroll.HorizontalOffset + direction * step,
+            0, ui.Scroll.ScrollableWidth);
+        ui.Scroll.ChangeView(next, null, null, false);
+    }
+
+    private void CarouselPrevious_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string id }) ScrollCarousel(id, -1);
+    }
+
+    private void CarouselNext_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string id }) ScrollCarousel(id, 1);
+    }
+
+    private void CarouselScroll_ViewChanged(object sender,
+        ScrollViewerViewChangedEventArgs e)
+    {
+        if (sender is ScrollViewer { Tag: string id })
+            UpdateCarouselButtons(id);
+        HideHomePreview();
+    }
+
+    private void HomeScrollViewer_ViewChanged(object sender,
+        ScrollViewerViewChangedEventArgs e) => HideHomePreview();
 
     /// <summary>
     /// Orders + hides home blocks per Settings → Home screen.
