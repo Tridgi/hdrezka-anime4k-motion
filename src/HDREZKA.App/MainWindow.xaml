@@ -38,7 +38,14 @@
                         ToolTipService.ToolTip="Боковая панель"
                         AutomationProperties.Name="Скрыть или показать меню">
                     <!-- Compact split-pane icon, similar to modern editor sidebars. -->
-                    <Path Data="M 3,2.5 L 15,2.5 Q 17,2.5 17,4.5 L 17,12.5 Q 17,14.5 15,14.5 L 3,14.5 Q 1,14.5 1,12.5 L 1,4.5 Q 1,2.5 3,2.5 Z M 6,2.5 L 6,14.5"
+                    <!-- Open: the occupied left rail. Closed: a thin collapsed edge. -->
+                    <Path x:Name="AppPaneOpenGlyph"
+                          Data="M 3,2.5 L 15,2.5 Q 17,2.5 17,4.5 L 17,12.5 Q 17,14.5 15,14.5 L 3,14.5 Q 1,14.5 1,12.5 L 1,4.5 Q 1,2.5 3,2.5 Z M 6,2.5 L 6,14.5"
+                          Width="18" Height="17" Stretch="None" Fill="Transparent"
+                          Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.2"
+                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
+                    <Path x:Name="AppPaneClosedGlyph" Visibility="Collapsed"
+                          Data="M 3,2.5 L 15,2.5 Q 17,2.5 17,4.5 L 17,12.5 Q 17,14.5 15,14.5 L 3,14.5 Q 1,14.5 1,12.5 L 1,4.5 Q 1,2.5 3,2.5 Z M 4,2.5 L 4,14.5"
                           Width="18" Height="17" Stretch="None" Fill="Transparent"
                           Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="1.2"
                           StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"/>
