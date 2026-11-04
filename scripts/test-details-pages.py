@@ -188,7 +188,8 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("RezkaScoreColors.Gradient(score.Value)", card_code)
         self.assertIn("new CubicEase", card_code)
         self.assertIn("RatingBadge.Margin = InfoBadge.Visibility", card_code)
-        self.assertIn("SetRatingFromDetails(float? rating)", card_code)
+        self.assertNotIn("SetRatingFromDetails(float? rating)", card_code)
+        self.assertIn("var score = Movie?.Rating", card_code)
 
     def test_color_schemes_are_full_bleed_and_hover_genres_text_only(self):
         appearance = contents("AppearancePage.xaml.cs")
@@ -218,7 +219,7 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
     def test_only_arrows_scroll_horizontal_home_rails(self):
         markup = contents("HomePage.xaml")
         code = contents("HomePage.xaml.cs")
-        self.assertEqual(markup.count('HorizontalScrollBarVisibility="Disabled"'), 6)
+        self.assertEqual(markup.count('HorizontalScrollBarVisibility="Hidden"'), 6)
         self.assertEqual(markup.count('HorizontalScrollMode="Enabled"'), 6)
         self.assertIn("HomeRailNav_Click", code)
         self.assertIn("rail.Scroll.ChangeView(target, null, null, false)", code)
@@ -234,8 +235,44 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("PosterMetrics.CardWidth * 1.30", home)
         self.assertIn("button.Background = gradient;", home)
         self.assertIn('Background="Transparent" CornerRadius="12" Opacity="0"', poster)
-        self.assertIn('card.SetRatingFromDetails(details.SiteRating?.Value)', home)
+        self.assertNotIn('card.SetRatingFromDetails(', home)
         self.assertIn('RezkaScoreColors.Gradient(score.Value)', contents("../Controls/MovieCard.xaml.cs"))
+
+    def test_shift_wheel_and_arrows_keep_rails_scrollable(self):
+        markup = contents("HomePage.xaml")
+        code = contents("HomePage.xaml.cs")
+        self.assertEqual(markup.count('HorizontalScrollBarVisibility="Hidden"'), 6)
+        self.assertEqual(markup.count('PointerWheelChanged="HomeRail_PointerWheelChanged"'), 6)
+        self.assertIn("InputKeyboardSource.GetKeyStateForCurrentThread", code)
+        self.assertIn("Windows.System.VirtualKey.Shift", code)
+        self.assertIn("rail.Scroll.ChangeView(target, null, null, false)", code)
+        self.assertIn("HomeVerticalScroll.ChangeView(null, target, null, false)", code)
+        self.assertIn("scroll.SizeChanged +=", code)
+        self.assertIn("e.Handled = true", code)
+
+    def test_netflix_style_hero_rank_replaces_kicker(self):
+        markup = contents("HomePage.xaml")
+        code = contents("HomePage.xaml.cs")
+        self.assertIn('x:Name="HeroRankNumber"', markup)
+        self.assertIn('x:Name="HeroArtwork"', markup)
+        self.assertIn("HeroRankNumber.Text = (_heroIndex + 1).ToString", code)
+        self.assertIn("HeroArtwork.Visibility = narrow", code)
+        self.assertNotIn('x:Name="HeroKicker"', markup)
+        self.assertNotIn("HeroKicker.Text", code)
+
+    def test_hover_keeps_poster_clear_and_does_not_lazily_add_rating(self):
+        markup = contents("../Controls/MovieCard.xaml")
+        card = contents("../Controls/MovieCard.xaml.cs")
+        details = contents("DetailsPage.xaml.cs")
+        home = contents("HomePage.xaml.cs")
+        self.assertIn("<Button.Template>", markup)
+        self.assertIn("UseSystemFocusVisuals=\"True\"", markup)
+        self.assertIn('Background="Transparent" CornerRadius="12" Opacity="0"', markup)
+        self.assertNotIn("_detailRating", card)
+        self.assertNotIn("SetRatingFromDetails", card)
+        self.assertNotIn("card.SetRatingFromDetails(", home)
+        self.assertNotIn("card.SetRatingFromDetails(", details)
+        self.assertIn("var score = Movie?.Rating", card)
 
     def test_sidebar_button_has_one_xaml_content_element(self):
         root = ET.fromstring(contents("../MainWindow.xaml"))
