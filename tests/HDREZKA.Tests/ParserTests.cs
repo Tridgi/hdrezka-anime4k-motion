@@ -689,7 +689,9 @@ public class ParserTests
               <table class="b-post__info"><tr><td>Жанр:</td><td>
                   <a href="https://hdrzk.org/genre/fentezi/">Фэнтези</a>
                   <a href="https://hdrzk.org/genre/boeviki/">Боевики</a>
-              </td></tr></table>
+              </td></tr>
+              <tr><td>Из серии:</td><td><a href="/animation/best/2022/">Аниме 2022 года</a></td></tr>
+              </table>
               <div class="b-post__lists">
                 <a href="https://hdrzk.org/collections/4074-anime-2026-goda/">Аниме 2026 года</a>
                 <a href="/animation/best/2022/">Лучшие аниме 2022 года</a>
@@ -709,6 +711,10 @@ public class ParserTests
         Assert.Equal(2, result.FranchiseParts!.Count);
         Assert.Equal("animation/100-bleach.html", result.FranchiseParts[0].Id);
         Assert.Equal("genre/fentezi", result.Genres![0].Id);
+        Assert.NotNull(result.SourceSeries);
+        Assert.Single(result.SourceSeries!);
+        Assert.Equal("animation/best/2022", result.SourceSeries[0].Id);
+        Assert.Equal("Аниме 2022 года", result.SourceSeries[0].Name);
     }
 
     [Fact]
@@ -717,6 +723,7 @@ public class ParserTests
         var result = Parsers.ParseDetails(DetailsHtml, "films/999-test-movie.html");
         Assert.Null(result.FranchiseParts);
         Assert.Null(result.CollectionLinks);
+        Assert.Null(result.SourceSeries);
     }
 
 }
