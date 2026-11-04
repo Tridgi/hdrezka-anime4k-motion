@@ -43,6 +43,11 @@
                     <TextBlock x:Name="ThemeHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>
                     <ComboBox x:Name="ThemeBox" MinWidth="220" SelectionChanged="ThemeBox_SelectionChanged"/>
 
+                    <TextBlock x:Name="PaletteHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                    <ComboBox x:Name="PaletteBox" MinWidth="220" SelectionChanged="PaletteBox_SelectionChanged"/>
+                    <TextBlock x:Name="PaletteHint" FontSize="12" TextWrapping="Wrap" MaxWidth="560"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
                     <TextBlock x:Name="PosterSizeHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>
                     <ComboBox x:Name="PosterSizeBox" MinWidth="220" SelectionChanged="PosterSizeBox_SelectionChanged"/>
 

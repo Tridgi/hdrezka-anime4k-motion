@@ -45,6 +45,11 @@ public sealed partial class SettingsPage : Page
         ThemeBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.ThemeDark"), Tag = AppTheme.Dark });
         ThemeBox.SelectedIndex = (int)settings.Theme;
 
+        PaletteBox.Items.Clear();
+        PaletteBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.PaletteNeutral"), Tag = DetailsPalette.Neutral });
+        PaletteBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.PaletteColorful"), Tag = DetailsPalette.Colorful });
+        PaletteBox.SelectedIndex = (int)settings.DetailPalette;
+
         QualityBox.Items.Clear();
         foreach (var quality in new[] { "360p", "480p", "720p", "1080p", "1440p", "2160p" })
         {
@@ -104,6 +109,8 @@ public sealed partial class SettingsPage : Page
         MirrorHint.Text = Loc.Get("Settings.MirrorHint");
         LanguageHeader.Text = Loc.Get("Settings.Language");
         ThemeHeader.Text = Loc.Get("Settings.Theme");
+        PaletteHeader.Text = Loc.Get("Settings.Palette");
+        PaletteHint.Text = Loc.Get("Settings.PaletteHint");
         QualityHeader.Text = Loc.Get("Settings.Quality");
         DirectPlayCheck.Content = Loc.Get("Settings.PlayFromHome");
         PosterSizeHeader.Text = Loc.Get("Settings.PosterSize");
@@ -128,6 +135,11 @@ public sealed partial class SettingsPage : Page
             ((ComboBoxItem)ThemeBox.Items[0]).Content = Loc.Get("Settings.ThemeSystem");
             ((ComboBoxItem)ThemeBox.Items[1]).Content = Loc.Get("Settings.ThemeLight");
             ((ComboBoxItem)ThemeBox.Items[2]).Content = Loc.Get("Settings.ThemeDark");
+        }
+        if (PaletteBox.Items.Count == 2)
+        {
+            ((ComboBoxItem)PaletteBox.Items[0]).Content = Loc.Get("Settings.PaletteNeutral");
+            ((ComboBoxItem)PaletteBox.Items[1]).Content = Loc.Get("Settings.PaletteColorful");
         }
     }
 
@@ -189,6 +201,13 @@ public sealed partial class SettingsPage : Page
             SettingsService.Instance.Save();
             ThemeHelper.Apply(theme);
         }
+    }
+
+    private void PaletteBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_initialized) return;
+        if (PaletteBox.SelectedItem is ComboBoxItem { Tag: DetailsPalette palette })
+            SettingsService.Instance.SetDetailPalette(palette);
     }
 
     private void QualityBox_SelectionChanged(object sender, SelectionChangedEventArgs e)

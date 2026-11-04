@@ -5,6 +5,9 @@ namespace HDREZKA.App.Services;
 
 public enum AppTheme { System, Light, Dark }
 
+/// <summary>Independent palette for details-page labels, not light/dark appearance.</summary>
+public enum DetailsPalette { Neutral, Colorful }
+
 public enum AppLanguage { Ru, En, Uk }
 
 public sealed record HomeSectionState(string Id, bool Visible);
@@ -40,6 +43,7 @@ public sealed class SettingsService
     public DateTime LastMirrorCheckUtc { get; set; }
     public AppLanguage Language { get; set; } = AppLanguage.Ru;
     public AppTheme Theme { get; set; } = AppTheme.System;
+    public DetailsPalette DetailPalette { get; set; } = DetailsPalette.Neutral;
     public string DefaultQuality { get; set; } = "1080p";
     public bool UseAndroidHeaders { get; set; } = true;
     public int Volume { get; set; } = 100;
@@ -97,6 +101,15 @@ public sealed class SettingsService
     ];
 
     public event Action? PosterSizeChanged;
+    public event Action? DetailPaletteChanged;
+
+    public void SetDetailPalette(DetailsPalette palette)
+    {
+        if (!Enum.IsDefined(palette) || DetailPalette == palette) return;
+        DetailPalette = palette;
+        Save();
+        DetailPaletteChanged?.Invoke();
+    }
 
     public void SetPosterSize(int width)
     {
@@ -181,6 +194,8 @@ public sealed class SettingsService
             LastMirrorCheckUtc = loaded.LastMirrorCheckUtc;
             Language = loaded.Language;
             Theme = loaded.Theme;
+            DetailPalette = Enum.IsDefined(loaded.DetailPalette)
+                ? loaded.DetailPalette : DetailsPalette.Neutral;
             DefaultQuality = loaded.DefaultQuality;
             UseAndroidHeaders = loaded.UseAndroidHeaders;
             Volume = loaded.Volume;
