@@ -37,7 +37,7 @@
                             HorizontalAlignment="Left" Margin="0,6,0,4"/>
                 </StackPanel>
             </Expander>
-            <ListView x:Name="List" SelectionMode="None" IsItemClickEnabled="True" ItemClick="List_ItemClick">
+            <ListView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="List" SelectionMode="None" IsItemClickEnabled="True" ItemClick="List_ItemClick">
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <Grid Padding="0,8" ColumnSpacing="14">
