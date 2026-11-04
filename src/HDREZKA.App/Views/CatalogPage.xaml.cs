@@ -124,7 +124,8 @@ public sealed partial class CatalogPage : Page
         var i = 0;
         foreach (var section in Sections)
         {
-            if (SectionPanel.Children[i] is ToggleButton button)
+            if (i < SectionPanel.Children.Count &&
+                SectionPanel.Children[i] is ToggleButton button)
             {
                 button.Content = Loc.Get("Section." + section);
             }
