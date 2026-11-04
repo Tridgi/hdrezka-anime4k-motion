@@ -436,12 +436,14 @@ public sealed partial class DetailsPage : Page
             WatchText.Text = Loc.Get("Common.Watch");
         }
 
+        _scheduleExpanded = false;
         _loadedComments.Clear();
         _commentsPage = 1;
         _commentsLoaded = false;
         _replyTo = null;
         CommentsList.Children.Clear();
         CommentsPanel.Visibility = Visibility.Collapsed;
+        CommentsCard.Visibility = Visibility.Collapsed;
         CommentsToggle.IsChecked = false;
         CommentsSection.Visibility = Visibility.Visible;
         UpdateCommentComposer();
@@ -732,8 +734,7 @@ public sealed partial class DetailsPage : Page
                     FontSize = 13,
                     FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
                     Margin = new Thickness(0, 8, 0, 2),
-                    Foreground = (Microsoft.UI.Xaml.Media.Brush)
-                        Application.Current.Resources["TextFillColorSecondaryBrush"]
+                    Foreground = Brush(IsLightTheme ? (byte)88 : (byte)185, IsLightTheme ? (byte)92 : (byte)189, IsLightTheme ? (byte)98 : (byte)197)
                 });
                 foreach (var item in group.Items)
                     ScheduleList.Children.Add(BuildScheduleRow(item));
@@ -769,8 +770,7 @@ public sealed partial class DetailsPage : Page
             {
                 Text = item.OriginalName,
                 FontSize = 11,
-                Foreground = (Microsoft.UI.Xaml.Media.Brush)
-                    Application.Current.Resources["TextFillColorSecondaryBrush"],
+                Foreground = Brush(IsLightTheme ? (byte)88 : (byte)185, IsLightTheme ? (byte)92 : (byte)189, IsLightTheme ? (byte)98 : (byte)197),
                 TextWrapping = TextWrapping.Wrap,
             });
         }
@@ -780,8 +780,7 @@ public sealed partial class DetailsPage : Page
         {
             CornerRadius = new CornerRadius(9),
             Padding = new Thickness(10, 8, 10, 8),
-            Background = (Microsoft.UI.Xaml.Media.Brush)
-                Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
+            Background = Brush(IsLightTheme ? (byte)248 : (byte)48, IsLightTheme ? (byte)249 : (byte)50, IsLightTheme ? (byte)251 : (byte)54),
             VerticalAlignment = VerticalAlignment.Center,
             Child = new TextBlock
             {
@@ -799,8 +798,7 @@ public sealed partial class DetailsPage : Page
         {
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(12, 10, 12, 10),
-            Background = (Microsoft.UI.Xaml.Media.Brush)
-                Application.Current.Resources["SubtleFillColorSecondaryBrush"],
+            Background = Brush(IsLightTheme ? (byte)237 : (byte)43, IsLightTheme ? (byte)239 : (byte)45, IsLightTheme ? (byte)242 : (byte)49),
             Child = grid
         };
     }
@@ -2055,174 +2053,293 @@ public sealed partial class DetailsPage : Page
 
     // ---------- comments ----------
 
+    private void UpdateCommentComposer()
+    {
+        if (CommentInput == null || CommentSendButton == null) return;
+        var characters = CommentInput.Text?.Length ?? 0;
+        CommentCharCount.Text = $"{characters} / 2000";
+        CommentSendButton.IsEnabled = !_commentSending &&
+            !string.IsNullOrWhiteSpace(CommentInput.Text);
+        CommentReplyRow.Visibility = _replyTo == null
+            ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void CommentInput_TextChanged(object sender, TextChangedEventArgs e)
+        => UpdateCommentComposer();
+
+    private void CommentEmoji_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string emoji }) return;
+        var text = CommentInput.Text ?? "";
+        if (text.Length + emoji.Length > 2000) return;
+        CommentInput.SelectedText = emoji;
+        CommentInput.Focus(FocusState.Programmatic);
+        UpdateCommentComposer();
+    }
+
+    private void CommentCancelReplyButton_Click(object sender, RoutedEventArgs e)
+    {
+        _replyTo = null;
+        CommentInput.PlaceholderText = Loc.Get("Comments.Placeholder");
+        UpdateCommentComposer();
+    }
+
+    private void CommentsSortBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadedComments.Count > 0) RenderLoadedComments();
+    }
+
+    private void RenderLoadedComments()
+    {
+        var all = _loadedComments.Select((comment, index) => (comment, index));
+        var sorted = CommentsSortBox.SelectedIndex switch
+        {
+            1 => all.OrderByDescending(x => x.comment.Likes).ThenBy(x => x.index),
+            2 => all.OrderByDescending(x => x.index),
+            3 => all.OrderBy(x => x.comment.Author, StringComparer.CurrentCultureIgnoreCase)
+                .ThenBy(x => x.index),
+            _ => all.OrderBy(x => x.index)
+        };
+        CommentsList.Children.Clear();
+        if (_loadedComments.Count == 0 && !_commentsLoading)
+        {
+            CommentsList.Children.Add(new TextBlock
+            {
+                Text = Loc.Get("Comments.Empty"),
+                FontSize = 13,
+                Foreground = Brush(IsLightTheme ? (byte)94 : (byte)180,
+                    IsLightTheme ? (byte)98 : (byte)184,
+                    IsLightTheme ? (byte)103 : (byte)190),
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 14, 0, 14)
+            });
+            return;
+        }
+        foreach (var (comment, _) in sorted)
+            CommentsList.Children.Add(BuildComment(comment, 0));
+    }
+
     private async void CommentsToggle_Click(object sender, RoutedEventArgs e)
     {
-        if (CommentsToggle.IsChecked == true)
-        {
-            CommentsPanel.Visibility = Visibility.Visible;
-            CommentsToggleText.Text = $"{Loc.Get("Details.HideComments")} ({_details?.CommentsCount})";
-            if (!_commentsLoaded)
-            {
-                _commentsLoaded = true;
-                await LoadCommentsAsync();
-            }
-        }
-        else
-        {
-            CommentsPanel.Visibility = Visibility.Collapsed;
-            CommentsToggleText.Text = $"{Loc.Get("Details.ViewComments")} ({_details?.CommentsCount})";
-        }
+        var expanded = CommentsToggle.IsChecked == true;
+        CommentsPanel.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        CommentsCard.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        CommentsToggleText.Text = expanded
+            ? $"{Loc.Get("Details.HideComments")} ({_details?.CommentsCount ?? 0})"
+            : $"{Loc.Get("Details.ViewComments")} ({_details?.CommentsCount ?? 0})";
+        if (expanded && !_commentsLoaded)
+            await LoadCommentsAsync();
     }
 
     private async Task LoadCommentsAsync()
     {
-        if (_details == null) return;
+        if (_details == null || _commentsLoading) return;
         var numericId = ExtractNumericId(_details.Id);
         if (numericId == null) return;
-
+        var titleId = _details.Id;
+        var page = _commentsPage;
+        _commentsLoading = true;
+        CommentsMoreButton.IsEnabled = false;
         try
         {
-            var comments = await RezkaService.Instance.Client.GetCommentsAsync(numericId, _commentsPage);
-            foreach (var comment in comments)
-            {
-                CommentsList.Children.Add(BuildComment(comment, 0));
-            }
-
-            CommentsMoreButton.Visibility = comments.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            var comments = await RezkaService.Instance.Client.GetCommentsAsync(numericId, page);
+            if (_details?.Id != titleId) return;
+            if (page == 1) _loadedComments.Clear();
+            _loadedComments.AddRange(comments);
+            _commentsLoaded = true;
+            CommentsMoreButton.Visibility = comments.Count > 0
+                ? Visibility.Visible : Visibility.Collapsed;
         }
         catch (RezkaException ex)
         {
-            await ShowErrorAsync(RezkaService.Instance.ErrorText(ex));
+            _commentsPage = Math.Max(1, page - (page > 1 ? 1 : 0));
+            CommentStatusText.Text = RezkaService.Instance.ErrorText(ex);
+            CommentStatusText.Visibility = Visibility.Visible;
+            Log.Error("[Comments] Loading failed", ex);
+        }
+        catch (Exception ex)
+        {
+            _commentsPage = Math.Max(1, page - (page > 1 ? 1 : 0));
+            CommentStatusText.Text = Loc.Get("Comments.LoadFailed");
+            CommentStatusText.Visibility = Visibility.Visible;
+            Log.Error("[Comments] Loading failed", ex);
+        }
+        finally
+        {
+            _commentsLoading = false;
+            CommentsMoreButton.IsEnabled = true;
+            if (_details?.Id == titleId) RenderLoadedComments();
         }
     }
 
     private UIElement BuildComment(CommentItem comment, int depth)
     {
-        var border = new Border
+        var fg = Brush(IsLightTheme ? (byte)35 : (byte)240,
+            IsLightTheme ? (byte)39 : (byte)242, IsLightTheme ? (byte)44 : (byte)246);
+        var subdued = Brush(IsLightTheme ? (byte)105 : (byte)174,
+            IsLightTheme ? (byte)110 : (byte)181, IsLightTheme ? (byte)117 : (byte)190);
+        var container = new Border
         {
-            Style = Application.Current.Resources["CommentCardBorder"] as Style,
-            Margin = new Thickness(depth * 28, 4, 0, 0),
-            HorizontalAlignment = HorizontalAlignment.Left,
-            MaxWidth = 900,
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(14, 12, 14, 12),
+            Margin = new Thickness(Math.Min(2, depth) * 18, 0, 0, 0),
+            Background = Brush(IsLightTheme ? (byte)243 : (byte)45,
+                IsLightTheme ? (byte)244 : (byte)47, IsLightTheme ? (byte)247 : (byte)51),
+            HorizontalAlignment = HorizontalAlignment.Stretch
         };
-
-        var stack = new StackPanel { Spacing = 4 };
-
-        var header = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-        header.Children.Add(new TextBlock
+        var layout = new StackPanel { Spacing = 9 };
+        var top = new Grid { ColumnSpacing = 10 };
+        top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        top.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        top.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var avatar = new Border
+        {
+            Background = Brush(IsLightTheme ? (byte)212 : (byte)57,
+                IsLightTheme ? (byte)226 : (byte)70, IsLightTheme ? (byte)230 : (byte)77),
+            CornerRadius = new CornerRadius(18),
+            Width = 36, Height = 36,
+            Child = new TextBlock
+            {
+                Text = string.IsNullOrWhiteSpace(comment.Author) ? "?" : comment.Author[..1].ToUpperInvariant(),
+                FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = fg
+            }
+        };
+        top.Children.Add(avatar);
+        var heading = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
+        heading.Children.Add(new TextBlock
         {
             Text = comment.Author,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            Foreground = fg, TextTrimming = TextTrimming.CharacterEllipsis
         });
         if (comment.IsAdmin)
-        {
-            header.Children.Add(new Border
+            heading.Children.Add(new TextBlock
             {
-                Style = Application.Current.Resources["AdminBadgeBorder"] as Style,
-                Child = new TextBlock
-                {
-                    Text = "★",
-                    FontSize = 11,
-                    Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White),
-                },
+                Text = "★ " + Loc.Get("Comments.Moderator"), FontSize = 11,
+                Foreground = ThemeHelper.AccentTextBrush
             });
-        }
-
-        header.Children.Add(new TextBlock
+        Grid.SetColumn(heading, 1);
+        top.Children.Add(heading);
+        var dateText = new TextBlock
         {
-            Text = comment.Date,
-            FontSize = 11,
-            Style = Application.Current.Resources["TertiaryText"] as Style,
-        });
-        stack.Children.Add(header);
+            Text = comment.Date, FontSize = 11,
+            Foreground = subdued, VerticalAlignment = VerticalAlignment.Center,
+            MaxWidth = 150, TextWrapping = TextWrapping.Wrap
+        };
+        Grid.SetColumn(dateText, 2);
+        top.Children.Add(dateText);
+        layout.Children.Add(top);
 
-        stack.Children.Add(new TextBlock
+        layout.Children.Add(new TextBlock
         {
-            Text = comment.Text,
-            TextWrapping = TextWrapping.Wrap,
-            IsTextSelectionEnabled = true,
+            Text = comment.Text, FontSize = 13, TextWrapping = TextWrapping.Wrap,
+            Foreground = fg, IsTextSelectionEnabled = true
         });
-
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
         var likeButton = new Button
         {
-            Content = $"👍 {comment.Likes}",
-            Tag = comment.Id,
-            FontSize = 12,
-            Padding = new Thickness(8, 3, 8, 3),
+            Content = (comment.IsLiked ? "♥ " : "♡ ") + comment.Likes,
+            FontSize = 12, Padding = new Thickness(10, 5, 10, 5),
+            MinWidth = 0, BorderThickness = new Thickness(0),
+            IsEnabled = !comment.IsLiked,
+            Background = Brush(IsLightTheme ? (byte)227 : (byte)63,
+                IsLightTheme ? (byte)230 : (byte)65, IsLightTheme ? (byte)235 : (byte)70)
         };
         likeButton.Click += async (_, _) =>
         {
             try
             {
                 await RezkaService.Instance.Client.ToggleCommentLikeAsync(comment.Id);
-                likeButton.Content = $"👍 {comment.Likes + 1}";
+                likeButton.Content = "♥ " + (comment.Likes + 1);
                 likeButton.IsEnabled = false;
             }
-            catch (RezkaException)
+            catch (Exception ex)
             {
-                // ignore like failures silently
+                Log.Error("[Comments] Like failed", ex);
             }
         };
         actions.Children.Add(likeButton);
-
-        var replyButton = new HyperlinkButton
+        var replyButton = new Button
         {
-            Content = Loc.Get("Comments.Reply"),
-            FontSize = 12,
-            Padding = new Thickness(0),
-            Tag = comment.Id,
+            Content = "↩ " + Loc.Get("Comments.Reply"),
+            FontSize = 12, MinWidth = 0, Padding = new Thickness(10, 5, 10, 5),
+            Background = Brush(IsLightTheme ? (byte)227 : (byte)63,
+                IsLightTheme ? (byte)230 : (byte)65, IsLightTheme ? (byte)235 : (byte)70),
+            BorderThickness = new Thickness(0)
         };
         replyButton.Click += (_, _) =>
         {
             _replyTo = comment.Id;
-            CommentInput.PlaceholderText = $"{Loc.Get("Comments.Reply")}: {comment.Author}";
+            CommentReplyText.Text = Loc.Get("Comments.ReplyTo", comment.Author);
+            CommentInput.PlaceholderText = Loc.Get("Comments.Placeholder");
+            UpdateCommentComposer();
             CommentInput.Focus(FocusState.Programmatic);
+            CommentInput.Select(CommentInput.Text.Length, 0);
         };
         actions.Children.Add(replyButton);
-        stack.Children.Add(actions);
-
-        border.Child = stack;
-        return border;
+        layout.Children.Add(actions);
+        // Replies remain attached to their parent when the top-level sort changes.
+        if (depth < 2 && comment.Replies.Count > 0)
+        {
+            foreach (var reply in comment.Replies)
+                layout.Children.Add(BuildComment(reply, depth + 1));
+        }
+        container.Child = layout;
+        return container;
     }
 
     private async void CommentsMoreButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_commentsLoading) return;
         _commentsPage++;
         await LoadCommentsAsync();
     }
 
     private async void CommentSendButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_details == null || string.IsNullOrWhiteSpace(CommentInput.Text)) return;
+        if (_details == null || _commentSending) return;
+        var text = CommentInput.Text?.Trim() ?? "";
+        if (text.Length == 0 || text.Length > 2000) return;
 
         if (!RezkaService.Instance.IsLoggedIn)
         {
             await ShowLoginAsync();
             return;
         }
-
         var numericId = ExtractNumericId(_details.Id);
         if (numericId == null) return;
+        var titleId = _details.Id;
 
+        _commentSending = true;
+        UpdateCommentComposer();
+        CommentStatusText.Visibility = Visibility.Collapsed;
         try
         {
-            CommentSendButton.IsEnabled = false;
-            await RezkaService.Instance.Client.SendCommentAsync(numericId, CommentInput.Text.Trim(), _replyTo, _details.Adb);
+            await RezkaService.Instance.Client.SendCommentAsync(
+                numericId, text, _replyTo, _details.Adb);
+            if (_details?.Id != titleId) return;
             CommentInput.Text = "";
             _replyTo = null;
-            CommentInput.PlaceholderText = Loc.Get("Comments.Placeholder");
-            CommentsList.Children.Clear();
+            UpdateCommentComposer();
+            _commentsLoaded = false;
             _commentsPage = 1;
             await LoadCommentsAsync();
+            CommentStatusText.Text = Loc.Get("Comments.Sent");
+            CommentStatusText.Visibility = Visibility.Visible;
         }
-        catch (RezkaException ex)
+        catch (Exception ex)
         {
-            await ShowErrorAsync(RezkaService.Instance.ErrorText(ex));
+            Log.Error("[Comments] Sending failed", ex);
+            CommentStatusText.Text = Loc.Get("Comments.SendFailed");
+            CommentStatusText.Visibility = Visibility.Visible;
         }
         finally
         {
-            CommentSendButton.IsEnabled = true;
+            _commentSending = false;
+            UpdateCommentComposer();
         }
     }
 
