@@ -685,6 +685,8 @@ public sealed partial class DetailsPage : Page
         ToolTipService.SetToolTip(VoicesRatingButton, Loc.Get("Details.Ratings"));
     }
 
+    // The title page keeps the original concise five-line schedule.
+    // The full release timetable is opened in the app-level modal instead.
     private void RenderSchedule(MovieDetailed details)
     {
         ScheduleList.Children.Clear();
@@ -692,21 +694,19 @@ public sealed partial class DetailsPage : Page
         if (groups == null || groups.Count == 0 || groups.All(g => g.Items.Count == 0))
         {
             ScheduleCard.Visibility = Visibility.Collapsed;
-            _scheduleExpanded = false;
             return;
         }
 
         ScheduleCard.Visibility = Visibility.Visible;
         ScheduleHeader.Text = Loc.Get("Details.Schedule");
-        var total = groups.Sum(g => g.Items.Count);
-        ScheduleCountText.Text = total + " " + Loc.Get("Details.ScheduleEntries");
 
         var next = Parsers.FindNextRelease(groups, DateTime.Today);
         if (next != null)
         {
             var days = (next.Value.Date - DateTime.Today).Days;
-            ScheduleCountdownText.Text = Loc.Get("Details.NextRelease", next.Value.Date.ToString("d MMMM yyyy"))
-                + " (" + Loc.Get("Details.DaysLeft", days) + ")";
+            ScheduleCountdownText.Text = Loc.Get("Details.NextRelease",
+                next.Value.Date.ToString("d MMMM yyyy")) +
+                " (" + Loc.Get("Details.DaysLeft", days) + ")";
             ScheduleCountdownBadge.Visibility = Visibility.Visible;
         }
         else
@@ -714,101 +714,221 @@ public sealed partial class DetailsPage : Page
             ScheduleCountdownBadge.Visibility = Visibility.Collapsed;
         }
 
-        var nonEmpty = groups.Where(g => g.Items.Count > 0).ToList();
-        ScheduleGroupText.Visibility = _scheduleExpanded
-            ? Visibility.Collapsed : Visibility.Visible;
-        if (!_scheduleExpanded)
-        {
-            var first = nonEmpty[0];
-            ScheduleGroupText.Text = first.Name;
-            foreach (var item in first.Items.Take(5))
-                ScheduleList.Children.Add(BuildScheduleRow(item));
-        }
-        else
-        {
-            foreach (var group in nonEmpty)
-            {
-                ScheduleList.Children.Add(new TextBlock
-                {
-                    Text = group.Name,
-                    FontSize = 13,
-                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                    Margin = new Thickness(0, 8, 0, 2),
-                    Foreground = Brush(IsLightTheme ? (byte)88 : (byte)185, IsLightTheme ? (byte)92 : (byte)189, IsLightTheme ? (byte)98 : (byte)197)
-                });
-                foreach (var item in group.Items)
-                    ScheduleList.Children.Add(BuildScheduleRow(item));
-            }
-        }
+        var first = groups.First(g => g.Items.Count > 0);
+        ScheduleGroupText.Text = first.Name;
+        foreach (var item in first.Items.Take(5))
+            ScheduleList.Children.Add(BuildCompactScheduleRow(item));
 
-        ScheduleMoreButton.Visibility = total > 5 || nonEmpty.Count > 1
+        var count = groups.Sum(g => g.Items.Count);
+        ScheduleMoreButton.Visibility = count > 5 || groups.Count(g => g.Items.Count > 0) > 1
             ? Visibility.Visible : Visibility.Collapsed;
-        ScheduleMoreButton.Content = _scheduleExpanded
-            ? Loc.Get("Details.ScheduleCollapse")
-            : Loc.Get("Details.ScheduleShowAll") + $" ({total})";
+        ScheduleMoreButton.Content = Loc.Get("Details.ScheduleShowAll") + $" ({count})";
     }
 
-    private Border BuildScheduleRow(SeriesScheduleItem item)
+    private UIElement BuildCompactScheduleRow(SeriesScheduleItem item)
     {
-        // No fixed-height dialog and no nested scrollbar. The page handles
-        // all scrolling; rows remain readable at any DPI / window width.
-        var grid = new Grid { ColumnSpacing = 12 };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var left = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
+        var row = new Grid
+        {
+            ColumnSpacing = 10,
+            Padding = new Thickness(0, 7, 0, 7)
+        };
+        row.ColumnDefinitions.Add(new ColumnDefinition
+            { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var left = new StackPanel { Spacing = 3 };
         left.Children.Add(new TextBlock
         {
-            Text = !string.IsNullOrWhiteSpace(item.RussianName) ? item.RussianName : item.Title,
-            TextWrapping = TextWrapping.Wrap,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            FontSize = 13
+            Text = string.IsNullOrWhiteSpace(item.RussianName)
+                ? item.Title : item.RussianName,
+            FontSize = 13,
+            TextWrapping = TextWrapping.Wrap
         });
         if (!string.IsNullOrWhiteSpace(item.OriginalName))
-        {
             left.Children.Add(new TextBlock
             {
-                Text = item.OriginalName,
-                FontSize = 11,
-                Foreground = Brush(IsLightTheme ? (byte)88 : (byte)185, IsLightTheme ? (byte)92 : (byte)189, IsLightTheme ? (byte)98 : (byte)197),
-                TextWrapping = TextWrapping.Wrap,
+                Text = item.OriginalName, FontSize = 11,
+                Foreground = Brush(IsLightTheme ? (byte)100 : (byte)173,
+                    IsLightTheme ? (byte)105 : (byte)177,
+                    IsLightTheme ? (byte)112 : (byte)184),
+                TextWrapping = TextWrapping.Wrap
             });
-        }
-        grid.Children.Add(left);
-
-        var date = new Border
+        row.Children.Add(left);
+        var right = new StackPanel
         {
-            CornerRadius = new CornerRadius(9),
-            Padding = new Thickness(10, 8, 10, 8),
-            Background = Brush(IsLightTheme ? (byte)248 : (byte)48, IsLightTheme ? (byte)249 : (byte)50, IsLightTheme ? (byte)251 : (byte)54),
-            VerticalAlignment = VerticalAlignment.Center,
-            Child = new TextBlock
-            {
-                Text = item.ReleaseDate,
-                FontSize = 12,
-                MaxWidth = 160,
-                TextWrapping = TextWrapping.Wrap,
-                HorizontalAlignment = HorizontalAlignment.Right,
-            }
+            Spacing = 2, HorizontalAlignment = HorizontalAlignment.Right
         };
-        Grid.SetColumn(date, 1);
-        grid.Children.Add(date);
-
-        return new Border
+        right.Children.Add(new TextBlock
         {
-            CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(12, 10, 12, 10),
-            Background = Brush(IsLightTheme ? (byte)237 : (byte)43, IsLightTheme ? (byte)239 : (byte)45, IsLightTheme ? (byte)242 : (byte)49),
-            Child = grid
-        };
+            Text = item.ReleaseDate, FontSize = 12,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Foreground = Brush(IsLightTheme ? (byte)105 : (byte)196,
+                IsLightTheme ? (byte)110 : (byte)200,
+                IsLightTheme ? (byte)116 : (byte)206)
+        });
+        right.Children.Add(new TextBlock
+        {
+            Text = item.Title, FontSize = 11,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Foreground = Brush(IsLightTheme ? (byte)124 : (byte)150,
+                IsLightTheme ? (byte)129 : (byte)155,
+                IsLightTheme ? (byte)135 : (byte)165),
+            MaxWidth = 190, TextTrimming = TextTrimming.CharacterEllipsis
+        });
+        Grid.SetColumn(right, 1);
+        row.Children.Add(right);
+        return row;
     }
 
-    private void ScheduleMoreButton_Click(object sender, RoutedEventArgs e)
+    private async void ScheduleMoreButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_details?.Schedule == null) return;
-        // Inline expansion removes the old 420px dialog and its scrollbar.
-        _scheduleExpanded = !_scheduleExpanded;
-        RenderSchedule(_details);
+        var groups = _details?.Schedule?.Where(x => x.Items.Count > 0).ToList();
+        if (groups == null || groups.Count == 0 || App.MainWindow is not { } window)
+            return;
+
+        var foreground = Brush(IsLightTheme ? (byte)35 : (byte)242,
+            IsLightTheme ? (byte)39 : (byte)243,
+            IsLightTheme ? (byte)45 : (byte)247);
+        var muted = Brush(IsLightTheme ? (byte)102 : (byte)180,
+            IsLightTheme ? (byte)110 : (byte)188,
+            IsLightTheme ? (byte)121 : (byte)198);
+        var tile = Brush(IsLightTheme ? (byte)236 : (byte)44,
+            IsLightTheme ? (byte)240 : (byte)47,
+            IsLightTheme ? (byte)244 : (byte)54);
+        var surface = Brush(IsLightTheme ? (byte)248 : (byte)37,
+            IsLightTheme ? (byte)249 : (byte)40,
+            IsLightTheme ? (byte)252 : (byte)46);
+        var timeline = new StackPanel { Spacing = 14 };
+        var total = groups.Sum(x => x.Items.Count);
+        timeline.Children.Add(new Border
+        {
+            CornerRadius = new CornerRadius(14),
+            Padding = new Thickness(16, 14, 16, 14),
+            Background = tile,
+            Child = new StackPanel
+            {
+                Spacing = 5,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = _details?.Name ?? "",
+                        FontSize = 16, FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                        Foreground = foreground, TextWrapping = TextWrapping.Wrap
+                    },
+                    new TextBlock
+                    {
+                        Text = Loc.Get("Details.ScheduleEntries") + ": " + total,
+                        FontSize = 12, Foreground = muted
+                    }
+                }
+            }
+        });
+
+        var next = Parsers.FindNextRelease(groups, DateTime.Today);
+        if (next != null)
+            timeline.Children.Add(new Border
+            {
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(13, 9, 13, 9),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Background = Brush(IsLightTheme ? (byte)210 : (byte)29,
+                    IsLightTheme ? (byte)237 : (byte)70,
+                    IsLightTheme ? (byte)230 : (byte)63),
+                Child = new TextBlock
+                {
+                    Text = Loc.Get("Details.NextRelease",
+                        next.Value.Date.ToString("d MMMM yyyy")),
+                    Foreground = foreground, FontSize = 12,
+                    TextWrapping = TextWrapping.Wrap
+                }
+            });
+
+        foreach (var group in groups)
+        {
+            var groupCard = new StackPanel { Spacing = 8 };
+            groupCard.Children.Add(new TextBlock
+            {
+                Text = group.Name,
+                FontSize = 15,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = foreground,
+                Margin = new Thickness(0, 5, 0, 4),
+                TextWrapping = TextWrapping.Wrap
+            });
+            for (var i = 0; i < group.Items.Count; i++)
+            {
+                var item = group.Items[i];
+                var row = new Grid { ColumnSpacing = 12 };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                row.ColumnDefinitions.Add(new ColumnDefinition
+                    { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                var number = new Border
+                {
+                    Width = 32, Height = 32,
+                    CornerRadius = new CornerRadius(11),
+                    Background = Brush(IsLightTheme ? (byte)221 : (byte)52,
+                        IsLightTheme ? (byte)234 : (byte)84,
+                        IsLightTheme ? (byte)231 : (byte)79),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Child = new TextBlock
+                    {
+                        Text = (i + 1).ToString(),
+                        HorizontalAlignment = HorizontalAlignment.Center,
+                        VerticalAlignment = VerticalAlignment.Center,
+                        FontSize = 12, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                        Foreground = foreground
+                    }
+                };
+                row.Children.Add(number);
+                var names = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
+                names.Children.Add(new TextBlock
+                {
+                    Text = string.IsNullOrWhiteSpace(item.RussianName)
+                        ? item.Title : item.RussianName,
+                    FontSize = 13, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = foreground, TextWrapping = TextWrapping.Wrap
+                });
+                if (!string.IsNullOrWhiteSpace(item.OriginalName))
+                    names.Children.Add(new TextBlock
+                    {
+                        Text = item.OriginalName,
+                        FontSize = 11, Foreground = muted, TextWrapping = TextWrapping.Wrap
+                    });
+                Grid.SetColumn(names, 1);
+                row.Children.Add(names);
+                var when = new TextBlock
+                {
+                    Text = item.ReleaseDate, FontSize = 12,
+                    Foreground = muted, TextWrapping = TextWrapping.Wrap,
+                    MaxWidth = 145, VerticalAlignment = VerticalAlignment.Center,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    TextAlignment = TextAlignment.Right
+                };
+                Grid.SetColumn(when, 2);
+                row.Children.Add(when);
+                groupCard.Children.Add(new Border
+                {
+                    CornerRadius = new CornerRadius(11),
+                    Padding = new Thickness(12, 11, 12, 11),
+                    Background = surface,
+                    Child = row
+                });
+            }
+            timeline.Children.Add(groupCard);
+        }
+
+        var scroll = new ScrollViewer
+        {
+            Content = timeline,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Hidden,
+            VerticalScrollMode = ScrollMode.Auto,
+            HorizontalScrollMode = ScrollMode.Disabled,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        await window.ShowCenteredModalAsync(Loc.Get("Details.Schedule"), scroll, 740);
     }
 
     private async void VoicesRatingButton_Click(object sender, RoutedEventArgs e)
