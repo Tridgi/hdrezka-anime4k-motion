@@ -58,23 +58,11 @@ public sealed partial class MovieCard : UserControl
     }
 
     private double _cardWidthOverride;
-    private float? _detailRating;
-
-    /// <summary>
-    /// Catalog listings frequently omit their score. Once the hovered
-    /// details have been fetched, update the existing poster in place.
-    /// Do not request dozens of detail pages just to draw score badges.
-    /// </summary>
-    public void SetRatingFromDetails(float? rating)
-    {
-        if (Movie == null || Movie.Rating.HasValue || !rating.HasValue) return;
-        _detailRating = rating;
-        UpdateRatingBadge();
-    }
-
     private void UpdateRatingBadge()
     {
-        var score = Movie?.Rating ?? _detailRating;
+        // Only ratings available in the listing are drawn; a hover must not
+        // silently add a badge to an otherwise identical poster.
+        var score = Movie?.Rating;
         RatingBadge.Visibility = score.HasValue
             ? Visibility.Visible : Visibility.Collapsed;
         if (!score.HasValue) return;
@@ -110,7 +98,6 @@ public sealed partial class MovieCard : UserControl
     {
         if (d is MovieCard card)
         {
-            card._detailRating = null;
             card.Update();
         }
     }
