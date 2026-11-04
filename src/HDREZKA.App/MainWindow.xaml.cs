@@ -26,6 +26,11 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // NavigationView may open/close the pane automatically at responsive
+        // breakpoints, not only when the custom toggle button is clicked.
+        NavView.PaneOpened += (_, _) => UpdatePaneGlyph();
+        NavView.PaneClosed += (_, _) => UpdatePaneGlyph();
+        UpdatePaneGlyph();
 
         Title = "HDREZKA Anime4K Motion v2";
         ExtendsContentIntoTitleBar = true;
@@ -523,7 +528,8 @@ else
 
     private void NavView_DisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
     {
-        // reserved for adaptive tweaks
+        UpdatePaneGlyph();
+        // Keep state icon current after breakpoint changes.
     }
 
     private void SearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
