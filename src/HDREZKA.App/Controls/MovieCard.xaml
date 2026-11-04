@@ -23,7 +23,7 @@
                 <Border x:Name="PosterClip" CornerRadius="12" Background="#22000000">
                     <Grid>
                         <Image x:Name="PosterImage" Stretch="UniformToFill"/>
-                        <Border x:Name="HoverOverlay" Background="#99000000" CornerRadius="12" Opacity="0">
+                        <Border x:Name="HoverOverlay" Background="Transparent" CornerRadius="12" Opacity="0">
                             <FontIcon Glyph="&#xE768;" Foreground="White" FontSize="32"
                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
