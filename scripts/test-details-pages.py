@@ -19,7 +19,7 @@ def contents(name):
 
 class DetailsLayoutSmokeTests(unittest.TestCase):
     def test_xaml_well_formed_and_handlers_exist(self):
-        for name in ("DetailsPage", "SettingsPage", "UpdatesPage", "AppearancePage", "HomePage"):
+        for name in ("DetailsPage", "SettingsPage", "UpdatesPage", "AppearancePage", "HomePage", "CatalogPage", "CollectionsPage"):
             markup = contents(name + ".xaml")
             code = contents(name + ".xaml.cs")
             root = ET.fromstring(markup)
@@ -27,9 +27,70 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
                      if XAML_NAME in node.attrib]
             self.assertEqual(len(names), len(set(names)), name)
             for handler in re.findall(
-                    r'\b(?:Click|SizeChanged|Toggled|SelectionChanged|ItemClick|ViewChanged|RecommendationHoverChanged)'
+                    r'\b(?:Click|SizeChanged|Toggled|SelectionChanged|ItemClick|ViewChanged|TextChanged|RecommendationHoverChanged)'
                     r'="([A-Za-z_]\w*)"', markup):
                 self.assertIn(handler + "(", code, (name, handler))
+
+    def test_catalog_filter_first_and_hover_preview_is_outside_grid(self):
+        markup = contents("CatalogPage.xaml")
+        code = contents("CatalogPage.xaml.cs")
+        self.assertLess(markup.index('x:Name="FilterBox"'),
+                        markup.index('x:Name="SectionPanel"'))
+        self.assertIn('Grid.Column="0" Width="205"', markup)
+        self.assertIn('RecommendationPreview="True"', markup)
+        self.assertIn('RecommendationHoverChanged="CatalogMovie_HoverChanged"', markup)
+        self.assertIn('x:Name="CatalogPreviewLayer"', markup)
+        self.assertIn('Grid.RowSpan="2" Canvas.ZIndex="100"', markup)
+        self.assertIn('IsHitTestVisible="False"', markup)
+        self.assertIn('x:Name="CatalogPreviewPanel"', markup)
+        self.assertIn("PositionCatalogPreview(MovieCard card)", code)
+        self.assertIn("Task.Delay(170, token)", code)
+        self.assertIn("GetDetailsAsync(movie.Id, token)", code)
+        self.assertIn("GenreColors.Palette", code)
+        self.assertIn("HideCatalogPreview();", code)
+        self.assertIn("if (_previewCache.Count >= 24)", code)
+
+    def test_collections_browse_grid_replaces_horizontal_strip(self):
+        markup = contents("CollectionsPage.xaml")
+        code = contents("CollectionsPage.xaml.cs")
+        self.assertNotIn('x:Name="CollectionsPanel"', markup)
+        self.assertNotIn('HorizontalScrollMode="Auto"', markup)
+        for name in ("BrowseScroll", "BrowsePanel", "BrowseSearchBox",
+                     "FoldersGrid", "CollectionDetailsPanel", "SelectedCollectionTitle",
+                     "BackToCollectionsButton", "BrowseStatePanel"):
+            self.assertIn('x:Name="' + name + '"', markup)
+        self.assertIn('BrowseSearchBox_TextChanged', code)
+        self.assertIn("RebuildFolderCards()", code)
+        self.assertIn("StringComparison.CurrentCultureIgnoreCase", code)
+        self.assertIn("SetView(selected: false)", code)
+        self.assertNotIn("SelectCollection(firstButton", code)
+
+    def test_collections_missing_folder_does_not_strand_user(self):
+        code = contents("CollectionsPage.xaml.cs")
+        self.assertIn("if (ex.Kind == RezkaError.NotFound)", code)
+        self.assertIn('ReturnToBrowse(Loc.Get("Collections.Unavailable"))', code)
+        self.assertIn("BackToCollectionsButton_Click", code)
+        self.assertIn("version == _requestVersion", code)
+        self.assertIn("DetailsBackButton.Visibility", code)
+        self.assertIn('Loc.Get("Collections.EmptyFolder")', code)
+        self.assertIn("BrowseScroll.ChangeView(null, 0, null, true)", code)
+
+    def test_appearance_poster_sample_changes_with_selected_size(self):
+        markup = contents("AppearancePage.xaml")
+        code = contents("AppearancePage.xaml.cs")
+        for name in ("PosterPreviewCard", "PosterPreviewArt",
+                     "PosterPreviewHeading", "PosterPreviewDimensions",
+                     "PosterPreviewPlaceholderText", "PosterPreviewFilmTitle",
+                     "PosterPreviewFilmInfo"):
+            self.assertIn('x:Name="' + name + '"', markup)
+        self.assertIn("PosterMetrics.CardWidth", code)
+        self.assertIn("PosterMetrics.CardHeight", code)
+        self.assertIn("PosterPreviewArt.Width = width", code)
+        self.assertIn("PosterPreviewArt.Height = height", code)
+        self.assertIn("PosterPreviewArt.Background = background", code)
+        self.assertIn("SyncPosterSize();", code)
+        self.assertIn("UpdatePosterPreview();", code)
+        self.assertIn('Loc.Get("Appearance.PosterDimensions", width, height)', code)
 
     def test_recommendations_are_paged_and_not_mutated_in_layout(self):
         markup = contents("DetailsPage.xaml")
