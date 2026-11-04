@@ -187,6 +187,8 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn('x:Name="RatingBadge"', card)
         self.assertIn("Math.Clamp(score, 0f, 10f)", card_code)
         self.assertIn("new CubicEase", card_code)
+        self.assertIn("RatingBadge.Margin = InfoBadge.Visibility", card_code)
+        self.assertIn("score >= 4.4f", card_code)
 
     def test_color_schemes_are_full_bleed_and_hover_genres_text_only(self):
         appearance = contents("AppearancePage.xaml.cs")
@@ -198,6 +200,8 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
             "private void UpdateRecommendationPreview", 1)[0]
         self.assertIn("new TextBlock", func)
         self.assertNotIn("Chip(", func)
+        self.assertIn("SemanticPreviewGenreTone", details)
+        self.assertIn("SemanticHomeGenreIndex", contents("HomePage.xaml.cs"))
 
     def test_sidebar_glyph_changes_on_toggle(self):
         markup = contents("../MainWindow.xaml")
@@ -206,6 +210,7 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn('x:Name="AppPaneClosedGlyph"', markup)
         self.assertIn("NavView.PaneOpened +=", code)
         self.assertIn("NavView.PaneClosed +=", code)
+        self.assertIn("NavView_DisplayModeChanged", code)
         self.assertIn("UpdatePaneGlyph()", code)
 
     def test_notifications_preferences_only_on_notifications_page(self):
