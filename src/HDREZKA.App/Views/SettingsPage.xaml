@@ -7,7 +7,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <ScrollViewer VerticalScrollBarVisibility="Hidden">
         <StackPanel Padding="36,16,36,24" Spacing="8" MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock x:Name="TitleText" FontSize="28" FontWeight="Bold"/>
 
@@ -40,42 +40,16 @@
                     <TextBlock x:Name="LanguageHeader" FontWeight="SemiBold" Margin="0,4,0,0"/>
                     <ComboBox x:Name="LanguageBox" MinWidth="220" SelectionChanged="LanguageBox_SelectionChanged"/>
 
-                    <TextBlock x:Name="ThemeHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                    <ComboBox x:Name="ThemeBox" MinWidth="220" SelectionChanged="ThemeBox_SelectionChanged"/>
-
-                    <StackPanel x:Name="ManualThemePanel" Spacing="9" Margin="0,9,0,2"
-                                Visibility="Collapsed">
-                        <TextBlock x:Name="ManualBrightnessHeader" FontWeight="SemiBold"/>
-                        <ComboBox x:Name="ManualBrightnessBox" MinWidth="210"
-                                  HorizontalAlignment="Left"
-                                  SelectionChanged="ManualBrightnessBox_SelectionChanged"/>
-                        <TextBlock x:Name="AccentMatrixHeader" FontWeight="SemiBold" Margin="0,8,0,0"/>
-                        <Grid x:Name="AccentMatrixGrid" HorizontalAlignment="Left"
-                              MaxWidth="420" ColumnSpacing="8" RowSpacing="8"/>
-                        <TextBlock x:Name="ManualAccentLabel" FontWeight="SemiBold" Margin="0,8,0,0"/>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBox x:Name="AccentHexBox" Width="128" MaxLength="7"
-                                     VerticalAlignment="Center" PlaceholderText="#377DFF"/>
-                            <Button x:Name="ApplyAccentButton" Click="ApplyAccentButton_Click"
-                                    MinHeight="33" VerticalAlignment="Center"/>
+                    <Button x:Name="OpenAppearanceButton" Click="OpenAppearanceButton_Click"
+                            Margin="0,12,0,4" HorizontalAlignment="Left" MinHeight="38">
+                        <StackPanel Orientation="Horizontal" Spacing="9">
+                            <FontIcon Glyph="&#xE790;" FontSize="16"/>
+                            <TextBlock x:Name="OpenAppearanceText" VerticalAlignment="Center"/>
+                            <FontIcon Glyph="&#xE76C;" FontSize="13" Opacity="0.6"/>
                         </StackPanel>
-                        <TextBlock x:Name="AccentValidationText" FontSize="12"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,5,0,0">
-                            <Border x:Name="AccentPreviewMain" CornerRadius="7" Width="54" Height="22"/>
-                            <Border x:Name="AccentPreviewCompanion" CornerRadius="7" Width="54" Height="22"/>
-                            <TextBlock x:Name="AccentPreviewLabel" VerticalAlignment="Center"
-                                       FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        </StackPanel>
-                    </StackPanel>
-
-                    <TextBlock x:Name="PaletteHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                    <ComboBox x:Name="PaletteBox" MinWidth="220" SelectionChanged="PaletteBox_SelectionChanged"/>
-                    <TextBlock x:Name="PaletteHint" FontSize="12" TextWrapping="Wrap" MaxWidth="560"
+                    </Button>
+                    <TextBlock x:Name="AppearanceMovedHint" FontSize="12" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-
-                    <TextBlock x:Name="PosterSizeHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                    <ComboBox x:Name="PosterSizeBox" MinWidth="220" SelectionChanged="PosterSizeBox_SelectionChanged"/>
 
                     <TextBlock x:Name="HomeHeader" FontWeight="SemiBold" Margin="0,12,0,0"/>
                     <TextBlock x:Name="HomeHint" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" MaxWidth="640"/>
