@@ -108,6 +108,10 @@ public sealed class MovieDetailed
     public string? AgeRestriction { get; init; }
     public IReadOnlyList<MovieCountry>? Countries { get; init; }
     public IReadOnlyList<MovieGenre>? Genres { get; init; }
+    /// <summary>Related works in a titled franchise/series block, if present.</summary>
+    public IReadOnlyList<NamedLink>? FranchiseParts { get; init; }
+    /// <summary>Actual /collections/ links found on the source movie page.</summary>
+    public IReadOnlyList<NamedLink>? CollectionLinks { get; init; }
     public IReadOnlyList<PersonSimple>? Producers { get; init; }
     public IReadOnlyList<PersonSimple>? Actors { get; init; }
     public MovieRating? SiteRating { get; init; }
