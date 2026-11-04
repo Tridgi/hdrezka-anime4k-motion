@@ -25,7 +25,7 @@
     </Page.Resources>
 
     <Grid Padding="28,12,28,12">
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer VerticalScrollBarVisibility="Hidden">
             <StackPanel x:Name="ContentPanel" Spacing="4">
                 <Grid x:Name="HeroCard" Height="380" CornerRadius="16" Margin="0,8,0,8"
                       SizeChanged="HeroCard_SizeChanged">
@@ -153,7 +153,7 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView x:Name="FilmsGrid" SelectionMode="None" IsItemClickEnabled="False"
+                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="FilmsGrid" SelectionMode="None" IsItemClickEnabled="False"
                               ItemContainerStyle="{StaticResource HomeGridItemStyle}"
                               ItemTemplate="{StaticResource HomeMovieTemplate}"/>
                 </StackPanel>
@@ -177,7 +177,7 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView x:Name="SeriesGrid" SelectionMode="None" IsItemClickEnabled="False"
+                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="SeriesGrid" SelectionMode="None" IsItemClickEnabled="False"
                               ItemContainerStyle="{StaticResource HomeGridItemStyle}"
                               ItemTemplate="{StaticResource HomeMovieTemplate}"/>
                 </StackPanel>
@@ -201,7 +201,7 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView x:Name="CartoonsGrid" SelectionMode="None" IsItemClickEnabled="False"
+                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="CartoonsGrid" SelectionMode="None" IsItemClickEnabled="False"
                               ItemContainerStyle="{StaticResource HomeGridItemStyle}"
                               ItemTemplate="{StaticResource HomeMovieTemplate}"/>
                 </StackPanel>
@@ -225,7 +225,7 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView x:Name="PopularGrid" SelectionMode="None" IsItemClickEnabled="False"
+                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="PopularGrid" SelectionMode="None" IsItemClickEnabled="False"
                               ItemContainerStyle="{StaticResource HomeGridItemStyle}"
                               ItemTemplate="{StaticResource HomeMovieTemplate}"/>
                 </StackPanel>
@@ -249,7 +249,7 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView x:Name="WatchingGrid" SelectionMode="None" IsItemClickEnabled="False"
+                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="WatchingGrid" SelectionMode="None" IsItemClickEnabled="False"
                               ItemContainerStyle="{StaticResource HomeGridItemStyle}"
                               ItemTemplate="{StaticResource HomeMovieTemplate}"/>
                 </StackPanel>
@@ -273,7 +273,7 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView x:Name="SoonGrid" SelectionMode="None" IsItemClickEnabled="False"
+                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="SoonGrid" SelectionMode="None" IsItemClickEnabled="False"
                               ItemContainerStyle="{StaticResource HomeGridItemStyle}"
                               ItemTemplate="{StaticResource HomeMovieTemplate}"/>
                 </StackPanel>
