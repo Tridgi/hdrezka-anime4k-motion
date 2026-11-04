@@ -184,11 +184,12 @@
                         </Button>
                         <ScrollViewer x:Name="FilmsScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Disabled"
+                                      HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
-                            <StackPanel Orientation="Horizontal" Spacing="0">
+                            <StackPanel Orientation="Horizontal" Spacing="0" Tag="Films"
+                                        PointerWheelChanged="HomeRail_PointerWheelChanged">
                                 <ItemsControl x:Name="FilmsGrid"
                                               ItemTemplate="{StaticResource HomeMovieTemplate}">
                                     <ItemsControl.ItemsPanel>
@@ -264,11 +265,12 @@
                         </Button>
                         <ScrollViewer x:Name="SeriesScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Disabled"
+                                      HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
-                            <StackPanel Orientation="Horizontal" Spacing="0">
+                            <StackPanel Orientation="Horizontal" Spacing="0" Tag="Series"
+                                        PointerWheelChanged="HomeRail_PointerWheelChanged">
                                 <ItemsControl x:Name="SeriesGrid"
                                               ItemTemplate="{StaticResource HomeMovieTemplate}">
                                     <ItemsControl.ItemsPanel>
@@ -344,11 +346,12 @@
                         </Button>
                         <ScrollViewer x:Name="CartoonsScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Disabled"
+                                      HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
-                            <StackPanel Orientation="Horizontal" Spacing="0">
+                            <StackPanel Orientation="Horizontal" Spacing="0" Tag="Cartoons"
+                                        PointerWheelChanged="HomeRail_PointerWheelChanged">
                                 <ItemsControl x:Name="CartoonsGrid"
                                               ItemTemplate="{StaticResource HomeMovieTemplate}">
                                     <ItemsControl.ItemsPanel>
@@ -424,11 +427,12 @@
                         </Button>
                         <ScrollViewer x:Name="PopularScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Disabled"
+                                      HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
-                            <StackPanel Orientation="Horizontal" Spacing="0">
+                            <StackPanel Orientation="Horizontal" Spacing="0" Tag="Popular"
+                                        PointerWheelChanged="HomeRail_PointerWheelChanged">
                                 <ItemsControl x:Name="PopularGrid"
                                               ItemTemplate="{StaticResource HomeMovieTemplate}">
                                     <ItemsControl.ItemsPanel>
@@ -504,11 +508,12 @@
                         </Button>
                         <ScrollViewer x:Name="WatchingScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Disabled"
+                                      HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
-                            <StackPanel Orientation="Horizontal" Spacing="0">
+                            <StackPanel Orientation="Horizontal" Spacing="0" Tag="Watching"
+                                        PointerWheelChanged="HomeRail_PointerWheelChanged">
                                 <ItemsControl x:Name="WatchingGrid"
                                               ItemTemplate="{StaticResource HomeMovieTemplate}">
                                     <ItemsControl.ItemsPanel>
@@ -584,11 +589,12 @@
                         </Button>
                         <ScrollViewer x:Name="SoonScroll" Grid.Column="1"
                                       HorizontalScrollMode="Enabled"
-                                      HorizontalScrollBarVisibility="Disabled"
+                                      HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
                                       VerticalScrollBarVisibility="Disabled"
                                       ViewChanged="HomeRail_ViewChanged">
-                            <StackPanel Orientation="Horizontal" Spacing="0">
+                            <StackPanel Orientation="Horizontal" Spacing="0" Tag="Soon"
+                                        PointerWheelChanged="HomeRail_PointerWheelChanged">
                                 <ItemsControl x:Name="SoonGrid"
                                               ItemTemplate="{StaticResource HomeMovieTemplate}">
                                     <ItemsControl.ItemsPanel>
