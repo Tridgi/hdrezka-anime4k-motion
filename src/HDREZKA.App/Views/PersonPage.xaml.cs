@@ -187,8 +187,9 @@ public sealed partial class PersonPage : Page
             {
                 Padding = new Thickness(8, 4, 8, 4),
                 CornerRadius = new CornerRadius(8),
-                Background = (Brush)Application.Current.Resources[
-                    "SubtleFillColorSecondaryBrush"],
+                Background = new SolidColorBrush(ActualTheme == ElementTheme.Light
+                    ? Windows.UI.Color.FromArgb(255, 224, 229, 235)
+                    : Windows.UI.Color.FromArgb(255, 59, 64, 72)),
                 Child = new TextBlock { Text = group.Movies.Count.ToString(),
                     FontSize = 12 }
             });
@@ -207,8 +208,9 @@ public sealed partial class PersonPage : Page
             FilmographyPanel.Children.Add(new TextBlock
             {
                 Text = Loc.Get("Common.Empty"),
-                Foreground = (Brush)Application.Current.Resources[
-                    "TextFillColorSecondaryBrush"]
+                Foreground = new SolidColorBrush(ActualTheme == ElementTheme.Light
+                    ? Windows.UI.Color.FromArgb(255, 84, 91, 101)
+                    : Windows.UI.Color.FromArgb(255, 187, 195, 205))
             });
     }
 
