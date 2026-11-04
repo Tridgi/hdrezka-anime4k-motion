@@ -8,7 +8,7 @@
     mc:Ignorable="d"
     NavigationCacheMode="Required">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <ScrollViewer VerticalScrollBarVisibility="Hidden">
     <Grid Padding="28,12,28,12" RowSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -64,7 +64,7 @@
         <!-- Offline files -->
         <StackPanel x:Name="OfflinePanel" Grid.Row="3" Spacing="8" MaxWidth="640" HorizontalAlignment="Left">
             <TextBlock x:Name="OfflineHeader" Style="{StaticResource SectionHeader}"/>
-            <ListView x:Name="OfflineList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="OfflineList_ItemClick" MaxHeight="320">
+            <ListView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="OfflineList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="OfflineList_ItemClick" MaxHeight="320">
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <Grid Padding="0,8" ColumnSpacing="14">
