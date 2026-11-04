@@ -216,6 +216,8 @@ public static class Parsers
         var voiceRatings = isComingSoon ? null : ParseVoiceActingRatings(doc);
         var watchAlso = ParseWatchAlso(doc);
         var schedule = isComingSoon ? null : ParseSchedule(doc);
+        var franchise = ParseFranchiseParts(doc, pagePath);
+        var collectionLinks = ParseDetailCollectionLinks(doc);
 
         var isRated = content.QuerySelectorAll(".b-post__rating .b-post__rating_wrapper").Length == 0;
         var siteRatingValue = ToFloat(content.QuerySelector(".b-post__rating .num")?.TextContent);
@@ -340,6 +342,8 @@ public static class Parsers
             AgeRestriction = ageRestriction,
             Countries = countries,
             Genres = genres,
+            FranchiseParts = franchise.Count > 0 ? franchise : null,
+            CollectionLinks = collectionLinks.Count > 0 ? collectionLinks : null,
             Producers = producers,
             Actors = actors,
             SiteRating = siteRating,
@@ -1096,6 +1100,93 @@ public static class Parsers
             }
         }
 
+        return result;
+    }
+
+    /// <summary>
+    /// Max page advertised by a collections pager (not the number of items).
+    /// Returns null when the site omits pagination controls.
+    /// </summary>
+    public static int? ParseCollectionsLastPage(string html)
+    {
+        var doc = ParseHtml(html);
+        var max = 1;
+        var found = false;
+        foreach (var a in doc.QuerySelectorAll("a[href]"))
+        {
+            var href = a.GetAttribute("href") ?? "";
+            var m = System.Text.RegularExpressions.Regex.Match(
+                href, @"(?:/collections/|^collections/)page/(\d+)/?",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success)
+                m = System.Text.RegularExpressions.Regex.Match(href,
+                    @"[?&]page=(\d+)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success || !int.TryParse(m.Groups[1].Value, out var page) ||
+                page < 1 || page > 1000) continue;
+            found = true;
+            max = Math.Max(max, page);
+        }
+        return found ? max : null;
+    }
+
+    private static IReadOnlyList<NamedLink> ParseDetailCollectionLinks(IDocument doc)
+    {
+        var result = new List<NamedLink>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // A collection badge must point to a genuine collections/slug URL,
+        // never to genre/year/best ranking pages or movie sidelist items.
+        foreach (var a in doc.QuerySelectorAll(
+            ".b-content__main a[href*='/collections/'], .b-post__info a[href*='/collections/']"))
+        {
+            var path = CleanPath(a.GetAttribute("href"));
+            if (path == null || !path.StartsWith("collections/", StringComparison.OrdinalIgnoreCase) ||
+                path.Split('/').Length != 2 || !seen.Add(path)) continue;
+            var label = Text(a);
+            if (string.IsNullOrWhiteSpace(label))
+                label = a.GetAttribute("title")?.Trim() ?? "";
+            if (label.Length == 0) continue;
+            result.Add(new NamedLink(label, path.Substring("collections/".Length)));
+        }
+        return result;
+    }
+
+    private static IReadOnlyList<NamedLink> ParseFranchiseParts(IDocument doc, string currentPath)
+    {
+        var result = new List<NamedLink>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Distinguish a titled "All Bleach anime / All films of X" block from
+        // arbitrary recommendation lists. Only harvest links in that block.
+        foreach (var heading in doc.QuerySelectorAll("h2,h3,h4,.b-content__htitle,.b-post__series_title,.b-series__title"))
+        {
+            var title = Text(heading);
+            if (title.Length < 5 || title.Length > 180 ||
+                !System.Text.RegularExpressions.Regex.IsMatch(title,
+                    @"(?:^|\s)(?:все|всі|all)\s+(?:аниме|фильмы|фільми|части|частини|сериалы|серіали|movies|parts)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                continue;
+            var root = heading.ParentElement;
+            if (root == null) continue;
+            // Franchise lists are normally placed directly after their heading.
+            // Limit to the heading's container or its immediate next sibling.
+            var nodes = new List<IElement> { root };
+            if (root.NextElementSibling is { } next)
+                nodes.Add(next);
+            foreach (var node in nodes)
+            foreach (var link in node.QuerySelectorAll("a[href]"))
+            {
+                var path = CleanPath(link.GetAttribute("href"));
+                if (path == null || !path.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
+                    !(path.StartsWith("films/") || path.StartsWith("series/") ||
+                      path.StartsWith("animation/") || path.StartsWith("cartoons/") ||
+                      path.StartsWith("show/")) ||
+                    !seen.Add(path)) continue;
+                var name = Text(link);
+                if (string.IsNullOrWhiteSpace(name)) name = link.GetAttribute("title") ?? "";
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                result.Add(new NamedLink(name.Trim(), path));
+            }
+        }
         return result;
     }
 
