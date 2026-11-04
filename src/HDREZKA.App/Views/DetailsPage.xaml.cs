@@ -676,21 +676,6 @@ public sealed partial class DetailsPage : Page
         PreviewKpValue.Foreground = kFg;
     }
 
-    private static MetadataTone SemanticPreviewGenreTone(string name)
-    {
-        var genre = name.ToLowerInvariant();
-        if (genre.Contains("ужас") || genre.Contains("horror") ||
-            genre.Contains("боев") || genre.Contains("action"))
-            return MetadataTone.GenreRose;
-        if (genre.Contains("комед") || genre.Contains("comedy") ||
-            genre.Contains("приключ") || genre.Contains("adventure"))
-            return MetadataTone.GenreGreen;
-        if (genre.Contains("фантаст") || genre.Contains("sci-fi") ||
-            genre.Contains("научн") || genre.Contains("document"))
-            return MetadataTone.GenreBlue;
-        return MetadataTone.GenrePurple;
-    }
-
     private void RenderPreviewGenres(IReadOnlyList<MovieGenre>? genres)
     {
         PreviewGenreChips.Children.Clear();
@@ -704,6 +689,8 @@ public sealed partial class DetailsPage : Page
         var rows = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
         // Text-only semantics. In neutral mode all genres are muted; in
         // colorful mode colors match the existing metadata palette.
+        var palette = GenreColors.Palette(
+            genres.Select(x => x.Name).ToArray(), IsLightTheme, IsColorful);
         for (var index = 0; index < Math.Min(4, genres.Count); index++)
         {
             if (index > 0 && index % 2 == 0)
@@ -711,7 +698,7 @@ public sealed partial class DetailsPage : Page
                 PreviewGenreChips.Children.Add(rows);
                 rows = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
             }
-            var (_, fg) = BadgeBrushes(SemanticPreviewGenreTone(genres[index].Name));
+            var fg = palette[index].Fg;
             rows.Children.Add(new TextBlock
             {
                 Text = genres[index].Name,
@@ -753,6 +740,11 @@ public sealed partial class DetailsPage : Page
                 string.Join(", ", details.Actors.Take(5).Select(x => x.Name))
             : "";
         StyleRecommendationPreview();
+        if (r is { } value)
+        {
+            PreviewRezkaBadge.Background = RezkaScoreColors.Gradient(value);
+            PreviewRezkaValue.Foreground = Brush(255, 255, 255);
+        }
     }
 
     private async Task ShowRecommendationPreviewAsync(MovieCard card,
@@ -1430,8 +1422,14 @@ public sealed partial class DetailsPage : Page
     /// Flow chips into short rows sized against the available page width.
     /// No external toolkit/WrapPanel, no horizontal overflow for long genres.
     /// </summary>
-    private StackPanel WrapChips(IEnumerable<(string Name, MetadataTone Tone)> items)
+    private StackPanel WrapChips(
+        IEnumerable<(string Name, MetadataTone Tone)> items, bool genres = false)
     {
+        var sources = items.ToArray();
+        var genreColors = genres
+            ? GenreColors.Palette(sources.Select(x => x.Name).ToArray(),
+                IsLightTheme, IsColorful) : null;
+        var genreIndex = 0;
         var stack = new StackPanel { Spacing = 6 };
         var pageWidth = ActualWidth > 0 ? ActualWidth : 1100;
         var leftRight = pageWidth < 510 ? 24 : pageWidth < 850 ? 40 : 56;
@@ -1442,7 +1440,7 @@ public sealed partial class DetailsPage : Page
 
         StackPanel line = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
         double used = 0;
-        foreach (var (name, tone) in items)
+        foreach (var (name, tone) in sources)
         {
             var estimated = Math.Min(230, 22 + name.Length * 7.2);
             if (line.Children.Count > 0 && used + 6 + estimated > available)
@@ -1453,6 +1451,13 @@ public sealed partial class DetailsPage : Page
             }
             var badge = tone == MetadataTone.Country
                 ? CountryChip(name) : Chip(name, tone);
+            if (genreColors != null)
+            {
+                badge.Background = genreColors[genreIndex].Bg;
+                if (badge.Child is TextBlock label)
+                    label.Foreground = genreColors[genreIndex].Fg;
+                genreIndex++;
+            }
             if (tone == MetadataTone.Country) ApplyCountryTint(badge, name);
             badge.MaxWidth = Math.Max(124, Math.Min(220, available));
             line.Children.Add(badge);
@@ -1611,10 +1616,9 @@ public sealed partial class DetailsPage : Page
 
         if (details.Genres is { Count: > 0 })
         {
-            var tones = new[] { MetadataTone.GenreBlue, MetadataTone.GenreRose,
-                MetadataTone.GenreGreen, MetadataTone.GenrePurple };
-            AddMetaRow(Loc.Get("Details.Genre"), WrapChips(details.Genres.Select((g, i) =>
-                (g.Name, tones[i % tones.Length]))));
+            AddMetaRow(Loc.Get("Details.Genre"),
+                WrapChips(details.Genres.Select(g =>
+                    (g.Name, MetadataTone.GenreBlue)), genres: true));
         }
 
         if (details.Duration is { } mins)
@@ -1694,7 +1698,9 @@ public sealed partial class DetailsPage : Page
         {
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(9, 7, 9, 7),
-            Background = BadgeBrushes(MetadataTone.Rating).Bg,
+            Background = label == "Rezka"
+                ? RezkaScoreColors.Gradient(rating.Value.Value)
+                : BadgeBrushes(MetadataTone.Rating).Bg,
         };
         var stack = new StackPanel
         {
@@ -1733,15 +1739,17 @@ public sealed partial class DetailsPage : Page
         {
             Text = rating.Value.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture),
             FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-            Foreground = BadgeBrushes(MetadataTone.Rating).Fg
+            Foreground = label == "Rezka" ? Brush(255, 255, 255)
+                : BadgeBrushes(MetadataTone.Rating).Fg
         });
         if (rating.Votes != null)
             stack.Children.Add(new TextBlock
             {
                 Text = "(" + rating.Votes + ")",
                 FontSize = 11,
-                Foreground = BadgeBrushes(MetadataTone.Rating).Fg,
-                Opacity = .8,
+                Foreground = label == "Rezka" ? Brush(255, 255, 255)
+                    : BadgeBrushes(MetadataTone.Rating).Fg,
+                Opacity = .85,
                 VerticalAlignment = VerticalAlignment.Center
             });
 
