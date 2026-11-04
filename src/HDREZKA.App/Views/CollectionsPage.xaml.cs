@@ -8,11 +8,14 @@ using Microsoft.UI.Xaml.Media;
 
 namespace HDREZKA.App.Views;
 
+public sealed record CollectionLaunch(string Id, string? Title = null);
+
 public sealed partial class CollectionsPage : Page
 {
     private readonly List<MovieSimple> _items = new();
     private readonly List<CollectionSimple> _collections = new();
     private string _currentCollectionId = "";
+    private string? _launchedCollectionTitle;
     private int _page = 1;
     private bool _hasMore = true;
     private bool _loading;
@@ -34,6 +37,13 @@ public sealed partial class CollectionsPage : Page
         SettingsService.Instance.PosterSizeChanged += OnPosterSizeChanged;
         ApplyLocalization();
 
+        if (e.Parameter is CollectionLaunch launch &&
+            !string.IsNullOrWhiteSpace(launch.Id))
+        {
+            _launchedCollectionTitle = launch.Title;
+            SelectCollection(launch.Id);
+            return;
+        }
         // Do not open the first folder automatically: it can be stale,
         // removed or blocked and then the page appears completely empty.
         if (!_collectionsLoaded) LoadCollections();
@@ -154,6 +164,7 @@ public sealed partial class CollectionsPage : Page
     {
         _requestVersion++;
         _currentCollectionId = "";
+        _launchedCollectionTitle = null;
         _loading = false;
         _page = 1;
         _items.Clear();
@@ -161,6 +172,11 @@ public sealed partial class CollectionsPage : Page
         MorePanel.Visibility = Visibility.Collapsed;
         SetView(selected: false);
         BrowseScroll.ChangeView(null, 0, null, true);
+        if (!_collectionsLoaded)
+        {
+            LoadCollections();
+            return;
+        }
         if (notice != null)
             SetBrowseState(true, notice);
         else
@@ -170,7 +186,7 @@ public sealed partial class CollectionsPage : Page
     private void UpdateSelectionHeading()
     {
         var selected = _collections.FirstOrDefault(c => c.Id == _currentCollectionId);
-        SelectedCollectionTitle.Text = selected?.Title ?? Loc.Get("Nav.Collections");
+        SelectedCollectionTitle.Text = selected?.Title ?? _launchedCollectionTitle ?? Loc.Get("Nav.Collections");
         SelectedCollectionCount.Text = selected != null && selected.Count > 0
             ? Loc.Get("Collections.ItemsCount", selected.Count)
             : Loc.Get("Collections.SelectedHint");
