@@ -55,6 +55,15 @@ public sealed partial class HomePage : Page
         SoonEndButton.Tag = SoonAllButton.Tag;
         HomePreviewHeader.Text = Loc.Get("Details.AboutMovie");
         SettingsService.Instance.PosterSizeChanged += UpdateRailEndTileSizes;
+        // Extents become nonzero after layout. Keep arrow enabled states in
+        // sync when a resized window exposes more/less of a horizontal row.
+        foreach (var scroll in new[]
+        {
+            FilmsScroll, SeriesScroll, CartoonsScroll,
+            PopularScroll, WatchingScroll, SoonScroll
+        })
+            scroll.SizeChanged += (_, _) => DispatcherQueue.TryEnqueue(UpdateRailButtons);
+
 
     }
 
@@ -475,6 +484,38 @@ public sealed partial class HomePage : Page
         var target = Math.Clamp(rail.Scroll.HorizontalOffset + direction * step,
             0, Math.Max(0, rail.Scroll.ScrollableWidth));
         rail.Scroll.ChangeView(target, null, null, false);
+    }
+
+    private void HomeRail_PointerWheelChanged(object sender,
+        Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (sender is not StackPanel { Tag: string name } ||
+            GetRail(name) is not { } rail)
+            return;
+
+        var delta = e.GetCurrentPoint(rail.Scroll).Properties.MouseWheelDelta;
+        if (delta == 0) return;
+        var keyState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
+            Windows.System.VirtualKey.Shift);
+        var shiftHeld = (keyState & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0;
+
+        if (shiftHeld)
+        {
+            // Shift + wheel deliberately navigates the horizontal row.
+            // The viewer stays Hidden, NOT Disabled, so ChangeView works.
+            var target = Math.Clamp(rail.Scroll.HorizontalOffset - delta,
+                0, Math.Max(0, rail.Scroll.ScrollableWidth));
+            rail.Scroll.ChangeView(target, null, null, false);
+        }
+        else
+        {
+            // Ordinary wheel always scrolls the page vertically, even when
+            // hovering a poster or the end-of-rail navigation tile.
+            var target = Math.Clamp(HomeVerticalScroll.VerticalOffset - delta,
+                0, Math.Max(0, HomeVerticalScroll.ScrollableHeight));
+            HomeVerticalScroll.ChangeView(null, target, null, false);
+        }
+        e.Handled = true;
     }
 
     private void HomeRail_ViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
