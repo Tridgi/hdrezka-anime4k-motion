@@ -1430,7 +1430,8 @@ public sealed partial class DetailsPage : Page
     /// No external toolkit/WrapPanel, no horizontal overflow for long genres.
     /// </summary>
     private StackPanel WrapChips(
-        IEnumerable<(string Name, MetadataTone Tone)> items, bool genres = false)
+        IEnumerable<(string Name, MetadataTone Tone)> items, bool genres = false,
+        IReadOnlyList<MovieGenre>? linkedGenres = null)
     {
         var sources = items.ToArray();
         var genreColors = genres
@@ -1467,11 +1468,68 @@ public sealed partial class DetailsPage : Page
             }
             if (tone == MetadataTone.Country) ApplyCountryTint(badge, name);
             badge.MaxWidth = Math.Max(124, Math.Min(220, available));
-            line.Children.Add(badge);
+            if (genres && linkedGenres != null)
+            {
+                var linked = linkedGenres.FirstOrDefault(g =>
+                    string.Equals(g.Name, name, StringComparison.Ordinal));
+                if (linked is { Id.Length: > 0 })
+                {
+                    // Preserve the same colored chip; add a transparent button
+                    // surface with a real navigation action.
+                    var target = linked;
+                    var button = new Button
+                    {
+                        Content = badge, MinWidth = 0, MinHeight = 0,
+                        Padding = new Thickness(0), BorderThickness = new Thickness(0),
+                        Background = Brush(0, 0, 0, 0),
+                        CornerRadius = new CornerRadius(10),
+                        HorizontalAlignment = HorizontalAlignment.Left
+                    };
+                    ToolTipService.SetToolTip(button, Loc.Get("Details.OpenGenre"));
+                    button.Click += (_, _) => Nav.Go<CatalogPage>(
+                        new CatalogGenreLaunch(target));
+                    line.Children.Add(button);
+                }
+                else line.Children.Add(badge);
+            }
+            else line.Children.Add(badge);
             used += (used > 0 ? 6 : 0) + Math.Min(estimated, badge.MaxWidth);
         }
         if (line.Children.Count > 0) stack.Children.Add(line);
         return stack;
+    }
+
+    private StackPanel WrapNavigationChips(
+        IReadOnlyList<NamedLink> links, Action<NamedLink> navigate)
+    {
+        var panel = new StackPanel { Spacing = 6 };
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        var budget = Math.Max(180, ActualWidth - (_isNarrow ? 56 : PosterPanel.Width + 220));
+        var used = 0d;
+        foreach (var link in links.Take(18))
+        {
+            var width = Math.Min(236, Math.Max(80, 20 + link.Name.Length * 7));
+            if (used + width > budget && row.Children.Count > 0)
+            {
+                panel.Children.Add(row);
+                row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                used = 0;
+            }
+            var target = link;
+            var chip = Chip(link.Name, MetadataTone.GenreBlue);
+            chip.MaxWidth = width;
+            var button = new Button
+            {
+                Content = chip, MinWidth = 0, MinHeight = 0,
+                Padding = new Thickness(0), BorderThickness = new Thickness(0),
+                Background = Brush(0, 0, 0, 0), CornerRadius = new CornerRadius(10)
+            };
+            button.Click += (_, _) => navigate(target);
+            row.Children.Add(button);
+            used += width + 6;
+        }
+        if (row.Children.Count > 0) panel.Children.Add(row);
+        return panel;
     }
 
     private static string CountryFlag(string name)
@@ -1625,7 +1683,8 @@ public sealed partial class DetailsPage : Page
         {
             AddMetaRow(Loc.Get("Details.Genre"),
                 WrapChips(details.Genres.Select(g =>
-                    (g.Name, MetadataTone.GenreBlue)), genres: true));
+                    (g.Name, MetadataTone.GenreBlue)),
+                    genres: true, linkedGenres: details.Genres));
         }
 
         if (details.Duration is { } mins)
@@ -1664,6 +1723,14 @@ public sealed partial class DetailsPage : Page
             AddPersonsMeta(Loc.Get("Details.Director"), details.Producers);
         if (details.Actors is { Count: > 0 })
             AddPersonsMeta(Loc.Get("Details.Actors"), details.Actors);
+        if (details.FranchiseParts is { Count: > 0 } parts)
+            AddMetaRow(Loc.Get("Details.Franchise"),
+                WrapNavigationChips(parts, link => Nav.Go<DetailsPage>(
+                    new MovieSimple(link.Id, link.Name))), alignLabelTop: true);
+        if (details.CollectionLinks is { Count: > 0 } collectionLinks)
+            AddMetaRow(Loc.Get("Details.Collections"),
+                WrapNavigationChips(collectionLinks, link => Nav.Go<CollectionsPage>(
+                    new CollectionLaunch(link.Id, link.Name))), alignLabelTop: true);
         if (details.Year != null)
             AddMetaRow(Loc.Get("Details.Year"), WrapChips([(details.Year, MetadataTone.Neutral)]));
         if (details.Slogan is { Length: > 0 })
