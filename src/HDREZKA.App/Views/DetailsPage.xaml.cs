@@ -676,6 +676,21 @@ public sealed partial class DetailsPage : Page
         PreviewKpValue.Foreground = kFg;
     }
 
+    private static MetadataTone SemanticPreviewGenreTone(string name)
+    {
+        var genre = name.ToLowerInvariant();
+        if (genre.Contains("ужас") || genre.Contains("horror") ||
+            genre.Contains("боев") || genre.Contains("action"))
+            return MetadataTone.GenreRose;
+        if (genre.Contains("комед") || genre.Contains("comedy") ||
+            genre.Contains("приключ") || genre.Contains("adventure"))
+            return MetadataTone.GenreGreen;
+        if (genre.Contains("фантаст") || genre.Contains("sci-fi") ||
+            genre.Contains("научн") || genre.Contains("document"))
+            return MetadataTone.GenreBlue;
+        return MetadataTone.GenrePurple;
+    }
+
     private void RenderPreviewGenres(IReadOnlyList<MovieGenre>? genres)
     {
         PreviewGenreChips.Children.Clear();
@@ -689,11 +704,6 @@ public sealed partial class DetailsPage : Page
         var rows = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
         // Text-only semantics. In neutral mode all genres are muted; in
         // colorful mode colors match the existing metadata palette.
-        var tones = new[]
-        {
-            MetadataTone.GenreBlue, MetadataTone.GenreRose,
-            MetadataTone.GenreGreen, MetadataTone.GenrePurple
-        };
         for (var index = 0; index < Math.Min(4, genres.Count); index++)
         {
             if (index > 0 && index % 2 == 0)
@@ -701,7 +711,7 @@ public sealed partial class DetailsPage : Page
                 PreviewGenreChips.Children.Add(rows);
                 rows = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
             }
-            var (_, fg) = BadgeBrushes(tones[index]);
+            var (_, fg) = BadgeBrushes(SemanticPreviewGenreTone(genres[index].Name));
             rows.Children.Add(new TextBlock
             {
                 Text = genres[index].Name,
