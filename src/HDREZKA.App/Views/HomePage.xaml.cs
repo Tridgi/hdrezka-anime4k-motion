@@ -542,6 +542,200 @@ public sealed partial class HomePage : Page
     private void HomeScrollViewer_ViewChanged(object sender,
         ScrollViewerViewChangedEventArgs e) => HideHomePreview();
 
+    private void HomeRecommendationCard_HoverChanged(object sender,
+        RecommendationHoverEventArgs e)
+    {
+        if (sender is not MovieCard card) return;
+        if (!e.IsEntering)
+        {
+            if (ReferenceEquals(_activePreviewCard, card)) HideHomePreview();
+            return;
+        }
+        if (e.Movie == null) return;
+
+        HideHomePreview();
+        _activePreviewCard = card;
+        _activePreviewId = e.Movie.Id;
+        _previewCancellation = new CancellationTokenSource();
+        _ = ShowHomePreviewAsync(card, e.Movie, _previewCancellation.Token);
+    }
+
+    private void HideHomePreview()
+    {
+        try { _previewCancellation?.Cancel(); } catch { }
+        _previewCancellation = null;
+        _activePreviewCard = null;
+        _activePreviewId = null;
+        HomePreviewPanel.Visibility = Visibility.Collapsed;
+    }
+
+    private bool PreviewMatches(MovieCard card, MovieSimple movie, CancellationToken ct)
+        => !ct.IsCancellationRequested && ReferenceEquals(_activePreviewCard, card)
+           && _activePreviewId == movie.Id && card.Movie?.Id == movie.Id;
+
+    private static SolidColorBrush PreviewBrush(byte r, byte g, byte b)
+        => new(Windows.UI.Color.FromArgb(255, r, g, b));
+
+    private void SetHomeRatingPalette()
+    {
+        var colorful = SettingsService.Instance.DetailPalette == DetailsPalette.Colorful;
+        var dark = ActualTheme != ElementTheme.Light;
+        var neutral = dark ? PreviewBrush(56, 59, 65) : PreviewBrush(229, 232, 235);
+        if (!colorful)
+        {
+            HomePreviewRBackground.Background = neutral;
+            HomePreviewImdbBackground.Background = neutral;
+            HomePreviewKpBackground.Background = neutral;
+        }
+        else
+        {
+            static SolidColorBrush Mix(Windows.UI.Color value, Windows.UI.Color surface, double amount)
+            {
+                byte Channel(byte a, byte b) => (byte)Math.Clamp(
+                    (int)Math.Round(a * amount + b * (1 - amount)), 0, 255);
+                return PreviewBrush(Channel(value.R, surface.R),
+                    Channel(value.G, surface.G), Channel(value.B, surface.B));
+            }
+            var background = dark
+                ? Windows.UI.Color.FromArgb(255, 35, 38, 44)
+                : Windows.UI.Color.FromArgb(255, 245, 247, 250);
+            var accent = SettingsService.Instance.Theme == AppTheme.Manual
+                ? ThemeHelper.AccentBrush.Color
+                : Windows.UI.Color.FromArgb(255, 34, 145, 123);
+            var factor = dark ? .42 : .25;
+            HomePreviewRBackground.Background = Mix(accent, background, factor);
+            HomePreviewImdbBackground.Background = Mix(
+                Windows.UI.Color.FromArgb(255, 246, 198, 36), background, factor);
+            HomePreviewKpBackground.Background = Mix(
+                Windows.UI.Color.FromArgb(255, 253, 127, 48), background, factor);
+        }
+        var ink = dark ? PreviewBrush(245, 247, 249) : PreviewBrush(37, 40, 45);
+        HomePreviewR.Foreground = ink;
+        HomePreviewImdb.Foreground = ink;
+        HomePreviewKp.Foreground = ink;
+    }
+
+    private void RenderHomePreviewGenres(IReadOnlyList<MovieGenre>? genres)
+    {
+        HomePreviewGenres.Inlines.Clear();
+        if (genres == null) return;
+        var colorful = SettingsService.Instance.DetailPalette == DetailsPalette.Colorful;
+        var dark = ActualTheme != ElementTheme.Light;
+        for (var i = 0; i < Math.Min(5, genres.Count); i++)
+        {
+            var name = genres[i].Name;
+            var lower = name.ToLowerInvariant();
+            var color = lower.Contains("комед") || lower.Contains("приключ") ||
+                        lower.Contains("comedy") || lower.Contains("adventure")
+                ? (dark ? PreviewBrush(125, 218, 159) : PreviewBrush(32, 123, 76))
+                : lower.Contains("ужас") || lower.Contains("боев") ||
+                  lower.Contains("horror") || lower.Contains("action")
+                ? (dark ? PreviewBrush(249, 152, 170) : PreviewBrush(151, 48, 82))
+                : lower.Contains("драм") || lower.Contains("fantasy") ||
+                  lower.Contains("фэнтез")
+                ? (dark ? PreviewBrush(202, 172, 253) : PreviewBrush(126, 76, 157))
+                : (dark ? PreviewBrush(133, 193, 253) : PreviewBrush(50, 111, 181));
+            HomePreviewGenres.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
+            {
+                Text = (i > 0 ? "  ·  " : "") + name,
+                Foreground = colorful ? color
+                    : dark ? PreviewBrush(188, 196, 206) : PreviewBrush(90, 96, 105),
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
+        }
+    }
+
+    private void PositionHomePreview(MovieCard card)
+    {
+        var width = HomePreviewLayer.ActualWidth;
+        var height = HomePreviewLayer.ActualHeight;
+        if (width < 220 || height < 230)
+        {
+            HomePreviewPanel.Visibility = Visibility.Collapsed;
+            return;
+        }
+        HomePreviewPanel.Width = Math.Min(334, width - 28);
+        HomePreviewPanel.MaxHeight = height - 24;
+        HomePreviewDescription.MaxLines = height < 560 ? 3 : 5;
+        var spot = card.TransformToVisual(HomePreviewLayer)
+            .TransformPoint(new Windows.Foundation.Point(0, 0));
+        HomePreviewPanel.Measure(new Windows.Foundation.Size(
+            HomePreviewPanel.Width, HomePreviewPanel.MaxHeight));
+        var popupHeight = Math.Min(HomePreviewPanel.DesiredSize.Height,
+            HomePreviewPanel.MaxHeight);
+        const double gap = 14;
+        var toRight = spot.X + card.ActualWidth + gap;
+        var toLeft = spot.X - HomePreviewPanel.Width - gap;
+        var x = toRight + HomePreviewPanel.Width < width - 12
+            ? toRight : toLeft >= 12 ? toLeft
+            : Math.Max(12, (width - HomePreviewPanel.Width) / 2);
+        var y = Math.Clamp(spot.Y - 7, 12, Math.Max(12, height - popupHeight - 12));
+        Canvas.SetLeft(HomePreviewPanel, x);
+        Canvas.SetTop(HomePreviewPanel, y);
+    }
+
+    private void ApplyHomePreviewDetails(MovieDetailed details)
+    {
+        HomePreviewTitle.Text = details.Name;
+        HomePreviewOriginal.Text = details.OriginalName ?? "";
+        HomePreviewRBackground.Visibility = details.SiteRating?.Value != null
+            ? Visibility.Visible : Visibility.Collapsed;
+        HomePreviewImdbBackground.Visibility = details.ImdbRating?.Value != null
+            ? Visibility.Visible : Visibility.Collapsed;
+        HomePreviewKpBackground.Visibility = details.KpRating?.Value != null
+            ? Visibility.Visible : Visibility.Collapsed;
+        HomePreviewR.Text = "R " + details.SiteRating?.Value?.ToString("0.0");
+        HomePreviewImdb.Text = "IMDb " + details.ImdbRating?.Value?.ToString("0.0");
+        HomePreviewKp.Text = "КП " + details.KpRating?.Value?.ToString("0.0");
+        HomePreviewDescription.Text = details.Description ?? "";
+        RenderHomePreviewGenres(details.Genres);
+        SetHomeRatingPalette();
+    }
+
+    private async Task ShowHomePreviewAsync(MovieCard card, MovieSimple movie,
+        CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(170, token);
+            if (!PreviewMatches(card, movie, token)) return;
+            HomePreviewHeading.Text = Loc.Get("Details.AboutMovie");
+            HomePreviewTitle.Text = movie.Name ?? "";
+            HomePreviewOriginal.Text = movie.Details ?? "";
+            HomePreviewRBackground.Visibility = movie.Rating != null
+                ? Visibility.Visible : Visibility.Collapsed;
+            HomePreviewR.Text = "R " + movie.Rating?.ToString("0.0");
+            HomePreviewImdbBackground.Visibility = Visibility.Collapsed;
+            HomePreviewKpBackground.Visibility = Visibility.Collapsed;
+            HomePreviewDescription.Text = "";
+            RenderHomePreviewGenres(null);
+            SetHomeRatingPalette();
+            HomePreviewPanel.Visibility = Visibility.Visible;
+            PositionHomePreview(card);
+
+            if (_previewCache.TryGetValue(movie.Id, out var cached))
+            {
+                ApplyHomePreviewDetails(cached);
+                PositionHomePreview(card);
+                return;
+            }
+            await Task.Delay(260, token);
+            if (!PreviewMatches(card, movie, token)) return;
+            var detailed = await RezkaService.Instance.Client.GetDetailsAsync(movie.Id, token);
+            if (!PreviewMatches(card, movie, token)) return;
+            if (_previewCache.Count >= 20)
+                _previewCache.Remove(_previewCache.Keys.First());
+            _previewCache[movie.Id] = detailed;
+            ApplyHomePreviewDetails(detailed);
+            PositionHomePreview(card);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Log.Info("[Home] Poster preview not available: " + ex.Message);
+        }
+    }
+
     /// <summary>
     /// Orders + hides home blocks per Settings → Home screen.
     /// Content presence comes from _sectionHasContent (bind methods).
