@@ -18,6 +18,25 @@
                 <TextBlock x:Name="TitleText" FontSize="28" FontWeight="Bold" VerticalAlignment="Center"/>
                 <Button x:Name="ClearButton" Grid.Column="1" Click="ClearButton_Click" VerticalAlignment="Center"/>
             </Grid>
+            <!-- Settings live next to the notifications they control.
+                 Stored notifications remain visible if automatic checking is off. -->
+            <Expander x:Name="SeriesExpander" IsExpanded="False"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <Expander.Header>
+                    <TextBlock x:Name="SeriesHeader" FontWeight="SemiBold"/>
+                </Expander.Header>
+                <StackPanel Spacing="6" Padding="0,4,0,4">
+                    <ToggleSwitch x:Name="SeriesToggle" Toggled="SeriesToggle_Toggled"/>
+                    <TextBlock x:Name="SeriesHint" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" MaxWidth="640"/>
+                    <TextBlock x:Name="SeriesStatusText" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               TextWrapping="Wrap" MaxWidth="640"/>
+                    <Button x:Name="CheckSeriesButton" Click="CheckSeriesButton_Click"
+                            HorizontalAlignment="Left" Margin="0,6,0,4"/>
+                </StackPanel>
+            </Expander>
             <ListView x:Name="List" SelectionMode="None" IsItemClickEnabled="True" ItemClick="List_ItemClick">
                 <ListView.ItemTemplate>
                     <DataTemplate>
