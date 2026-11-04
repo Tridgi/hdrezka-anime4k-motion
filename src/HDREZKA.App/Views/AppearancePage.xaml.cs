@@ -202,6 +202,8 @@ public sealed partial class AppearancePage : Page
         for (var row = 0; row < 4; row++)
             AccentMatrixGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(69) });
 
+        // Full two-tone tiles are easier to scan than tiny color swatches.
+        // Hard gradient stops keep exactly the two configured scheme colors.
         var schemes = ThemeHelper.Schemes;
         for (var i = 0; i < schemes.Count; i++)
         {
@@ -209,46 +211,85 @@ public sealed partial class AppearancePage : Page
             if (!ThemeHelper.TryParseHex(scheme.Primary, out var primary) ||
                 !ThemeHelper.TryParseHex(scheme.Companion, out var secondary))
                 continue;
+            var selected = scheme.Primary.Equals(SettingsService.Instance.ManualAccentHex,
+                StringComparison.OrdinalIgnoreCase) &&
+                scheme.Companion.Equals(SettingsService.Instance.ManualCompanionHex,
+                    StringComparison.OrdinalIgnoreCase);
 
-            var selected = scheme.Primary.Equals(
-                SettingsService.Instance.ManualAccentHex, StringComparison.OrdinalIgnoreCase);
-            var colors = new StackPanel
+            var background = new LinearGradientBrush
             {
-                Orientation = Orientation.Horizontal, Spacing = 4,
-                HorizontalAlignment = HorizontalAlignment.Center
+                StartPoint = new Windows.Foundation.Point(0, 0),
+                EndPoint = new Windows.Foundation.Point(1, 0)
             };
-            colors.Children.Add(new Border
+            background.GradientStops.Add(new GradientStop { Color = primary, Offset = 0 });
+            background.GradientStops.Add(new GradientStop { Color = primary, Offset = .5 });
+            background.GradientStops.Add(new GradientStop { Color = secondary, Offset = .5 });
+            background.GradientStops.Add(new GradientStop { Color = secondary, Offset = 1 });
+
+            // Choose whichever foreground is more legible on the *worse* of
+            // the two halves, not just against the primary accent.
+            static double Lum(Windows.UI.Color c)
             {
-                Width = 25, Height = 18, CornerRadius = new CornerRadius(5),
-                Background = new SolidColorBrush(primary)
-            });
-            colors.Children.Add(new Border
+                static double Channel(byte v)
+                {
+                    var x = v / 255d;
+                    return x <= .04045 ? x / 12.92 : Math.Pow((x + .055) / 1.055, 2.4);
+                }
+                return .2126 * Channel(c.R) + .7152 * Channel(c.G) + .0722 * Channel(c.B);
+            }
+            static double Contrast(double a, double b) =>
+                (Math.Max(a, b) + .05) / (Math.Min(a, b) + .05);
+            var luminanceA = Lum(primary);
+            var luminanceB = Lum(secondary);
+            var whiteScore = Math.Min(Contrast(1, luminanceA), Contrast(1, luminanceB));
+            var blackScore = Math.Min(Contrast(.01, luminanceA), Contrast(.01, luminanceB));
+            var foreground = new SolidColorBrush(whiteScore > blackScore
+                ? Windows.UI.Colors.White
+                : Windows.UI.Color.FromArgb(255, 20, 25, 31));
+
+            var tile = new Grid { MinHeight = 62 };
+            tile.Children.Add(new Border
             {
-                Width = 25, Height = 18, CornerRadius = new CornerRadius(5),
-                Background = new SolidColorBrush(secondary)
+                Background = background, CornerRadius = new CornerRadius(9),
+                BorderThickness = selected ? new Thickness(2) : new Thickness(0),
+                BorderBrush = new SolidColorBrush(selected
+                    ? (whiteScore > blackScore ? Windows.UI.Colors.White
+                       : Windows.UI.Color.FromArgb(255, 25, 25, 25))
+                    : Windows.UI.Colors.Transparent)
             });
-            var labels = new StackPanel { Spacing = 5 };
-            labels.Children.Add(colors);
-            labels.Children.Add(new TextBlock
+            tile.Children.Add(new TextBlock
             {
-                Text = scheme.Name + (selected ? " ✓" : ""),
-                FontSize = 12,
-                FontWeight = selected ? Microsoft.UI.Text.FontWeights.Bold :
-                    Microsoft.UI.Text.FontWeights.Normal,
-                TextAlignment = TextAlignment.Center,
-                TextTrimming = TextTrimming.CharacterEllipsis
+                Text = scheme.Name,
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                Foreground = foreground,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Margin = new Thickness(8, 0, 8, 0)
             });
+            if (selected)
+                tile.Children.Add(new FontIcon
+                {
+                    Glyph = "\uE73E", FontSize = 14, Foreground = foreground,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Margin = new Thickness(0, 6, 7, 0)
+                });
             var button = new Button
             {
-                Content = labels, Tag = scheme,
-                Padding = new Thickness(4, 6, 4, 6),
+                Content = tile, Tag = scheme,
+                Padding = new Thickness(0), BorderThickness = new Thickness(0),
+                Background = new SolidColorBrush(Windows.UI.Colors.Transparent),
                 MinWidth = 0, MinHeight = 0,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch
+                VerticalAlignment = VerticalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                VerticalContentAlignment = VerticalAlignment.Stretch
             };
             button.Click += AccentScheme_Click;
-            ToolTipService.SetToolTip(button, scheme.Name + " · " +
-                scheme.Primary + " / " + scheme.Companion);
+            ToolTipService.SetToolTip(button,
+                scheme.Name + " · " + scheme.Primary + " / " + scheme.Companion);
             Grid.SetColumn(button, i % 3);
             Grid.SetRow(button, i / 3);
             AccentMatrixGrid.Children.Add(button);
