@@ -490,8 +490,8 @@ public sealed partial class HomePage : Page
             Margin = new Thickness(7, 15, 7, 9),
             CornerRadius = new CornerRadius(12),
             BorderThickness = new Thickness(1),
-            Background = (Brush)Application.Current.Resources[
-                "SubtleFillColorSecondaryBrush"],
+            Background = ActualTheme == ElementTheme.Dark
+                ? PreviewBrush(40, 46, 51) : PreviewBrush(236, 240, 244),
             BorderBrush = ThemeHelper.AccentBrush,
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Top
