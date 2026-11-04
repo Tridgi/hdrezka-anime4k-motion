@@ -552,6 +552,18 @@ public sealed partial class HomePage : Page
         }
     }
 
+    private static int SemanticHomeGenreIndex(string name)
+    {
+        var lower = name.ToLowerInvariant();
+        if (lower.Contains("ужас") || lower.Contains("horror") ||
+            lower.Contains("боев") || lower.Contains("action")) return 1;
+        if (lower.Contains("комед") || lower.Contains("comedy") ||
+            lower.Contains("приключ") || lower.Contains("adventure")) return 2;
+        if (lower.Contains("фантаст") || lower.Contains("sci-fi") ||
+            lower.Contains("документ") || lower.Contains("documentary")) return 0;
+        return 3;
+    }
+
     private void RenderHomePreviewGenres(IReadOnlyList<MovieGenre>? genres)
     {
         HomePreviewGenreRows.Children.Clear();
@@ -569,7 +581,7 @@ public sealed partial class HomePage : Page
                 row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
                 HomePreviewGenreRows.Children.Add(row);
             }
-            var (r, g, b) = shades[i];
+            var (r, g, b) = shades[SemanticHomeGenreIndex(genres[i].Name)];
             row!.Children.Add(new TextBlock
             {
                 Text = genres[i].Name, FontSize = 12,
