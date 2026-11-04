@@ -45,7 +45,7 @@
                         </Border.Background>
                     </Border>
 
-                    <Grid Padding="24,20,78,20" ColumnSpacing="24">
+                    <Grid Padding="22,22,22,38" Margin="58,0,58,0" ColumnSpacing="30" HorizontalAlignment="Center" MaxWidth="1120">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
@@ -62,7 +62,11 @@
                             <TextBlock x:Name="HeroTitle" FontSize="30" FontWeight="Bold" Foreground="White"
                                        TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"/>
                             <TextBlock x:Name="HeroDetails" FontSize="13"
-                                       Foreground="#CCFFFFFF" TextWrapping="Wrap" MaxLines="2"
+                                       Foreground="#D5FFFFFF" TextWrapping="Wrap" MaxLines="2"
+                                       TextTrimming="CharacterEllipsis"/>
+                            <TextBlock x:Name="HeroSynopsis" FontSize="14"
+                                       Foreground="#DDFFFFFF" TextWrapping="Wrap" MaxLines="4"
+                                       MaxWidth="610" MinHeight="48"
                                        TextTrimming="CharacterEllipsis"/>
                             <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,6,0,0">
                                 <Border x:Name="HeroRatingBadge" Style="{StaticResource RatingBadge}">
@@ -77,17 +81,17 @@
                     <Button x:Name="HeroPrevButton" Click="HeroPrevButton_Click"
                             Width="40" Height="40" CornerRadius="20" Padding="0"
                             Background="#66000000" BorderThickness="0"
-                            HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0">
+                            HorizontalAlignment="Left" VerticalAlignment="Center" Margin="9,0,0,0">
                         <FontIcon Glyph="&#xE76B;" FontSize="14" Foreground="White"/>
                     </Button>
                     <Button x:Name="HeroNextButton" Click="HeroNextButton_Click"
                             Width="40" Height="40" CornerRadius="20" Padding="0"
                             Background="#66000000" BorderThickness="0"
-                            HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0">
+                            HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,9,0">
                         <FontIcon Glyph="&#xE76C;" FontSize="14" Foreground="White"/>
                     </Button>
                     <StackPanel x:Name="HeroDots" Orientation="Horizontal" Spacing="6"
-                                HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,20,16"/>
+                                HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,17"/>
                 </Grid>
 
                 <StackPanel x:Name="ContinueSection" Spacing="0" Margin="0,8,0,0" Visibility="Collapsed">
@@ -153,9 +157,39 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="FilmsGrid" SelectionMode="None" IsItemClickEnabled="False"
-                              ItemContainerStyle="{StaticResource HomeGridItemStyle}"
-                              ItemTemplate="{StaticResource HomeMovieTemplate}"/>
+                    <!-- One horizontal row with reserved zoom clearance, not a wrapping GridView. -->
+                    <Grid x:Name="FilmsCarousel" Height="325" ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="34"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="34"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="FilmsPrevious" Grid.Column="0" Tag="Films"
+                                Click="CarouselPrevious_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76B;" FontSize="14"/>
+                        </Button>
+                        <ScrollViewer x:Name="FilmsScroll" Grid.Column="1"
+                                      HorizontalScrollMode="Enabled"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollMode="Disabled"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      ZoomMode="Disabled">
+                            <StackPanel x:Name="FilmsRow" Orientation="Horizontal"
+                                        Spacing="9" VerticalAlignment="Top"/>
+                        </ScrollViewer>
+                        <Button x:Name="FilmsNext" Grid.Column="2" Tag="Films"
+                                Click="CarouselNext_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76C;" FontSize="14"/>
+                        </Button>
+                    </Grid>
                 </StackPanel>
 
                 <StackPanel x:Name="SeriesSection" Spacing="0" Margin="0,8,0,0">
@@ -177,9 +211,39 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="SeriesGrid" SelectionMode="None" IsItemClickEnabled="False"
-                              ItemContainerStyle="{StaticResource HomeGridItemStyle}"
-                              ItemTemplate="{StaticResource HomeMovieTemplate}"/>
+                    <!-- One horizontal row with reserved zoom clearance, not a wrapping GridView. -->
+                    <Grid x:Name="SeriesCarousel" Height="325" ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="34"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="34"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="SeriesPrevious" Grid.Column="0" Tag="Series"
+                                Click="CarouselPrevious_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76B;" FontSize="14"/>
+                        </Button>
+                        <ScrollViewer x:Name="SeriesScroll" Grid.Column="1"
+                                      HorizontalScrollMode="Enabled"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollMode="Disabled"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      ZoomMode="Disabled">
+                            <StackPanel x:Name="SeriesRow" Orientation="Horizontal"
+                                        Spacing="9" VerticalAlignment="Top"/>
+                        </ScrollViewer>
+                        <Button x:Name="SeriesNext" Grid.Column="2" Tag="Series"
+                                Click="CarouselNext_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76C;" FontSize="14"/>
+                        </Button>
+                    </Grid>
                 </StackPanel>
 
                 <StackPanel x:Name="CartoonsSection" Spacing="0" Margin="0,8,0,0">
@@ -201,9 +265,39 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="CartoonsGrid" SelectionMode="None" IsItemClickEnabled="False"
-                              ItemContainerStyle="{StaticResource HomeGridItemStyle}"
-                              ItemTemplate="{StaticResource HomeMovieTemplate}"/>
+                    <!-- One horizontal row with reserved zoom clearance, not a wrapping GridView. -->
+                    <Grid x:Name="CartoonsCarousel" Height="325" ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="34"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="34"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="CartoonsPrevious" Grid.Column="0" Tag="Cartoons"
+                                Click="CarouselPrevious_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76B;" FontSize="14"/>
+                        </Button>
+                        <ScrollViewer x:Name="CartoonsScroll" Grid.Column="1"
+                                      HorizontalScrollMode="Enabled"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollMode="Disabled"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      ZoomMode="Disabled">
+                            <StackPanel x:Name="CartoonsRow" Orientation="Horizontal"
+                                        Spacing="9" VerticalAlignment="Top"/>
+                        </ScrollViewer>
+                        <Button x:Name="CartoonsNext" Grid.Column="2" Tag="Cartoons"
+                                Click="CarouselNext_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76C;" FontSize="14"/>
+                        </Button>
+                    </Grid>
                 </StackPanel>
 
                 <StackPanel x:Name="PopularSection" Spacing="0" Margin="0,8,0,0">
@@ -225,9 +319,39 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="PopularGrid" SelectionMode="None" IsItemClickEnabled="False"
-                              ItemContainerStyle="{StaticResource HomeGridItemStyle}"
-                              ItemTemplate="{StaticResource HomeMovieTemplate}"/>
+                    <!-- One horizontal row with reserved zoom clearance, not a wrapping GridView. -->
+                    <Grid x:Name="PopularCarousel" Height="325" ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="34"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="34"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="PopularPrevious" Grid.Column="0" Tag="Popular"
+                                Click="CarouselPrevious_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76B;" FontSize="14"/>
+                        </Button>
+                        <ScrollViewer x:Name="PopularScroll" Grid.Column="1"
+                                      HorizontalScrollMode="Enabled"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollMode="Disabled"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      ZoomMode="Disabled">
+                            <StackPanel x:Name="PopularRow" Orientation="Horizontal"
+                                        Spacing="9" VerticalAlignment="Top"/>
+                        </ScrollViewer>
+                        <Button x:Name="PopularNext" Grid.Column="2" Tag="Popular"
+                                Click="CarouselNext_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76C;" FontSize="14"/>
+                        </Button>
+                    </Grid>
                 </StackPanel>
 
                 <StackPanel x:Name="WatchingSection" Spacing="0" Margin="0,8,0,0">
@@ -249,9 +373,39 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="WatchingGrid" SelectionMode="None" IsItemClickEnabled="False"
-                              ItemContainerStyle="{StaticResource HomeGridItemStyle}"
-                              ItemTemplate="{StaticResource HomeMovieTemplate}"/>
+                    <!-- One horizontal row with reserved zoom clearance, not a wrapping GridView. -->
+                    <Grid x:Name="WatchingCarousel" Height="325" ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="34"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="34"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="WatchingPrevious" Grid.Column="0" Tag="Watching"
+                                Click="CarouselPrevious_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76B;" FontSize="14"/>
+                        </Button>
+                        <ScrollViewer x:Name="WatchingScroll" Grid.Column="1"
+                                      HorizontalScrollMode="Enabled"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollMode="Disabled"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      ZoomMode="Disabled">
+                            <StackPanel x:Name="WatchingRow" Orientation="Horizontal"
+                                        Spacing="9" VerticalAlignment="Top"/>
+                        </ScrollViewer>
+                        <Button x:Name="WatchingNext" Grid.Column="2" Tag="Watching"
+                                Click="CarouselNext_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76C;" FontSize="14"/>
+                        </Button>
+                    </Grid>
                 </StackPanel>
 
                 <StackPanel x:Name="SoonSection" Spacing="0" Margin="0,8,0,0">
@@ -273,12 +427,90 @@
                             </StackPanel>
                         </Button>
                     </Grid>
-                    <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="SoonGrid" SelectionMode="None" IsItemClickEnabled="False"
-                              ItemContainerStyle="{StaticResource HomeGridItemStyle}"
-                              ItemTemplate="{StaticResource HomeMovieTemplate}"/>
+                    <!-- One horizontal row with reserved zoom clearance, not a wrapping GridView. -->
+                    <Grid x:Name="SoonCarousel" Height="325" ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="34"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="34"/>
+                        </Grid.ColumnDefinitions>
+                        <Button x:Name="SoonPrevious" Grid.Column="0" Tag="Soon"
+                                Click="CarouselPrevious_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76B;" FontSize="14"/>
+                        </Button>
+                        <ScrollViewer x:Name="SoonScroll" Grid.Column="1"
+                                      HorizontalScrollMode="Enabled"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollMode="Disabled"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      ZoomMode="Disabled">
+                            <StackPanel x:Name="SoonRow" Orientation="Horizontal"
+                                        Spacing="9" VerticalAlignment="Top"/>
+                        </ScrollViewer>
+                        <Button x:Name="SoonNext" Grid.Column="2" Tag="Soon"
+                                Click="CarouselNext_Click"
+                                Width="30" Height="46" MinWidth="0" Padding="0"
+                                CornerRadius="12" VerticalAlignment="Center"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                BorderThickness="0">
+                            <FontIcon Glyph="&#xE76C;" FontSize="14"/>
+                        </Button>
+                    </Grid>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
+
+        <!-- One page-owned preview, above all horizontal ScrollViewers. -->
+        <Canvas x:Name="HomePreviewLayer" Canvas.ZIndex="120"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                IsHitTestVisible="False">
+            <Border x:Name="HomePreviewPanel" Width="334" Visibility="Collapsed"
+                    CornerRadius="16" Padding="16"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1">
+                <StackPanel Spacing="9">
+                    <TextBlock x:Name="HomePreviewHeading" FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                    <Border Width="42" Height="3" CornerRadius="2"
+                            HorizontalAlignment="Left"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"/>
+                    <TextBlock x:Name="HomePreviewTitle" FontSize="17"
+                               FontWeight="Bold" MaxLines="2" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="HomePreviewOriginal" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               MaxLines="2" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <Border x:Name="HomePreviewRBackground" CornerRadius="7"
+                                Padding="8,5">
+                            <TextBlock x:Name="HomePreviewR" FontSize="12"
+                                       FontWeight="SemiBold"/>
+                        </Border>
+                        <Border x:Name="HomePreviewImdbBackground" Visibility="Collapsed"
+                                CornerRadius="7" Padding="8,5">
+                            <TextBlock x:Name="HomePreviewImdb" FontSize="12"
+                                       FontWeight="SemiBold"/>
+                        </Border>
+                        <Border x:Name="HomePreviewKpBackground" Visibility="Collapsed"
+                                CornerRadius="7" Padding="8,5">
+                            <TextBlock x:Name="HomePreviewKp" FontSize="12"
+                                       FontWeight="SemiBold"/>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock x:Name="HomePreviewDescription" FontSize="12"
+                               TextWrapping="Wrap" MaxLines="5"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="HomePreviewGenres" FontSize="12"
+                               TextWrapping="Wrap" MaxLines="3"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Border>
+        </Canvas>
 
         <StackPanel x:Name="LoadingPanel" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
             <ProgressRing IsActive="True" Width="44" Height="44"/>
