@@ -660,4 +660,63 @@ public class ParserTests
         Assert.Equal("3836-anime-2025-goda", cols[2].Id);
         Assert.Equal("Аниме 2025 года", cols[2].Title);
     }
+    [Fact]
+    public void ParseCollectionsLastPage_ReadsFivePagePager()
+    {
+        var html = """
+            <html><body><div id="wrapper">
+              <div class="b-navigation">
+                <a href="/collections/">1</a>
+                <a href="/collections/page/2/">2</a>
+                <a href="/collections/page/3/">3</a>
+                <a href="/collections/page/4/">4</a>
+                <a href="/collections/page/5/">5</a>
+              </div>
+            </div></body></html>
+            """;
+        Assert.Equal(5, Parsers.ParseCollectionsLastPage(html));
+        Assert.Null(Parsers.ParseCollectionsLastPage(
+            "<html><body><div id='wrapper'>Без страниц</div></body></html>"));
+    }
+
+    [Fact]
+    public void ParseDetails_FindsRealCollectionLinksAndFranchiseParts()
+    {
+        var html = """
+            <html><body><div id="wrapper">
+            <div class="b-content__main">
+              <h1 class="b-post__title">Блич: Тысячелетняя кровавая война</h1>
+              <table class="b-post__info"><tr><td>Жанр:</td><td>
+                  <a href="https://hdrzk.org/genre/fentezi/">Фэнтези</a>
+                  <a href="https://hdrzk.org/genre/boeviki/">Боевики</a>
+              </td></tr></table>
+              <div class="b-post__lists">
+                <a href="https://hdrzk.org/collections/4074-anime-2026-goda/">Аниме 2026 года</a>
+                <a href="/animation/best/2022/">Лучшие аниме 2022 года</a>
+              </div>
+              <h2>Все аниме "Блич":</h2>
+              <ul><li><a href="/animation/100-bleach.html">Блич [ТВ-1]</a></li>
+                  <li><a href="/animation/200-bleach-tybw.html">Блич [ТВ-2]</a></li></ul>
+            </div></div></body></html>
+            """;
+
+        var result = Parsers.ParseDetails(html, "animation/200-bleach-tybw.html");
+        Assert.NotNull(result.CollectionLinks);
+        Assert.Single(result.CollectionLinks!);
+        Assert.Equal("4074-anime-2026-goda", result.CollectionLinks![0].Id);
+        Assert.Equal("Аниме 2026 года", result.CollectionLinks[0].Name);
+        Assert.NotNull(result.FranchiseParts);
+        Assert.Equal(2, result.FranchiseParts!.Count);
+        Assert.Equal("animation/100-bleach.html", result.FranchiseParts[0].Id);
+        Assert.Equal("genre/fentezi", result.Genres![0].Id);
+    }
+
+    [Fact]
+    public void ParseDetails_HidesOptionalBlocksWhenThereAreNoSourceLinks()
+    {
+        var result = Parsers.ParseDetails(DetailsHtml, "films/999-test-movie.html");
+        Assert.Null(result.FranchiseParts);
+        Assert.Null(result.CollectionLinks);
+    }
+
 }
