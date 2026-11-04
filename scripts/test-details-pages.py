@@ -19,7 +19,7 @@ def contents(name):
 
 class DetailsLayoutSmokeTests(unittest.TestCase):
     def test_xaml_well_formed_and_handlers_exist(self):
-        for name in ("DetailsPage", "SettingsPage", "UpdatesPage", "AppearancePage"):
+        for name in ("DetailsPage", "SettingsPage", "UpdatesPage", "AppearancePage", "HomePage"):
             markup = contents(name + ".xaml")
             code = contents(name + ".xaml.cs")
             root = ET.fromstring(markup)
@@ -151,6 +151,62 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("BadgeBrushes(MetadataTone.Rating)", code)
         self.assertIn("RenderPreviewGenres(IReadOnlyList<MovieGenre>? genres)", code)
         self.assertIn('Loc.Get("Details.AboutMovie")', code)
+
+    def test_home_hero_and_horizontal_rails(self):
+        markup = contents("HomePage.xaml")
+        code = contents("HomePage.xaml.cs")
+        self.assertIn('x:Name="HeroDescription"', markup)
+        self.assertIn('x:Name="HeroInnerGrid"', markup)
+        self.assertIn("TimeSpan.FromSeconds(10)", code)
+        self.assertIn("LoadHeroDescriptionAsync", code)
+        self.assertNotIn('dot.Width = i == _heroIndex ? 20 : 8', code)
+        self.assertIn("dot.Width = 9", code)
+        for section in ("Films", "Series", "Cartoons", "Popular", "Watching", "Soon"):
+            self.assertIn(f'x:Name="{section}Scroll"', markup)
+            self.assertIn(f'x:Name="{section}Prev"', markup)
+            self.assertIn(f'x:Name="{section}Next"', markup)
+            self.assertIn(f'x:Name="{section}EndButton"', markup)
+            self.assertIn(f'x:Name="{section}Grid"', markup)
+        self.assertIn("HomeRailNav_Click", code)
+        self.assertIn("ItemsControl grid", code)
+        self.assertIn("ChangeView(target, null, null, false)", code)
+
+    def test_home_preview_outside_scroll_clip_and_title_alignment(self):
+        markup = contents("HomePage.xaml")
+        code = contents("HomePage.xaml.cs")
+        card = contents("../Controls/MovieCard.xaml")
+        card_code = contents("../Controls/MovieCard.xaml.cs")
+        self.assertIn('x:Name="HomePreviewLayer"', markup)
+        self.assertIn('IsHitTestVisible="False"', markup)
+        self.assertIn('RecommendationHoverChanged="HomeMovie_HoverChanged"', markup)
+        self.assertIn("HomeHoverCurrent", code)
+        self.assertIn("PositionHomePreview", code)
+        self.assertIn("Task.Delay(160, ct)", code)
+        self.assertIn('Height="92"', card)
+        self.assertIn('MinHeight="37"', card)
+        self.assertIn('x:Name="RatingBadge"', card)
+        self.assertIn("Math.Clamp(score, 0f, 10f)", card_code)
+        self.assertIn("new CubicEase", card_code)
+
+    def test_color_schemes_are_full_bleed_and_hover_genres_text_only(self):
+        appearance = contents("AppearancePage.xaml.cs")
+        details = contents("DetailsPage.xaml.cs")
+        self.assertIn("var halves = new LinearGradientBrush", appearance)
+        self.assertIn("Offset = .5, Color = primary", appearance)
+        self.assertIn("Offset = .5, Color = secondary", appearance)
+        func = details.split("private void RenderPreviewGenres", 1)[1].split(
+            "private void UpdateRecommendationPreview", 1)[0]
+        self.assertIn("new TextBlock", func)
+        self.assertNotIn("Chip(", func)
+
+    def test_sidebar_glyph_changes_on_toggle(self):
+        markup = contents("../MainWindow.xaml")
+        code = contents("../MainWindow.xaml.cs")
+        self.assertIn('x:Name="AppPaneOpenGlyph"', markup)
+        self.assertIn('x:Name="AppPaneClosedGlyph"', markup)
+        self.assertIn("NavView.PaneOpened +=", code)
+        self.assertIn("NavView.PaneClosed +=", code)
+        self.assertIn("UpdatePaneGlyph()", code)
 
     def test_notifications_preferences_only_on_notifications_page(self):
         settings = contents("SettingsPage.xaml")
