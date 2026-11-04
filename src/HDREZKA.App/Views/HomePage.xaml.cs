@@ -135,6 +135,13 @@ public sealed partial class HomePage : Page
         PopularEndText.Text = endLabel;
         WatchingEndText.Text = endLabel;
         SoonEndText.Text = endLabel;
+        var hint = Loc.Get("Home.OpenCatalog");
+        FilmsEndHint.Text = hint;
+        SeriesEndHint.Text = hint;
+        CartoonsEndHint.Text = hint;
+        PopularEndHint.Text = hint;
+        WatchingEndHint.Text = hint;
+        SoonEndHint.Text = hint;
         ContinueHeader.Text = Loc.Get("Continue.Home");
         TrackedHeader.Text = Loc.Get("Home.Tracked");
         FilmsHeader.Text = Loc.Get("Section.Films") + " — " + Loc.Get("Filter.Latest");
@@ -416,8 +423,32 @@ public sealed partial class HomePage : Page
             PopularEndButton, WatchingEndButton, SoonEndButton
         })
         {
-            button.Width = PosterMetrics.CardWidth;
+            button.Width = Math.Round(PosterMetrics.CardWidth * 1.30);
             button.Height = PosterMetrics.CardHeight;
+            // Subtle two-accent gradient, reused for all six catalog links.
+            var primary = ThemeHelper.AccentBrush.Color;
+            var companion = ThemeHelper.CompanionBrush.Color;
+            var dark = ActualTheme != ElementTheme.Light;
+            byte Tone(byte value) => (byte)Math.Clamp(
+                Math.Round(value * (dark ? .58 : .77)), 0, 255);
+            var gradient = new Microsoft.UI.Xaml.Media.LinearGradientBrush
+            {
+                StartPoint = new Windows.Foundation.Point(0, 0),
+                EndPoint = new Windows.Foundation.Point(1, 1)
+            };
+            gradient.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop
+            {
+                Offset = 0,
+                Color = Windows.UI.Color.FromArgb(255,
+                    Tone(primary.R), Tone(primary.G), Tone(primary.B))
+            });
+            gradient.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop
+            {
+                Offset = 1,
+                Color = Windows.UI.Color.FromArgb(255,
+                    Tone(companion.R), Tone(companion.G), Tone(companion.B))
+            });
+            button.Background = gradient;
         }
         DispatcherQueue.TryEnqueue(UpdateRailButtons);
     }
