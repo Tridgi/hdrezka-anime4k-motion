@@ -112,6 +112,11 @@ public sealed partial class MovieCard : UserControl
                 Mix(start.r, start.endR, start.w),
                 Mix(start.g, start.endG, start.w),
                 Mix(start.b, start.endB, start.w)));
+            // Midscale orange is bright: use dark ink for legibility.
+            RatingText.Foreground = new SolidColorBrush(
+                score >= 4.4f && score < 7f
+                    ? Windows.UI.Color.FromArgb(255, 31, 34, 38)
+                    : Microsoft.UI.Colors.White);
         }
 
         if (Movie.Info == MediaInfoType.Series && Movie.Season is { } s && Movie.Episode is { } e)
@@ -133,6 +138,12 @@ public sealed partial class MovieCard : UserControl
         {
             InfoBadge.Visibility = Visibility.Collapsed;
         }
+
+        // The HDREZKA score sits above the season badge where one exists;
+        // regular movie posters keep it anchored neatly at the lower edge.
+        RatingBadge.Margin = InfoBadge.Visibility == Visibility.Visible
+            ? new Thickness(0, 0, 6, 35)
+            : new Thickness(0, 0, 6, 6);
     }
 
     private void CardButton_Click(object sender, RoutedEventArgs e)
