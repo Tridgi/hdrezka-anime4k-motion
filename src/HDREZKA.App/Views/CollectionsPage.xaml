@@ -35,6 +35,16 @@
                         </TextBox.Header>
                     </TextBox>
                 </StackPanel>
+                <StackPanel x:Name="BrowseStatePanel" HorizontalAlignment="Center"
+                            Spacing="12" Visibility="Collapsed" Margin="0,24,0,24">
+                    <ProgressRing x:Name="BrowseRing" IsActive="False"
+                                  Width="32" Height="32" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="BrowseStateText" FontSize="13"
+                               TextWrapping="Wrap" TextAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <Button x:Name="BrowseRetryButton" Click="BrowseRetryButton_Click"
+                            Visibility="Collapsed" HorizontalAlignment="Center"/>
+                </StackPanel>
                 <GridView x:Name="FoldersGrid" SelectionMode="None"
                           IsItemClickEnabled="False"
                           ScrollViewer.VerticalScrollMode="Disabled"
@@ -53,16 +63,7 @@
                         </Style>
                     </GridView.ItemContainerStyle>
                 </GridView>
-                <StackPanel x:Name="BrowseStatePanel" HorizontalAlignment="Center"
-                            Spacing="12" Visibility="Collapsed" Margin="0,24,0,24">
-                    <ProgressRing x:Name="BrowseRing" IsActive="False"
-                                  Width="32" Height="32" HorizontalAlignment="Center"/>
-                    <TextBlock x:Name="BrowseStateText" FontSize="13"
-                               TextWrapping="Wrap" TextAlignment="Center"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <Button x:Name="BrowseRetryButton" Click="BrowseRetryButton_Click"
-                            Visibility="Collapsed" HorizontalAlignment="Center"/>
-                </StackPanel>
+
             </StackPanel>
         </ScrollViewer>
 
