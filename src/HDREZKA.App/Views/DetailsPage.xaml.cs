@@ -686,7 +686,9 @@ public sealed partial class DetailsPage : Page
         }
 
         PreviewGenresSection.Visibility = Visibility.Visible;
-        StackPanel? row = null;
+        var rows = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
+        // Text-only semantics. In neutral mode all genres are muted; in
+        // colorful mode colors match the existing metadata palette.
         var tones = new[]
         {
             MetadataTone.GenreBlue, MetadataTone.GenreRose,
@@ -694,17 +696,24 @@ public sealed partial class DetailsPage : Page
         };
         for (var index = 0; index < Math.Min(4, genres.Count); index++)
         {
-            if (index % 2 == 0)
+            if (index > 0 && index % 2 == 0)
             {
-                row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-                PreviewGenreChips.Children.Add(row);
+                PreviewGenreChips.Children.Add(rows);
+                rows = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 9 };
             }
-            var badge = Chip(genres[index].Name, tones[index]);
-            badge.MaxWidth = 142;
-            if (badge.Child is TextBlock label)
-                label.MaxWidth = 117;
-            row!.Children.Add(badge);
+            var (_, fg) = BadgeBrushes(tones[index]);
+            rows.Children.Add(new TextBlock
+            {
+                Text = genres[index].Name,
+                Foreground = fg,
+                FontSize = 12,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                MaxWidth = 150,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+            });
         }
+        if (rows.Children.Count > 0)
+            PreviewGenreChips.Children.Add(rows);
     }
 
     private void UpdateRecommendationPreview(MovieDetailed details)
