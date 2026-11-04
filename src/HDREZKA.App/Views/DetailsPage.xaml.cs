@@ -134,7 +134,8 @@ public sealed partial class DetailsPage : Page
 
         ActionsRow.Orientation = width < 510
             ? Orientation.Vertical : Orientation.Horizontal;
-        EpisodesList.MaxWidth = Math.Min(480, Math.Max(168, width - (width < 510 ? 72 : 110)));
+        YourRatingLabelColumn.Width = new GridLength(MetaLabelWidth);
+        UpdateEpisodeListWidth();
         ApplyPosterMetrics();
         ArrangeSelectionControls();
 
@@ -176,6 +177,19 @@ public sealed partial class DetailsPage : Page
         }
     }
 
+    private void PlaybackChoiceBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+        => UpdateEpisodeListWidth();
+
+    private void UpdateEpisodeListWidth()
+    {
+        // ItemsWrapGrid must receive a *finite* measure width. Bound it to the
+        // playback card's real content width; this naturally fits 7, 25 or
+        // 50 episodes across as many rows as necessary at each window size.
+        var width = PlaybackChoiceBorder.ActualWidth;
+        if (width > 0)
+            EpisodesList.Width = Math.Max(46, width - 32);
+    }
+
     private void ApplyPosterMetrics()
     {
         // User poster size remains the source of truth; cap details width so
@@ -193,7 +207,9 @@ public sealed partial class DetailsPage : Page
     {
         WatchText.Text = Loc.Get("Common.Watch");
         UpdateBookmarkLabel();
-        WatchedText.Text = Loc.Get("Continue.ToggleWatched");
+        YourRatingHeader.Text = Loc.Get("Details.YourRating");
+        EpisodeRightClickHint.Text = Loc.Get("Details.EpisodeRightClick");
+        ToolTipService.SetToolTip(InlineWatchButton, Loc.Get("Common.Watch"));
         TrackText.Text = Loc.Get("Details.Track");
         TrailerText.Text = Loc.Get("Common.Trailer");
         DownloadText.Text = Loc.Get("Downloads.Download");
@@ -364,6 +380,7 @@ public sealed partial class DetailsPage : Page
         UpdateSeasonDownloadVisibility();
 
         WatchButton.IsEnabled = details.IsAvailable && !details.IsComingSoon && _voice != null;
+        InlineWatchButton.IsEnabled = WatchButton.IsEnabled;
         if (details.IsComingSoon)
         {
             WatchText.Text = Loc.Get("Details.ComingSoon");
@@ -471,15 +488,27 @@ public sealed partial class DetailsPage : Page
 
     private void UpdateAccentActions()
     {
+        var accent = ThemeHelper.AccentBrush.Color;
+        WatchGlowOuter.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+            Windows.UI.Color.FromArgb(255, accent.R, accent.G, accent.B));
+        WatchGlowInner.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+            Windows.UI.Color.FromArgb(255, accent.R, accent.G, accent.B));
+        WatchGlowOuter.Opacity = 0.14;
+        WatchGlowInner.Opacity = 0.23;
+
         if (SettingsService.Instance.Theme == AppTheme.Manual)
         {
             WatchButton.Background = ThemeHelper.AccentBrush;
             WatchButton.Foreground = ThemeHelper.AccentForegroundBrush;
+            InlineWatchButton.Background = ThemeHelper.AccentBrush;
+            InlineWatchButton.Foreground = ThemeHelper.AccentForegroundBrush;
         }
         else
         {
             WatchButton.ClearValue(Button.BackgroundProperty);
             WatchButton.ClearValue(Button.ForegroundProperty);
+            InlineWatchButton.ClearValue(Button.BackgroundProperty);
+            InlineWatchButton.ClearValue(Button.ForegroundProperty);
         }
     }
 
@@ -514,11 +543,11 @@ public sealed partial class DetailsPage : Page
         var groups = details.Schedule;
         if (groups == null || groups.Count == 0 || groups.All(g => g.Items.Count == 0))
         {
-            SchedulePanel.Visibility = Visibility.Collapsed;
+            ScheduleCard.Visibility = Visibility.Collapsed;
             return;
         }
 
-        SchedulePanel.Visibility = Visibility.Visible;
+        ScheduleCard.Visibility = Visibility.Visible;
         ScheduleHeader.Text = Loc.Get("Details.Schedule");
 
         var next = Parsers.FindNextRelease(groups, DateTime.Today);
@@ -1069,14 +1098,12 @@ public sealed partial class DetailsPage : Page
         UserRatingPanel.Children.Clear();
         UserRatingPanel.Visibility = Visibility.Visible;
 
-        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, VerticalAlignment = VerticalAlignment.Center };
-        row.Children.Add(new TextBlock
+        var row = new StackPanel
         {
-            Text = Loc.Get("Details.YourRating") + ":",
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 6, 0),
-            Style = Application.Current.Resources["SecondaryText"] as Style,
-        });
+            Orientation = Orientation.Horizontal,
+            Spacing = 4,
+            VerticalAlignment = VerticalAlignment.Center
+        };
 
         for (var i = 1; i <= 10; i++)
         {
@@ -1166,15 +1193,9 @@ public sealed partial class DetailsPage : Page
         return (movieId, _voice.TranslatorId, _season?.SeasonId, _episode?.EpisodeId);
     }
 
-    private void UpdateWatchedButton()
-    {
-        var key = WatchedKey();
-        WatchedButton.IsEnabled = key != null;
-        WatchedButton.IsChecked = key != null &&
-            PositionService.Instance.IsWatched(key.Value.MovieId, key.Value.TranslatorId, key.Value.SeasonId, key.Value.EpisodeId);
-        // Selection-dependent download buttons refresh together.
-        UpdateDownloadVisibility();
-    }
+    // Episode watch-state now lives on each episode chip's context action;
+    // the existing selection-dependent downloads still refresh here.
+    private void UpdateWatchedButton() => UpdateDownloadVisibility();
 
     private void UpdateTrackButton()
     {
@@ -1202,21 +1223,6 @@ public sealed partial class DetailsPage : Page
         catch (Exception ex)
         {
             App.TryLog(ex);
-        }
-    }
-
-    private void WatchedButton_Click(object sender, RoutedEventArgs e)
-    {
-        var key = WatchedKey();
-        if (key == null) return;
-        var now = PositionService.Instance.ToggleWatched(key.Value.MovieId, key.Value.TranslatorId, key.Value.SeasonId, key.Value.EpisodeId);
-        WatchedButton.IsChecked = now;
-        RenderEpisodes();
-
-        // Series only: remember for new-episode notifications.
-        if (_details != null && _season != null && _episode != null)
-        {
-            TrackedSeriesService.Touch(_details.Id, _details.Name, _details.Poster);
         }
     }
 
@@ -1516,6 +1522,7 @@ public sealed partial class DetailsPage : Page
         DownloadButton.Visibility = DonorUnlock.IsUnlocked && _details != null && _voice != null
             ? Visibility.Visible
             : Visibility.Collapsed;
+        ActionsRow.Visibility = DownloadButton.Visibility;
     }
 
     private async void DownloadButton_Click(object sender, RoutedEventArgs e)
@@ -1569,10 +1576,27 @@ public sealed partial class DetailsPage : Page
                 MinHeight = 0,
                 IsChecked = episode.EpisodeId == _episode?.EpisodeId,
             };
-            ToolTipService.SetToolTip(button, episode.Name);
+            ToolTipService.SetToolTip(button,
+                episode.Name + "\n" + Loc.Get("Details.EpisodeRightClick"));
             button.Click += EpisodeButton_Click;
+            button.RightTapped += EpisodeButton_RightTapped;
             EpisodesList.Items.Add(button);
         }
+    }
+
+    private void EpisodeButton_RightTapped(object sender, Microsoft.UI.Xaml.Input.RightTappedRoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is not ToggleButton { Tag: MovieEpisode episode } ||
+            _details == null || _voice == null || _season == null) return;
+
+        var movieId = ExtractNumericId(_details.Id) ?? _details.Id;
+        PositionService.Instance.ToggleWatched(movieId, _voice.TranslatorId,
+            _season.SeasonId, episode.EpisodeId);
+        TrackedSeriesService.Touch(_details.Id, _details.Name, _details.Poster);
+        // Recreate only the episode buttons. Right-click must not select a
+        // different episode or launch a player.
+        RenderEpisodes();
     }
 
     private void EpisodeButton_Click(object sender, RoutedEventArgs e)
