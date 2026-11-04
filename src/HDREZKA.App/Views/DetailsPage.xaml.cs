@@ -1481,7 +1481,8 @@ public sealed partial class DetailsPage : Page
                     {
                         Content = badge, MinWidth = 0, MinHeight = 0,
                         Padding = new Thickness(0), BorderThickness = new Thickness(0),
-                        Background = Brush(0, 0, 0, 0),
+                        Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                            Windows.UI.Color.FromArgb(0, 0, 0, 0)),
                         CornerRadius = new CornerRadius(10),
                         HorizontalAlignment = HorizontalAlignment.Left
                     };
@@ -1522,7 +1523,8 @@ public sealed partial class DetailsPage : Page
             {
                 Content = chip, MinWidth = 0, MinHeight = 0,
                 Padding = new Thickness(0), BorderThickness = new Thickness(0),
-                Background = Brush(0, 0, 0, 0), CornerRadius = new CornerRadius(10)
+                Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                            Windows.UI.Color.FromArgb(0, 0, 0, 0)), CornerRadius = new CornerRadius(10)
             };
             button.Click += (_, _) => navigate(target);
             row.Children.Add(button);
