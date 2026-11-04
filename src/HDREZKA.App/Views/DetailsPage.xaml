@@ -14,13 +14,13 @@
             <!-- WinUI owns the visuals: never manually create/remove MovieCard
                  from a SizeChanged event, which can destabilize layout. -->
             <Viewbox Stretch="Uniform" StretchDirection="Both" HorizontalAlignment="Stretch">
-                <controls:MovieCard Movie="{x:Bind}"/>
+                <controls:MovieCard Movie="{x:Bind}" RecommendationPreview="True"/>
             </Viewbox>
         </DataTemplate>
     </Page.Resources>
 
     <Grid>
-        <ScrollViewer VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" VerticalScrollMode="Auto">
+        <ScrollViewer x:Name="DetailsScrollViewer" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" VerticalScrollMode="Auto">
             <Grid x:Name="MainPanel" Padding="36,16,36,24" RowSpacing="16">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -256,63 +256,67 @@
                         SizeChanged="WatchAlsoPanel_SizeChanged"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderThickness="1" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
-                    <Grid RowSpacing="12">
+                    <Grid RowSpacing="10">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
-                        <Grid ColumnSpacing="12">
+                        <!-- Same heading alignment and typography as ScheduleCard. -->
+                        <TextBlock x:Name="WatchAlsoHeader" Style="{StaticResource SectionHeader}"
+                                   Margin="0,0,0,2" TextWrapping="Wrap"
+                                   HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        <Grid Grid.Row="1" ColumnSpacing="6">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="36"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="36"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock x:Name="WatchAlsoHeader" Style="{StaticResource RowHeaderText}"
-                                       VerticalAlignment="Center" TextWrapping="Wrap"/>
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
-                                        VerticalAlignment="Center">
-                                <Button x:Name="WatchAlsoPreviousButton" Click="WatchAlsoPreviousButton_Click"
-                                        Background="Transparent" BorderThickness="0"
-                                        Width="32" Height="32" MinWidth="0" MinHeight="0"
-                                        Padding="0" Opacity="0.65">
-                                    <FontIcon Glyph="&#xE76B;" FontSize="15"/>
-                                </Button>
-                                <TextBlock x:Name="WatchAlsoPageText" FontSize="12" Opacity="0.7"
-                                           MinWidth="40" TextAlignment="Center" VerticalAlignment="Center"/>
-                                <Button x:Name="WatchAlsoNextButton" Click="WatchAlsoNextButton_Click"
-                                        Background="Transparent" BorderThickness="0"
-                                        Width="32" Height="32" MinWidth="0" MinHeight="0"
-                                        Padding="0" Opacity="0.65">
-                                    <FontIcon Glyph="&#xE76C;" FontSize="15"/>
-                                </Button>
-                            </StackPanel>
+                            <Button x:Name="WatchAlsoPreviousButton" Grid.Column="0"
+                                    Click="WatchAlsoPreviousButton_Click"
+                                    VerticalAlignment="Center" HorizontalAlignment="Center"
+                                    Background="Transparent" BorderThickness="0"
+                                    Width="32" Height="44" MinWidth="0" MinHeight="0"
+                                    Padding="0" Opacity="0.58">
+                                <FontIcon Glyph="&#xE76B;" FontSize="19"/>
+                            </Button>
+                            <!-- The list contains at most five thumbnails; no scrollbars. -->
+                            <ListView x:Name="WatchAlsoGrid" Grid.Column="1" SelectionMode="None"
+                                      IsItemClickEnabled="False" ItemTemplate="{StaticResource WatchAlsoTemplate}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Top"
+                                      ScrollViewer.HorizontalScrollMode="Disabled"
+                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                      ScrollViewer.VerticalScrollMode="Disabled"
+                                      ScrollViewer.VerticalScrollBarVisibility="Disabled">
+                                <ListView.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <ItemsStackPanel Orientation="Horizontal"/>
+                                    </ItemsPanelTemplate>
+                                </ListView.ItemsPanel>
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="Margin" Value="0"/>
+                                        <Setter Property="MinWidth" Value="0"/>
+                                        <Setter Property="MinHeight" Value="0"/>
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="VerticalContentAlignment" Value="Top"/>
+                                        <Setter Property="IsTabStop" Value="False"/>
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                            </ListView>
+                            <Button x:Name="WatchAlsoNextButton" Grid.Column="2"
+                                    Click="WatchAlsoNextButton_Click"
+                                    VerticalAlignment="Center" HorizontalAlignment="Center"
+                                    Background="Transparent" BorderThickness="0"
+                                    Width="32" Height="44" MinWidth="0" MinHeight="0"
+                                    Padding="0" Opacity="0.58">
+                                <FontIcon Glyph="&#xE76C;" FontSize="19"/>
+                            </Button>
                         </Grid>
-                        <!-- Virtualized WinUI list, only 1–3 entries per page.
-                             Both scrolling directions are disabled: arrows are
-                             the only paging mechanism. -->
-                        <ListView x:Name="WatchAlsoGrid" Grid.Row="1" SelectionMode="None"
-                                  IsItemClickEnabled="False" ItemTemplate="{StaticResource WatchAlsoTemplate}"
-                                  HorizontalAlignment="Center"
-                                  ScrollViewer.HorizontalScrollMode="Disabled"
-                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                  ScrollViewer.VerticalScrollMode="Disabled"
-                                  ScrollViewer.VerticalScrollBarVisibility="Disabled">
-                            <ListView.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <ItemsStackPanel Orientation="Horizontal"/>
-                                </ItemsPanelTemplate>
-                            </ListView.ItemsPanel>
-                            <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
-                                    <Setter Property="Padding" Value="0"/>
-                                    <Setter Property="Margin" Value="0"/>
-                                    <Setter Property="MinWidth" Value="0"/>
-                                    <Setter Property="MinHeight" Value="0"/>
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                    <Setter Property="VerticalContentAlignment" Value="Top"/>
-                                    <Setter Property="IsTabStop" Value="False"/>
-                                </Style>
-                            </ListView.ItemContainerStyle>
-                        </ListView>
+                        <TextBlock x:Name="WatchAlsoPageText" Grid.Row="2" FontSize="12"
+                                   Opacity="0.6" TextAlignment="Center"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Grid>
                 </Border>
                 <StackPanel x:Name="CommentsSection" Grid.Row="5" Spacing="10" Margin="0,14,0,0" Visibility="Collapsed">
