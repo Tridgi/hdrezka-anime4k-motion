@@ -37,6 +37,7 @@ public sealed partial class DetailsPage : Page
     private int _watchAlsoPageSize = 3;
     private double _lastWatchAlsoWidth = -1;
     private int _lastWatchAlsoOffset = -1;
+    private bool _watchAlsoRefreshQueued;
 
     public DetailsPage()
     {
@@ -284,7 +285,20 @@ public sealed partial class DetailsPage : Page
             LoadingPanel.Visibility = Visibility.Collapsed;
             ErrorPanel.Visibility = Visibility.Collapsed;
             MainPanel.Visibility = Visibility.Visible;
-            Render(details);
+            try
+            {
+                Render(details);
+            }
+            catch (Exception ex)
+            {
+                // Keep a usable error screen instead of crashing the app when
+                // a movie contains unexpected metadata or UI elements.
+                Log.Error("[Details] Render failed for " + details.Id, ex);
+                MainPanel.Visibility = Visibility.Collapsed;
+                ErrorPanel.Visibility = Visibility.Visible;
+                ErrorText.Text = Loc.Get("Common.Error") + ": " + ex.Message;
+                return;
+            }
 
             // HTML отдаёт сезоны только для озвучки по умолчанию: тихо сверяем
             // с get_episodes и восстанавливаем последнюю озвучку/сезон из истории
@@ -523,8 +537,9 @@ public sealed partial class DetailsPage : Page
     }
 
     /// <summary>
-    /// A small, responsive carousel. Only 1–3 movie cards exist at once, so
-    /// recommendation lists never allocate all offscreen poster textures.
+    /// Keep the recommendations in a WinUI-managed ListView. In particular,
+    /// never change Grid.Children/ColumnDefinitions synchronously in SizeChanged:
+    /// that reenters native WinUI layout and can terminate the process.
     /// </summary>
     private void RenderWatchAlso(MovieDetailed details)
     {
@@ -532,66 +547,80 @@ public sealed partial class DetailsPage : Page
         _watchAlsoOffset = 0;
         _lastWatchAlsoWidth = -1;
         _lastWatchAlsoOffset = -1;
+        WatchAlsoGrid.ItemsSource = null;
         WatchAlsoPanel.Visibility = _watchAlsoItems.Count > 0
             ? Visibility.Visible : Visibility.Collapsed;
-        if (_watchAlsoItems.Count == 0)
-        {
-            WatchAlsoCards.Children.Clear();
-            WatchAlsoCards.ColumnDefinitions.Clear();
-            return;
-        }
-
-        UpdateWatchAlsoCards(force: true);
+        if (_watchAlsoItems.Count > 0) QueueWatchAlsoLayout();
     }
 
     private void WatchAlsoPanel_SizeChanged(object sender, SizeChangedEventArgs e)
-        => UpdateWatchAlsoCards();
+        => QueueWatchAlsoLayout();
+
+    /// <summary>SizeChanged fires during measure; update list data on the next UI tick.</summary>
+    private void QueueWatchAlsoLayout()
+    {
+        if (_watchAlsoRefreshQueued) return;
+        _watchAlsoRefreshQueued = true;
+        if (!DispatcherQueue.TryEnqueue(() =>
+        {
+            _watchAlsoRefreshQueued = false;
+            try { UpdateWatchAlsoCards(); }
+            catch (Exception ex)
+            {
+                Log.Error("[Details] Failed to build recommendations; hiding section", ex);
+                WatchAlsoPanel.Visibility = Visibility.Collapsed;
+            }
+        }))
+        {
+            _watchAlsoRefreshQueued = false;
+        }
+    }
 
     private void UpdateWatchAlsoCards(bool force = false)
     {
         if (_watchAlsoItems.Count == 0 || WatchAlsoPanel.Visibility != Visibility.Visible)
             return;
 
-        // 16 DIP padding each side plus borders. The columns remain inside the
-        // card, including with an expanded NavigationView or high-DPI scaling.
         var available = WatchAlsoPanel.ActualWidth - 36;
-        if (available <= 0) return;
+        if (!double.IsFinite(available) || available < 100) return;
         var pageSize = available >= 590 ? 3 : available >= 365 ? 2 : 1;
         if (pageSize != _watchAlsoPageSize)
         {
             _watchAlsoOffset = (_watchAlsoOffset / pageSize) * pageSize;
             _watchAlsoPageSize = pageSize;
         }
+        _watchAlsoOffset = Math.Clamp(_watchAlsoOffset, 0,
+            ((_watchAlsoItems.Count - 1) / pageSize) * pageSize);
 
         if (!force && Math.Abs(available - _lastWatchAlsoWidth) < 2 &&
             _lastWatchAlsoOffset == _watchAlsoOffset)
             return;
-
         _lastWatchAlsoWidth = available;
         _lastWatchAlsoOffset = _watchAlsoOffset;
-        var count = Math.Min(pageSize, _watchAlsoItems.Count - _watchAlsoOffset);
-        var slotWidth = (available - 12 * (pageSize - 1)) / pageSize;
-        var posterWidth = Math.Clamp(slotWidth - 6, 86, 235);
 
-        WatchAlsoCards.Children.Clear();
-        WatchAlsoCards.ColumnDefinitions.Clear();
-        for (var i = 0; i < pageSize; i++)
-            WatchAlsoCards.ColumnDefinitions.Add(new ColumnDefinition
-                { Width = new GridLength(1, GridUnitType.Star) });
+        var visible = _watchAlsoItems.Skip(_watchAlsoOffset).Take(pageSize).ToArray();
+        var slotWidth = (available - 12 * pageSize) / pageSize;
+        var cardWidth = Math.Clamp(slotWidth, 86, 230);
 
-        for (var i = 0; i < count; i++)
-        {
-            var card = new HDREZKA.App.Controls.MovieCard
-            {
-                Movie = _watchAlsoItems[_watchAlsoOffset + i],
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Top
-            };
-            card.SetCardWidthOverride(posterWidth);
-            Grid.SetColumn(card, i);
-            WatchAlsoCards.Children.Add(card);
-        }
+        // Apply width to ListView containers, not to manually constructed
+        // MovieCard controls. Viewbox scales the existing MovieCard template.
+        // No in-layout visual-tree destruction or unbounded items.
+        var itemStyle = new Style(typeof(ListViewItem));
+        itemStyle.Setters.Add(new Setter(FrameworkElement.WidthProperty, cardWidth));
+        itemStyle.Setters.Add(new Setter(FrameworkElement.MarginProperty,
+            new Thickness(0, 0, 12, 0)));
+        itemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(0)));
+        itemStyle.Setters.Add(new Setter(Control.MinWidthProperty, 0d));
+        itemStyle.Setters.Add(new Setter(Control.MinHeightProperty, 0d));
+        itemStyle.Setters.Add(new Setter(Control.HorizontalContentAlignmentProperty,
+            HorizontalAlignment.Stretch));
+        itemStyle.Setters.Add(new Setter(Control.VerticalContentAlignmentProperty,
+            VerticalAlignment.Top));
+        itemStyle.Setters.Add(new Setter(Control.IsTabStopProperty, false));
 
+        WatchAlsoGrid.ItemContainerStyle = itemStyle;
+        WatchAlsoGrid.Width = Math.Min(available, (cardWidth + 12) * visible.Length);
+        WatchAlsoGrid.ItemsSource = visible;
         WatchAlsoPreviousButton.IsEnabled = _watchAlsoOffset > 0;
         WatchAlsoNextButton.IsEnabled = _watchAlsoOffset + pageSize < _watchAlsoItems.Count;
         WatchAlsoPageText.Text =
@@ -601,14 +630,14 @@ public sealed partial class DetailsPage : Page
     private void WatchAlsoPreviousButton_Click(object sender, RoutedEventArgs e)
     {
         _watchAlsoOffset = Math.Max(0, _watchAlsoOffset - _watchAlsoPageSize);
-        UpdateWatchAlsoCards(force: true);
+        QueueWatchAlsoLayout();
     }
 
     private void WatchAlsoNextButton_Click(object sender, RoutedEventArgs e)
     {
         if (_watchAlsoOffset + _watchAlsoPageSize >= _watchAlsoItems.Count) return;
         _watchAlsoOffset += _watchAlsoPageSize;
-        UpdateWatchAlsoCards(force: true);
+        QueueWatchAlsoLayout();
     }
 
     private void UpdateVoicesRatingButton(MovieDetailed details)
