@@ -27,6 +27,10 @@ public sealed partial class DetailsPage : Page
     private MovieEpisode? _episode;
     private int _commentsPage = 1;
     private bool _commentsLoaded;
+    private bool _commentsLoading;
+    private bool _commentSending;
+    private readonly List<CommentItem> _loadedComments = [];
+    private bool _scheduleExpanded;
     private string? _replyTo;
     private bool _mirrorRecovered;
     private int? _bookmarkedCategoryId;
@@ -231,8 +235,22 @@ public sealed partial class DetailsPage : Page
             $" ({_details?.CommentsCount ?? 0})";
         RetryButton.Content = Loc.Get("Common.Retry");
         CommentInput.PlaceholderText = Loc.Get("Comments.Placeholder");
-        CommentSendButton.Content = Loc.Get("Common.Send");
+        // The send button now has an icon and a localized TextBlock child.
         CommentsMoreButton.Content = Loc.Get("Common.LoadMore");
+        CommentsHeader.Text = Loc.Get("Common.Comments");
+        CommentsSortHint.Text = Loc.Get("Comments.SortLoadedOnly");
+        CommentComposerHeader.Text = Loc.Get("Comments.Write");
+        CommentCancelReplyButton.Content = Loc.Get("Comments.CancelReply");
+        CommentSendText.Text = Loc.Get("Common.Send");
+        if (CommentsSortBox.Items.Count >= 4)
+        {
+            ((ComboBoxItem)CommentsSortBox.Items[0]).Content = Loc.Get("Comments.SortSite");
+            ((ComboBoxItem)CommentsSortBox.Items[1]).Content = Loc.Get("Comments.SortPopular");
+            ((ComboBoxItem)CommentsSortBox.Items[2]).Content = Loc.Get("Comments.SortOldest");
+            ((ComboBoxItem)CommentsSortBox.Items[3]).Content = Loc.Get("Comments.SortAuthor");
+        }
+        if (CommentsSortBox.SelectedIndex < 0) CommentsSortBox.SelectedIndex = 0;
+        UpdateCommentComposer();
         EpisodesHeader.Text = Loc.Get("Details.Episodes");
         DescriptionExpandButton.Content = Loc.Get(_descriptionExpanded ? "Details.ShowLess" : "Details.ShowMore");
         if (_details != null) BuildMeta(_details);
@@ -418,7 +436,15 @@ public sealed partial class DetailsPage : Page
             WatchText.Text = Loc.Get("Common.Watch");
         }
 
-        CommentsSection.Visibility = details.CommentsCount > 0 ? Visibility.Visible : Visibility.Collapsed;
+        _loadedComments.Clear();
+        _commentsPage = 1;
+        _commentsLoaded = false;
+        _replyTo = null;
+        CommentsList.Children.Clear();
+        CommentsPanel.Visibility = Visibility.Collapsed;
+        CommentsToggle.IsChecked = false;
+        CommentsSection.Visibility = Visibility.Visible;
+        UpdateCommentComposer();
         CommentsToggleText.Text = $"{Loc.Get("Details.ViewComments")} ({details.CommentsCount})";
 
         UpdateWatchedButton();
@@ -664,11 +690,14 @@ public sealed partial class DetailsPage : Page
         if (groups == null || groups.Count == 0 || groups.All(g => g.Items.Count == 0))
         {
             ScheduleCard.Visibility = Visibility.Collapsed;
+            _scheduleExpanded = false;
             return;
         }
 
         ScheduleCard.Visibility = Visibility.Visible;
         ScheduleHeader.Text = Loc.Get("Details.Schedule");
+        var total = groups.Sum(g => g.Items.Count);
+        ScheduleCountText.Text = total + " " + Loc.Get("Details.ScheduleEntries");
 
         var next = Parsers.FindNextRelease(groups, DateTime.Today);
         if (next != null)
@@ -683,96 +712,105 @@ public sealed partial class DetailsPage : Page
             ScheduleCountdownBadge.Visibility = Visibility.Collapsed;
         }
 
-        var first = groups.First(g => g.Items.Count > 0);
-        ScheduleGroupText.Text = first.Name;
-        foreach (var item in first.Items.Take(5))
+        var nonEmpty = groups.Where(g => g.Items.Count > 0).ToList();
+        ScheduleGroupText.Visibility = _scheduleExpanded
+            ? Visibility.Collapsed : Visibility.Visible;
+        if (!_scheduleExpanded)
         {
-            ScheduleList.Children.Add(BuildScheduleRow(item));
-        }
-
-        var total = groups.Sum(g => g.Items.Count);
-        if (total > 5)
-        {
-            ScheduleMoreButton.Content = Loc.Get("Common.ShowAll") + $" ({total})";
-            ScheduleMoreButton.Visibility = Visibility.Visible;
+            var first = nonEmpty[0];
+            ScheduleGroupText.Text = first.Name;
+            foreach (var item in first.Items.Take(5))
+                ScheduleList.Children.Add(BuildScheduleRow(item));
         }
         else
         {
-            ScheduleMoreButton.Visibility = Visibility.Collapsed;
+            foreach (var group in nonEmpty)
+            {
+                ScheduleList.Children.Add(new TextBlock
+                {
+                    Text = group.Name,
+                    FontSize = 13,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Margin = new Thickness(0, 8, 0, 2),
+                    Foreground = (Microsoft.UI.Xaml.Media.Brush)
+                        Application.Current.Resources["TextFillColorSecondaryBrush"]
+                });
+                foreach (var item in group.Items)
+                    ScheduleList.Children.Add(BuildScheduleRow(item));
+            }
         }
+
+        ScheduleMoreButton.Visibility = total > 5 || nonEmpty.Count > 1
+            ? Visibility.Visible : Visibility.Collapsed;
+        ScheduleMoreButton.Content = _scheduleExpanded
+            ? Loc.Get("Details.ScheduleCollapse")
+            : Loc.Get("Details.ScheduleShowAll") + $" ({total})";
     }
 
-    private Grid BuildScheduleRow(SeriesScheduleItem item)
+    private Border BuildScheduleRow(SeriesScheduleItem item)
     {
-        var grid = new Grid { ColumnSpacing = 12, Padding = new Thickness(0, 6, 0, 6) };
+        // No fixed-height dialog and no nested scrollbar. The page handles
+        // all scrolling; rows remain readable at any DPI / window width.
+        var grid = new Grid { ColumnSpacing = 12 };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var left = new StackPanel { Spacing = 2 };
+        var left = new StackPanel { Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
         left.Children.Add(new TextBlock
         {
-            Text = item.RussianName.Length > 0 ? item.RussianName : item.Title,
+            Text = !string.IsNullOrWhiteSpace(item.RussianName) ? item.RussianName : item.Title,
             TextWrapping = TextWrapping.Wrap,
-            Style = Application.Current.Resources["PrimaryText"] as Style,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            FontSize = 13
         });
-        if (!string.IsNullOrEmpty(item.OriginalName))
+        if (!string.IsNullOrWhiteSpace(item.OriginalName))
         {
             left.Children.Add(new TextBlock
             {
                 Text = item.OriginalName,
-                FontSize = 12,
-                Style = Application.Current.Resources["SecondaryText"] as Style,
+                FontSize = 11,
+                Foreground = (Microsoft.UI.Xaml.Media.Brush)
+                    Application.Current.Resources["TextFillColorSecondaryBrush"],
                 TextWrapping = TextWrapping.Wrap,
             });
         }
-
         grid.Children.Add(left);
 
-        var right = new StackPanel { Spacing = 2, HorizontalAlignment = HorizontalAlignment.Right };
-        right.Children.Add(new TextBlock
+        var date = new Border
         {
-            Text = item.ReleaseDate,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Style = Application.Current.Resources["SecondaryText"] as Style,
-        });
-        var title = new TextBlock
-        {
-            Text = item.Title,
-            FontSize = 12,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            Style = Application.Current.Resources["SecondaryText"] as Style,
+            CornerRadius = new CornerRadius(9),
+            Padding = new Thickness(10, 8, 10, 8),
+            Background = (Microsoft.UI.Xaml.Media.Brush)
+                Application.Current.Resources["CardBackgroundFillColorDefaultBrush"],
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new TextBlock
+            {
+                Text = item.ReleaseDate,
+                FontSize = 12,
+                MaxWidth = 160,
+                TextWrapping = TextWrapping.Wrap,
+                HorizontalAlignment = HorizontalAlignment.Right,
+            }
         };
-        right.Children.Add(title);
-        Grid.SetColumn(right, 1);
-        grid.Children.Add(right);
-        return grid;
+        Grid.SetColumn(date, 1);
+        grid.Children.Add(date);
+
+        return new Border
+        {
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(12, 10, 12, 10),
+            Background = (Microsoft.UI.Xaml.Media.Brush)
+                Application.Current.Resources["SubtleFillColorSecondaryBrush"],
+            Child = grid
+        };
     }
 
-    private async void ScheduleMoreButton_Click(object sender, RoutedEventArgs e)
+    private void ScheduleMoreButton_Click(object sender, RoutedEventArgs e)
     {
-        var groups = _details?.Schedule;
-        if (groups == null || groups.Count == 0) return;
-
-        var list = new StackPanel { Spacing = 12, MinWidth = 320 };
-        foreach (var group in groups)
-        {
-            if (group.Items.Count == 0) continue;
-            list.Children.Add(new TextBlock { Text = group.Name, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap });
-            foreach (var item in group.Items)
-            {
-                list.Children.Add(BuildScheduleRow(item));
-            }
-        }
-
-        var scroll = new ScrollViewer { Content = list, MaxHeight = 420 };
-        var dialog = new ContentDialog
-        {
-            Title = Loc.Get("Details.Schedule"),
-            Content = scroll,
-            CloseButtonText = "OK",
-            XamlRoot = Content.XamlRoot,
-        };
-        await dialog.ShowAsync();
+        if (_details?.Schedule == null) return;
+        // Inline expansion removes the old 420px dialog and its scrollbar.
+        _scheduleExpanded = !_scheduleExpanded;
+        RenderSchedule(_details);
     }
 
     private async void VoicesRatingButton_Click(object sender, RoutedEventArgs e)
