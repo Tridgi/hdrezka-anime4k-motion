@@ -93,7 +93,9 @@ public sealed partial class MainWindow : Window
     /// window. The overlay remains centred even with the navigation pane open.
     /// Avoid ContentDialog.Popup here: it does not control the popup's geometry.
     /// </summary>
-    public Task ShowCenteredModalAsync(string title, FrameworkElement body)
+    private double _centeredModalPreferredWidth = 560;
+
+    public Task ShowCenteredModalAsync(string title, FrameworkElement body, double preferredWidth = 560)
     {
         if (_centeredModalCompletion is not null)
             return Task.CompletedTask;
@@ -102,6 +104,7 @@ public sealed partial class MainWindow : Window
             TaskCreationOptions.RunContinuationsAsynchronously);
         _centeredModalCompletion = completion;
         CenteredModalTitle.Text = title;
+        _centeredModalPreferredWidth = Math.Clamp(preferredWidth, 360, 850);
         CenteredModalBody.Content = body;
         UpdateCenteredModalLayout();
 
@@ -122,7 +125,7 @@ public sealed partial class MainWindow : Window
         var height = RootGrid.ActualHeight;
         if (width <= 0 || height <= 0) return;
 
-        CenteredModalCard.Width = Math.Max(240, Math.Min(560, width - 40));
+        CenteredModalCard.Width = Math.Max(240, Math.Min(_centeredModalPreferredWidth, width - 40));
         CenteredModalCard.MaxHeight = Math.Max(180, height - 36);
         if (CenteredModalBody.Content is ScrollViewer scroll)
             scroll.MaxHeight = Math.Max(100, height - 190);
