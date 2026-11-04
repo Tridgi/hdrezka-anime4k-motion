@@ -667,6 +667,12 @@ public sealed partial class HomePage : Page
             HomePreviewActors.Text = "";
             HomePreviewGenreRows.Children.Clear();
             StyleHomePreviewBadges();
+            if (movie.Rating is { } score)
+            {
+                HomePreviewRezka.Background = RezkaScoreColors.Gradient(score);
+                HomePreviewRezkaText.Foreground =
+                    new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
+            }
             HomePreviewCard.Visibility = Visibility.Visible;
             PositionHomePreview(card);
 
