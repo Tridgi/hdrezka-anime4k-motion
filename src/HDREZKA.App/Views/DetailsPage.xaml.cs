@@ -85,6 +85,8 @@ public sealed partial class DetailsPage : Page
 
     private bool _isNarrow;
     private bool _stackSelectors;
+    private bool _tightPadding;
+    private bool _smallPoster;
     private int _lastLayoutBucket = -1;
     private bool _descriptionExpanded;
     private bool _peopleExpanded;
@@ -98,12 +100,17 @@ public sealed partial class DetailsPage : Page
         if (width <= 0) return;
         var narrow = width < 740;
         var stackSelectors = width < 670;
+        var tightPadding = width < 510;
+        var smallPoster = width < 1050;
         var bucket = (int)(width / 120);
         if (narrow == _isNarrow && stackSelectors == _stackSelectors &&
+            tightPadding == _tightPadding && smallPoster == _smallPoster &&
             bucket == _lastLayoutBucket) return;
 
         _isNarrow = narrow;
         _stackSelectors = stackSelectors;
+        _tightPadding = tightPadding;
+        _smallPoster = smallPoster;
         _lastLayoutBucket = bucket;
 
         MainPanel.Padding = width < 510
