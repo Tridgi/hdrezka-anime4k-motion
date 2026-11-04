@@ -76,6 +76,9 @@ public sealed partial class MainWindow : Window
         // marks PointerPressed as handled. This follows Frame's history.
         RootGrid.AddHandler(UIElement.PointerPressedEvent,
             new PointerEventHandler(RootGrid_PointerPressed), true);
+        NavView.PaneOpened += (_, _) => UpdatePaneIcon();
+        NavView.PaneClosed += (_, _) => UpdatePaneIcon();
+        UpdatePaneIcon();
         Nav.SetFrame(ContentFrame);
         ContentFrame.Navigated += ContentFrame_Navigated;
         LocalizationService.Instance.LanguageChanged += ApplyLocalization;
@@ -501,10 +504,20 @@ else
 
     private void AppBackButton_Click(object sender, RoutedEventArgs e) => GoBack();
 
+    private void UpdatePaneIcon()
+    {
+        var isOpen = NavView.IsPaneOpen;
+        PaneExpandedIcon.Visibility = isOpen ? Visibility.Visible : Visibility.Collapsed;
+        PaneCollapsedIcon.Visibility = isOpen ? Visibility.Collapsed : Visibility.Visible;
+        ToolTipService.SetToolTip(AppPaneButton,
+            isOpen ? Loc.Get("Nav.CollapseSidebar") : Loc.Get("Nav.ExpandSidebar"));
+    }
+
     private void AppPaneButton_Click(object sender, RoutedEventArgs e)
     {
         if (IsTheaterMode) return;
         NavView.IsPaneOpen = !NavView.IsPaneOpen;
+        UpdatePaneIcon();
     }
 
     private void NavView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args)
@@ -512,7 +525,7 @@ else
 
     private void NavView_DisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
     {
-        // reserved for adaptive tweaks
+        UpdatePaneIcon();
     }
 
     private void SearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
