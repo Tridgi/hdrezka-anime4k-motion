@@ -39,31 +39,6 @@ public sealed partial class SettingsPage : Page
         LanguageBox.Items.Add(new ComboBoxItem { Content = "Українська", Tag = AppLanguage.Uk });
         LanguageBox.SelectedIndex = (int)settings.Language;
 
-        ThemeBox.Items.Clear();
-        ThemeBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.ThemeSystem"), Tag = AppTheme.System });
-        ThemeBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.ThemeLight"), Tag = AppTheme.Light });
-        ThemeBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.ThemeDark"), Tag = AppTheme.Dark });
-        ThemeBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.ThemeManual"), Tag = AppTheme.Manual });
-        ThemeBox.SelectedIndex = (int)settings.Theme;
-
-        ManualBrightnessBox.Items.Clear();
-        ManualBrightnessBox.Items.Add(new ComboBoxItem
-            { Content = Loc.Get("Settings.ThemeDark"), Tag = true });
-        ManualBrightnessBox.Items.Add(new ComboBoxItem
-            { Content = Loc.Get("Settings.ThemeLight"), Tag = false });
-        ManualBrightnessBox.SelectedIndex = settings.ManualThemeDark ? 0 : 1;
-        AccentHexBox.Text = settings.ManualAccentHex;
-        ManualThemePanel.Visibility = settings.Theme == AppTheme.Manual
-            ? Visibility.Visible : Visibility.Collapsed;
-        BuildAccentMatrix();
-        UpdateAccentPreview();
-        SizeChanged += (_, _) => UpdateAccentMatrixWidth();
-
-        PaletteBox.Items.Clear();
-        PaletteBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.PaletteNeutral"), Tag = DetailsPalette.Neutral });
-        PaletteBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.PaletteColorful"), Tag = DetailsPalette.Colorful });
-        PaletteBox.SelectedIndex = (int)settings.DetailPalette;
-
         QualityBox.Items.Clear();
         foreach (var quality in new[] { "360p", "480p", "720p", "1080p", "1440p", "2160p" })
         {
@@ -72,15 +47,6 @@ public sealed partial class SettingsPage : Page
 
         var qualityIndex = QualityBox.Items.IndexOf(QualityBox.Items.OfType<ComboBoxItem>().FirstOrDefault(q => (string?)q.Tag == settings.DefaultQuality));
         QualityBox.SelectedIndex = qualityIndex >= 0 ? qualityIndex : 3;
-
-        PosterSizeBox.Items.Clear();
-        foreach (var (label, width) in new[] { ("S", 104), ("M", 132), ("L", 164), ("XL", 196) })
-        {
-            PosterSizeBox.Items.Add(new ComboBoxItem { Content = $"{label} · {width}px", Tag = width });
-        }
-
-        var posterIndex = PosterSizeBox.Items.IndexOf(PosterSizeBox.Items.OfType<ComboBoxItem>().FirstOrDefault(q => (int?)q.Tag == settings.PosterSize));
-        PosterSizeBox.SelectedIndex = posterIndex >= 0 ? posterIndex : 1;
 
         HeadersToggle.IsOn = settings.UseAndroidHeaders;
         ShowPlaybackStatsCheck.IsChecked = settings.ShowPlaybackStats;
@@ -121,17 +87,10 @@ public sealed partial class SettingsPage : Page
         MirrorHeader.Text = Loc.Get("Settings.Mirror");
         MirrorHint.Text = Loc.Get("Settings.MirrorHint");
         LanguageHeader.Text = Loc.Get("Settings.Language");
-        ThemeHeader.Text = Loc.Get("Settings.Theme");
-        ManualBrightnessHeader.Text = Loc.Get("Settings.ManualBrightness");
-        AccentMatrixHeader.Text = Loc.Get("Settings.AccentMatrix");
-        ManualAccentLabel.Text = Loc.Get("Settings.AccentHex");
-        ApplyAccentButton.Content = Loc.Get("Settings.AccentApply");
-        AccentPreviewLabel.Text = Loc.Get("Settings.AccentPreview");
-        PaletteHeader.Text = Loc.Get("Settings.Palette");
-        PaletteHint.Text = Loc.Get("Settings.PaletteHint");
+        OpenAppearanceText.Text = Loc.Get("Nav.Appearance");
+        AppearanceMovedHint.Text = Loc.Get("Settings.AppearanceMoved");
         QualityHeader.Text = Loc.Get("Settings.Quality");
         DirectPlayCheck.Content = Loc.Get("Settings.PlayFromHome");
-        PosterSizeHeader.Text = Loc.Get("Settings.PosterSize");
         HomeHeader.Text = Loc.Get("Settings.HomeSections");
         HomeHint.Text = Loc.Get("Settings.HomeSectionsHint");
         BuildHomeSectionsList();
@@ -145,23 +104,6 @@ public sealed partial class SettingsPage : Page
         LogoutButton.Content = Loc.Get("Common.Logout");
         LogoutButton.Visibility = RezkaService.Instance.IsLoggedIn ? Visibility.Visible : Visibility.Collapsed;
 
-        if (ThemeBox.Items.Count == 4)
-        {
-            ((ComboBoxItem)ThemeBox.Items[0]).Content = Loc.Get("Settings.ThemeSystem");
-            ((ComboBoxItem)ThemeBox.Items[1]).Content = Loc.Get("Settings.ThemeLight");
-            ((ComboBoxItem)ThemeBox.Items[2]).Content = Loc.Get("Settings.ThemeDark");
-            ((ComboBoxItem)ThemeBox.Items[3]).Content = Loc.Get("Settings.ThemeManual");
-        }
-        if (ManualBrightnessBox.Items.Count == 2)
-        {
-            ((ComboBoxItem)ManualBrightnessBox.Items[0]).Content = Loc.Get("Settings.ThemeDark");
-            ((ComboBoxItem)ManualBrightnessBox.Items[1]).Content = Loc.Get("Settings.ThemeLight");
-        }
-        if (PaletteBox.Items.Count == 2)
-        {
-            ((ComboBoxItem)PaletteBox.Items[0]).Content = Loc.Get("Settings.PaletteNeutral");
-            ((ComboBoxItem)PaletteBox.Items[1]).Content = Loc.Get("Settings.PaletteColorful");
-        }
     }
 
     private async void MirrorBox_LostFocus(object sender, RoutedEventArgs e)
@@ -202,6 +144,9 @@ public sealed partial class SettingsPage : Page
         MirrorStatusText.Text = "";
     }
 
+    private void OpenAppearanceButton_Click(object sender, RoutedEventArgs e)
+        => Nav.Go<AppearancePage>();
+
     private void LanguageBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_initialized) return;
@@ -213,143 +158,6 @@ public sealed partial class SettingsPage : Page
         }
     }
 
-    private void ThemeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_initialized) return;
-        if (ThemeBox.SelectedItem is ComboBoxItem { Tag: AppTheme theme })
-        {
-            SettingsService.Instance.Theme = theme;
-            SettingsService.Instance.Save();
-            ThemeHelper.Apply(theme);
-            ManualThemePanel.Visibility = theme == AppTheme.Manual
-                ? Visibility.Visible : Visibility.Collapsed;
-            UpdateAccentPreview();
-        }
-    }
-
-    private void ManualBrightnessBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_initialized) return;
-        if (ManualBrightnessBox.SelectedItem is ComboBoxItem { Tag: bool dark })
-        {
-            SettingsService.Instance.ManualThemeDark = dark;
-            SettingsService.Instance.Save();
-            ThemeHelper.Apply(SettingsService.Instance.Theme);
-        }
-    }
-
-    private void UpdateAccentMatrixWidth()
-    {
-        var available = Math.Max(160, ActualWidth - 115);
-        AccentMatrixGrid.Width = Math.Min(420, available);
-    }
-
-    private void BuildAccentMatrix()
-    {
-        AccentMatrixGrid.Children.Clear();
-        AccentMatrixGrid.ColumnDefinitions.Clear();
-        AccentMatrixGrid.RowDefinitions.Clear();
-        for (var c = 0; c < 3; c++)
-            AccentMatrixGrid.ColumnDefinitions.Add(new ColumnDefinition
-                { Width = new GridLength(1, GridUnitType.Star) });
-        for (var row = 0; row < 4; row++)
-            AccentMatrixGrid.RowDefinitions.Add(new RowDefinition
-                { Height = new GridLength(67) });
-
-        var schemes = ThemeHelper.Schemes;
-        for (var i = 0; i < schemes.Count; i++)
-        {
-            var item = schemes[i];
-            if (!ThemeHelper.TryParseHex(item.Primary, out var primary) ||
-                !ThemeHelper.TryParseHex(item.Companion, out var secondary)) continue;
-            var selected = item.Primary.Equals(SettingsService.Instance.ManualAccentHex,
-                StringComparison.OrdinalIgnoreCase);
-            var preview = new StackPanel { Spacing = 5 };
-            var swatches = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 4,
-                HorizontalAlignment = HorizontalAlignment.Center
-            };
-            swatches.Children.Add(new Border
-            {
-                Width = 25, Height = 18, CornerRadius = new CornerRadius(4),
-                Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(primary)
-            });
-            swatches.Children.Add(new Border
-            {
-                Width = 25, Height = 18, CornerRadius = new CornerRadius(4),
-                Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(secondary)
-            });
-            preview.Children.Add(swatches);
-            preview.Children.Add(new TextBlock
-            {
-                Text = item.Name + (selected ? " ✓" : ""),
-                TextAlignment = TextAlignment.Center,
-                FontWeight = selected
-                    ? Microsoft.UI.Text.FontWeights.Bold
-                    : Microsoft.UI.Text.FontWeights.Normal,
-                FontSize = 12,
-                TextTrimming = TextTrimming.CharacterEllipsis
-            });
-            var button = new Button
-            {
-                Content = preview,
-                Tag = item,
-                Padding = new Thickness(6, 7, 6, 7),
-                MinWidth = 0,
-                MinHeight = 0,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch
-            };
-            button.Click += AccentScheme_Click;
-            ToolTipService.SetToolTip(button, item.Name + ": " + item.Primary + " / " + item.Companion);
-            Grid.SetColumn(button, i % 3);
-            Grid.SetRow(button, i / 3);
-            AccentMatrixGrid.Children.Add(button);
-        }
-        UpdateAccentMatrixWidth();
-    }
-
-    private void AccentScheme_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: ThemeHelper.ColorScheme scheme }) return;
-        SettingsService.Instance.SetManualAccent(scheme.Primary, scheme.Companion);
-        AccentHexBox.Text = scheme.Primary;
-        AccentValidationText.Text = "";
-        BuildAccentMatrix();
-        UpdateAccentPreview();
-    }
-
-    private void ApplyAccentButton_Click(object sender, RoutedEventArgs e)
-    {
-        var hex = AccentHexBox.Text.Trim();
-        if (!ThemeHelper.TryParseHex(hex, out _))
-        {
-            AccentValidationText.Text = Loc.Get("Settings.AccentInvalid");
-            return;
-        }
-        SettingsService.Instance.SetManualAccent(hex, SettingsService.Instance.ManualCompanionHex);
-        AccentValidationText.Text = "";
-        BuildAccentMatrix();
-        UpdateAccentPreview();
-    }
-
-    private void UpdateAccentPreview()
-    {
-        if (ThemeHelper.TryParseHex(SettingsService.Instance.ManualAccentHex, out var primary))
-            AccentPreviewMain.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(primary);
-        if (ThemeHelper.TryParseHex(SettingsService.Instance.ManualCompanionHex, out var secondary))
-            AccentPreviewCompanion.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(secondary);
-    }
-
-    private void PaletteBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_initialized) return;
-        if (PaletteBox.SelectedItem is ComboBoxItem { Tag: DetailsPalette palette })
-            SettingsService.Instance.SetDetailPalette(palette);
-    }
-
     private void QualityBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_initialized) return;
@@ -357,15 +165,6 @@ public sealed partial class SettingsPage : Page
         {
             SettingsService.Instance.DefaultQuality = quality;
             SettingsService.Instance.Save();
-        }
-    }
-
-    private void PosterSizeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_initialized) return;
-        if (PosterSizeBox.SelectedItem is ComboBoxItem { Tag: int width })
-        {
-            SettingsService.Instance.SetPosterSize(width);
         }
     }
 
