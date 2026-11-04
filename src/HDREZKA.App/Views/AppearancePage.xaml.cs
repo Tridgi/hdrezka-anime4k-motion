@@ -186,7 +186,8 @@ public sealed partial class AppearancePage : Page
     {
         if (ActualWidth < 1) return;
         var target = Math.Min(440, Math.Max(220, ActualWidth - 95));
-        if (Math.Abs(AccentMatrixGrid.Width - target) > 1)
+        if (double.IsNaN(AccentMatrixGrid.Width) ||
+            Math.Abs(AccentMatrixGrid.Width - target) > 1)
             AccentMatrixGrid.Width = target;
     }
 
