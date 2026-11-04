@@ -206,8 +206,8 @@
                                         Background="{ThemeResource AccentFillColorSecondaryBrush}">
                                     <StackPanel VerticalAlignment="Center" Spacing="15">
                                         <FontIcon Glyph="&#xE8A7;" FontSize="34"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="FilmsEndText" FontSize="18"
+                                                  Foreground="White"/>
+                                        <TextBlock x:Name="FilmsEndText" FontSize="18" Foreground="White"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
@@ -216,7 +216,7 @@
                                                    TextAlignment="Center" TextWrapping="Wrap"
                                                    Foreground="White"/>
                                         <FontIcon Glyph="&#xE76C;" FontSize="19"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                                  Foreground="White"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -286,8 +286,8 @@
                                         Background="{ThemeResource AccentFillColorSecondaryBrush}">
                                     <StackPanel VerticalAlignment="Center" Spacing="15">
                                         <FontIcon Glyph="&#xE8A7;" FontSize="34"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="SeriesEndText" FontSize="18"
+                                                  Foreground="White"/>
+                                        <TextBlock x:Name="SeriesEndText" FontSize="18" Foreground="White"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
@@ -296,7 +296,7 @@
                                                    TextAlignment="Center" TextWrapping="Wrap"
                                                    Foreground="White"/>
                                         <FontIcon Glyph="&#xE76C;" FontSize="19"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                                  Foreground="White"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -366,8 +366,8 @@
                                         Background="{ThemeResource AccentFillColorSecondaryBrush}">
                                     <StackPanel VerticalAlignment="Center" Spacing="15">
                                         <FontIcon Glyph="&#xE8A7;" FontSize="34"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="CartoonsEndText" FontSize="18"
+                                                  Foreground="White"/>
+                                        <TextBlock x:Name="CartoonsEndText" FontSize="18" Foreground="White"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
@@ -376,7 +376,7 @@
                                                    TextAlignment="Center" TextWrapping="Wrap"
                                                    Foreground="White"/>
                                         <FontIcon Glyph="&#xE76C;" FontSize="19"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                                  Foreground="White"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -446,8 +446,8 @@
                                         Background="{ThemeResource AccentFillColorSecondaryBrush}">
                                     <StackPanel VerticalAlignment="Center" Spacing="15">
                                         <FontIcon Glyph="&#xE8A7;" FontSize="34"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="PopularEndText" FontSize="18"
+                                                  Foreground="White"/>
+                                        <TextBlock x:Name="PopularEndText" FontSize="18" Foreground="White"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
@@ -456,7 +456,7 @@
                                                    TextAlignment="Center" TextWrapping="Wrap"
                                                    Foreground="White"/>
                                         <FontIcon Glyph="&#xE76C;" FontSize="19"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                                  Foreground="White"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -526,8 +526,8 @@
                                         Background="{ThemeResource AccentFillColorSecondaryBrush}">
                                     <StackPanel VerticalAlignment="Center" Spacing="15">
                                         <FontIcon Glyph="&#xE8A7;" FontSize="34"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="WatchingEndText" FontSize="18"
+                                                  Foreground="White"/>
+                                        <TextBlock x:Name="WatchingEndText" FontSize="18" Foreground="White"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
@@ -536,7 +536,7 @@
                                                    TextAlignment="Center" TextWrapping="Wrap"
                                                    Foreground="White"/>
                                         <FontIcon Glyph="&#xE76C;" FontSize="19"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                                  Foreground="White"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -606,8 +606,8 @@
                                         Background="{ThemeResource AccentFillColorSecondaryBrush}">
                                     <StackPanel VerticalAlignment="Center" Spacing="15">
                                         <FontIcon Glyph="&#xE8A7;" FontSize="34"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                        <TextBlock x:Name="SoonEndText" FontSize="18"
+                                                  Foreground="White"/>
+                                        <TextBlock x:Name="SoonEndText" FontSize="18" Foreground="White"
                                                    FontWeight="SemiBold"
                                                    HorizontalAlignment="Center"
                                                    TextAlignment="Center" TextWrapping="Wrap"/>
@@ -616,7 +616,7 @@
                                                    TextAlignment="Center" TextWrapping="Wrap"
                                                    Foreground="White"/>
                                         <FontIcon Glyph="&#xE76C;" FontSize="19"
-                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                                  Foreground="White"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
