@@ -457,11 +457,11 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1" Padding="17">
                 <StackPanel Spacing="9">
-                    <StackPanel Spacing="3">
-                        <TextBlock Text="HDREZKA  /  PREVIEW" FontSize="10"
+                    <StackPanel Spacing="5">
+                        <TextBlock x:Name="PreviewHeader" Text="О фильме" FontSize="12"
                                    FontWeight="SemiBold"
                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                        <Border Height="3" Width="44" CornerRadius="2"
+                        <Border Height="3" Width="50" CornerRadius="2"
                                 HorizontalAlignment="Left"
                                 Background="{ThemeResource AccentFillColorDefaultBrush}"/>
                     </StackPanel>
@@ -470,20 +470,45 @@
                     <TextBlock x:Name="PreviewSubtitle" FontSize="12" MaxLines="2"
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <Border HorizontalAlignment="Left" CornerRadius="9"
-                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                            Padding="10,6">
-                        <TextBlock x:Name="PreviewRating" FontSize="13"
-                                   FontWeight="SemiBold"
-                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                   TextWrapping="Wrap"/>
-                    </Border>
+                    <StackPanel x:Name="PreviewRatings" Orientation="Horizontal" Spacing="6">
+                        <Border x:Name="PreviewRezkaBadge" CornerRadius="9" Padding="7,6">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Border CornerRadius="4" Padding="4,2" Background="#4A5660">
+                                    <TextBlock Text="R" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                                </Border>
+                                <TextBlock x:Name="PreviewRezkaValue" FontSize="12"
+                                           FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="PreviewImdbBadge" CornerRadius="9" Padding="7,6"
+                                Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Border CornerRadius="4" Padding="4,2" Background="#F4C516">
+                                    <TextBlock Text="IMDb" FontSize="10" FontWeight="Bold" Foreground="#171717"/>
+                                </Border>
+                                <TextBlock x:Name="PreviewImdbValue" FontSize="12"
+                                           FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Border x:Name="PreviewKpBadge" CornerRadius="9" Padding="7,6"
+                                Visibility="Collapsed">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <Border CornerRadius="4" Padding="4,2" Background="#FC7937">
+                                    <TextBlock Text="КП" FontSize="10" FontWeight="Bold" Foreground="#171717"/>
+                                </Border>
+                                <TextBlock x:Name="PreviewKpValue" FontSize="12"
+                                           FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                     <TextBlock x:Name="PreviewDescription" FontSize="12"
                                MaxLines="5" TextWrapping="Wrap"
                                TextTrimming="CharacterEllipsis"/>
-                    <TextBlock x:Name="PreviewGenres" FontSize="12" MaxLines="2"
-                               TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <StackPanel x:Name="PreviewGenresSection" Spacing="6" Visibility="Collapsed">
+                        <TextBlock x:Name="PreviewGenresHeader" FontSize="11"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <StackPanel x:Name="PreviewGenreChips" Spacing="5"/>
+                    </StackPanel>
                     <TextBlock x:Name="PreviewDirector" FontSize="12" MaxLines="2"
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
