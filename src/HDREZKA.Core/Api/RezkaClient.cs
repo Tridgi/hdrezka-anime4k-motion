@@ -755,14 +755,66 @@ public sealed class RezkaClient : IDisposable
             },
             ct).ConfigureAwait(false);
 
-        using var json = JsonDocument.Parse(body);
-        var root = json.RootElement;
-        if (root.TryGetProperty("success", out var s) && s.ValueKind == JsonValueKind.False)
+        return ValidatePostedComment(body);
+    }
+
+    /// <summary>
+    /// DLE mirrors have sent success as true/1/"1". Treat missing/unknown
+    /// replies as failures rather than clearing the user's unsent draft.
+    /// Do not guess whether CAPTCHA / an expired session can be bypassed.
+    /// </summary>
+    public static string ValidatePostedComment(string body)
+    {
+        JsonDocument json;
+        try { json = JsonDocument.Parse(body); }
+        catch (JsonException)
         {
-            throw RezkaException.Site(root.TryGetProperty("message", out var m) ? m.GetString() ?? "Error" : "Error");
+            throw RezkaException.Site(
+                "Сайт вернул не JSON, а страницу ошибки или авторизации. " +
+                "Проверьте зеркало и войдите в аккаунт повторно.");
         }
 
-        return root.TryGetProperty("comment", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() ?? "" : "";
+        using (json)
+        {
+            var root = json.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                throw RezkaException.Site("Некорректный ответ сайта на комментарий.");
+            if (!root.TryGetProperty("success", out var value))
+                throw RezkaException.Site(ExtractCommentError(root) ??
+                    "Сайт не подтвердил отправку комментария. Попробуйте на сайте.");
+
+            var accepted = value.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.Number => value.TryGetInt32(out var count) && count > 0,
+                JsonValueKind.String => value.GetString()?.Trim().ToLowerInvariant()
+                    is "1" or "true" or "ok" or "success",
+                _ => false
+            };
+            if (!accepted)
+                throw RezkaException.Site(ExtractCommentError(root) ??
+                    "Сайт отказал в отправке. Возможно, нужна повторная авторизация или CAPTCHA.");
+
+            return root.TryGetProperty("comment", out var posted) &&
+                posted.ValueKind == JsonValueKind.String ? posted.GetString() ?? "" : "";
+        }
+    }
+
+    private static string? ExtractCommentError(JsonElement root)
+    {
+        foreach (var key in new[] { "message", "msg", "error", "reason" })
+        {
+            if (!root.TryGetProperty(key, out var value)) continue;
+            var raw = value.ValueKind == JsonValueKind.String
+                ? value.GetString() : value.ToString();
+            if (string.IsNullOrWhiteSpace(raw)) continue;
+            var plain = System.Net.WebUtility.HtmlDecode(
+                System.Text.RegularExpressions.Regex.Replace(raw,
+                    "<[^>]*>", " ")).Trim();
+            if (!string.IsNullOrWhiteSpace(plain))
+                return plain.Length > 350 ? plain[..350] : plain;
+        }
+        return null;
     }
 
     public async Task<bool> ToggleCommentLikeAsync(string commentId, CancellationToken ct = default)
