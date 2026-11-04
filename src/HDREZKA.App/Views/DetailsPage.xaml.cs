@@ -32,6 +32,11 @@ public sealed partial class DetailsPage : Page
     private int? _bookmarkedCategoryId;
     private int _seasonsGeneration;
     private CancellationTokenSource? _loadCts;
+    private IReadOnlyList<MovieSimple> _watchAlsoItems = [];
+    private int _watchAlsoOffset;
+    private int _watchAlsoPageSize = 3;
+    private double _lastWatchAlsoWidth = -1;
+    private int _lastWatchAlsoOffset = -1;
 
     public DetailsPage()
     {
@@ -218,6 +223,11 @@ public sealed partial class DetailsPage : Page
         VoicesHeader.Text = Loc.Get("Common.VoiceActing");
         SeasonsHeader.Text = Loc.Get("Common.Season");
         WatchAlsoHeader.Text = Loc.Get("Details.WatchAlso");
+        ToolTipService.SetToolTip(WatchAlsoPreviousButton, Loc.Get("Details.PreviousRecommendations"));
+        ToolTipService.SetToolTip(WatchAlsoNextButton, Loc.Get("Details.NextRecommendations"));
+        CommentsToggleText.Text = Loc.Get(CommentsToggle.IsChecked == true
+            ? "Details.HideComments" : "Details.ViewComments") +
+            $" ({_details?.CommentsCount ?? 0})";
         RetryButton.Content = Loc.Get("Common.Retry");
         CommentInput.PlaceholderText = Loc.Get("Comments.Placeholder");
         CommentSendButton.Content = Loc.Get("Common.Send");
@@ -395,7 +405,7 @@ public sealed partial class DetailsPage : Page
         }
 
         CommentsSection.Visibility = details.CommentsCount > 0 ? Visibility.Visible : Visibility.Collapsed;
-        CommentsToggleText.Text = $"{Loc.Get("Comments.Show")} ({details.CommentsCount})";
+        CommentsToggleText.Text = $"{Loc.Get("Details.ViewComments")} ({details.CommentsCount})";
 
         UpdateWatchedButton();
         UpdateTrackButton();
@@ -512,21 +522,93 @@ public sealed partial class DetailsPage : Page
         }
     }
 
+    /// <summary>
+    /// A small, responsive carousel. Only 1–3 movie cards exist at once, so
+    /// recommendation lists never allocate all offscreen poster textures.
+    /// </summary>
     private void RenderWatchAlso(MovieDetailed details)
     {
-        // Virtualized horizontal GridView (like catalog rows), NOT a manual
-        // StackPanel of cards — that pattern once correlated with a native
-        // crash on this page. Breadcrumbs will tell if it ever returns.
-        var items = details.WatchAlso;
-        if (items == null || items.Count == 0)
+        _watchAlsoItems = details.WatchAlso ?? [];
+        _watchAlsoOffset = 0;
+        _lastWatchAlsoWidth = -1;
+        _lastWatchAlsoOffset = -1;
+        WatchAlsoPanel.Visibility = _watchAlsoItems.Count > 0
+            ? Visibility.Visible : Visibility.Collapsed;
+        if (_watchAlsoItems.Count == 0)
         {
-            WatchAlsoPanel.Visibility = Visibility.Collapsed;
-            WatchAlsoGrid.ItemsSource = null;
+            WatchAlsoCards.Children.Clear();
+            WatchAlsoCards.ColumnDefinitions.Clear();
             return;
         }
 
-        WatchAlsoPanel.Visibility = Visibility.Visible;
-        WatchAlsoGrid.ItemsSource = items.ToList();
+        UpdateWatchAlsoCards(force: true);
+    }
+
+    private void WatchAlsoPanel_SizeChanged(object sender, SizeChangedEventArgs e)
+        => UpdateWatchAlsoCards();
+
+    private void UpdateWatchAlsoCards(bool force = false)
+    {
+        if (_watchAlsoItems.Count == 0 || WatchAlsoPanel.Visibility != Visibility.Visible)
+            return;
+
+        // 16 DIP padding each side plus borders. The columns remain inside the
+        // card, including with an expanded NavigationView or high-DPI scaling.
+        var available = WatchAlsoPanel.ActualWidth - 36;
+        if (available <= 0) return;
+        var pageSize = available >= 590 ? 3 : available >= 365 ? 2 : 1;
+        if (pageSize != _watchAlsoPageSize)
+        {
+            _watchAlsoOffset = (_watchAlsoOffset / pageSize) * pageSize;
+            _watchAlsoPageSize = pageSize;
+        }
+
+        if (!force && Math.Abs(available - _lastWatchAlsoWidth) < 2 &&
+            _lastWatchAlsoOffset == _watchAlsoOffset)
+            return;
+
+        _lastWatchAlsoWidth = available;
+        _lastWatchAlsoOffset = _watchAlsoOffset;
+        var count = Math.Min(pageSize, _watchAlsoItems.Count - _watchAlsoOffset);
+        var slotWidth = (available - 12 * (pageSize - 1)) / pageSize;
+        var posterWidth = Math.Clamp(slotWidth - 6, 86, 235);
+
+        WatchAlsoCards.Children.Clear();
+        WatchAlsoCards.ColumnDefinitions.Clear();
+        for (var i = 0; i < pageSize; i++)
+            WatchAlsoCards.ColumnDefinitions.Add(new ColumnDefinition
+                { Width = new GridLength(1, GridUnitType.Star) });
+
+        for (var i = 0; i < count; i++)
+        {
+            var card = new HDREZKA.App.Controls.MovieCard
+            {
+                Movie = _watchAlsoItems[_watchAlsoOffset + i],
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Top
+            };
+            card.SetCardWidthOverride(posterWidth);
+            Grid.SetColumn(card, i);
+            WatchAlsoCards.Children.Add(card);
+        }
+
+        WatchAlsoPreviousButton.IsEnabled = _watchAlsoOffset > 0;
+        WatchAlsoNextButton.IsEnabled = _watchAlsoOffset + pageSize < _watchAlsoItems.Count;
+        WatchAlsoPageText.Text =
+            $"{_watchAlsoOffset / pageSize + 1} / {(_watchAlsoItems.Count + pageSize - 1) / pageSize}";
+    }
+
+    private void WatchAlsoPreviousButton_Click(object sender, RoutedEventArgs e)
+    {
+        _watchAlsoOffset = Math.Max(0, _watchAlsoOffset - _watchAlsoPageSize);
+        UpdateWatchAlsoCards(force: true);
+    }
+
+    private void WatchAlsoNextButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_watchAlsoOffset + _watchAlsoPageSize >= _watchAlsoItems.Count) return;
+        _watchAlsoOffset += _watchAlsoPageSize;
+        UpdateWatchAlsoCards(force: true);
     }
 
     private void UpdateVoicesRatingButton(MovieDetailed details)
@@ -1035,6 +1117,9 @@ public sealed partial class DetailsPage : Page
                 Rect(12.5, 12, 5, 1.3, C(51, 133, 69));
                 break;
             case "🇯🇵":
+                // Explicit opaque white geometry: the surrounding tinted chip
+                // must never show through the Japanese flag.
+                Rect(0, 0, 24, 16, white);
                 var disc = new Microsoft.UI.Xaml.Shapes.Ellipse { Width = 8, Height = 8, Fill = Brush(185, 37, 52) };
                 Canvas.SetLeft(disc, 8); Canvas.SetTop(disc, 4); canvas.Children.Add(disc); break;
             case "🇺🇦": H(C(0, 91, 187), C(255, 213, 0)); break;
@@ -1068,6 +1153,7 @@ public sealed partial class DetailsPage : Page
         return new Border
         {
             Width = 25, Height = 17, Child = canvas,
+            Background = Brush(255, 255, 255),
             BorderBrush = Brush(117, 120, 128),
             BorderThickness = new Thickness(.5), CornerRadius = new CornerRadius(2),
             VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false
@@ -1077,9 +1163,16 @@ public sealed partial class DetailsPage : Page
     private void BuildMeta(MovieDetailed details)
     {
         MetaPanel.Children.Clear();
+        // The site already supplies ReleaseDate. Display it immediately after
+        // country chips without an extra "Date" heading or an extra request.
+        var countryDateChips = new List<(string Name, MetadataTone Tone)>();
         if (details.Countries is { Count: > 0 })
-            AddMetaRow(Loc.Get("Details.Country"),
-                WrapChips(details.Countries.Select(c => (c.Name, MetadataTone.Country))));
+            countryDateChips.AddRange(details.Countries.Select(c => (c.Name, MetadataTone.Country)));
+        if (!string.IsNullOrWhiteSpace(details.ReleaseDate))
+            countryDateChips.Add((details.ReleaseDate.Trim(), MetadataTone.Neutral));
+        if (countryDateChips.Count > 0)
+            AddMetaRow(details.Countries is { Count: > 0 }
+                ? Loc.Get("Details.Country") : "", WrapChips(countryDateChips));
 
         if (details.Genres is { Count: > 0 })
         {
@@ -1875,7 +1968,7 @@ public sealed partial class DetailsPage : Page
         if (CommentsToggle.IsChecked == true)
         {
             CommentsPanel.Visibility = Visibility.Visible;
-            CommentsToggleText.Text = $"{Loc.Get("Comments.Hide")} ({_details?.CommentsCount})";
+            CommentsToggleText.Text = $"{Loc.Get("Details.HideComments")} ({_details?.CommentsCount})";
             if (!_commentsLoaded)
             {
                 _commentsLoaded = true;
@@ -1885,7 +1978,7 @@ public sealed partial class DetailsPage : Page
         else
         {
             CommentsPanel.Visibility = Visibility.Collapsed;
-            CommentsToggleText.Text = $"{Loc.Get("Comments.Show")} ({_details?.CommentsCount})";
+            CommentsToggleText.Text = $"{Loc.Get("Details.ViewComments")} ({_details?.CommentsCount})";
         }
     }
 
