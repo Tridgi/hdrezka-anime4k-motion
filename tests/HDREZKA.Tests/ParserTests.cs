@@ -68,6 +68,7 @@ public class ParserTests
           <table class="b-post__info">
             <tr><td class="l">Год:</td><td><a href="https://hdrzk.org/year/2024/">2024</a></td>
                 <td class="l">Страна:</td><td><a href="https://hdrzk.org/country/usa/">США</a></td></tr>
+            <tr><td class="l">Дата выхода:</td><td>13 сентября 2022 года</td></tr>
             <tr><td class="l">Жанр:</td><td><a href="https://hdrzk.org/genre/fantastic/">фантастика</a></td>
                 <td class="l">Время:</td><td>127 мин.</td></tr>
             <tr><td class="l">Режиссер:</td><td><div class="persons-list-holder"><div class="item"><a href="https://hdrzk.org/person/42-name.html">Режиссёр Один</a></div></div></td></tr>
@@ -109,6 +110,7 @@ public class ParserTests
         Assert.True(details.VoiceActings[0].IsSelected);
         Assert.Equal("999", details.VoiceActings[0].VoiceId);
         Assert.Equal("2024", details.Year);
+        Assert.Equal("13 сентября 2022 года", details.ReleaseDate);
         Assert.NotNull(details.Countries);
         Assert.Equal("США", details.Countries![0].Name);
         Assert.NotNull(details.Genres);
