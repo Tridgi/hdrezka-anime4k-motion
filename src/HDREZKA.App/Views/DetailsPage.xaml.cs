@@ -50,6 +50,7 @@ public sealed partial class DetailsPage : Page
         ApplyLocalization();
         LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
         SettingsService.Instance.PosterSizeChanged += OnPosterSizeChanged;
+        SettingsService.Instance.DetailPaletteChanged += OnDetailPaletteChanged;
         ApplyPosterMetrics();
 
         if (e.Parameter is MovieSimple movie && _movie?.Id != movie.Id)
@@ -74,14 +75,18 @@ public sealed partial class DetailsPage : Page
         _loadCts = null;
         LocalizationService.Instance.LanguageChanged -= OnLanguageChanged;
         SettingsService.Instance.PosterSizeChanged -= OnPosterSizeChanged;
+        SettingsService.Instance.DetailPaletteChanged -= OnDetailPaletteChanged;
     }
 
     private void OnPosterSizeChanged() => DispatcherQueue.TryEnqueue(ApplyPosterMetrics);
+
+    private void OnDetailPaletteChanged() => DispatcherQueue.TryEnqueue(RefreshPresentation);
 
     private bool _isNarrow;
     private bool _stackSelectors;
     private int _lastLayoutBucket = -1;
     private bool _descriptionExpanded;
+    private bool _peopleExpanded;
 
     // Breakpoints are based on available page width, never monitor pixels.
     // 740 DIP: poster/info stack; 670 DIP: season and voice stack; 510 DIP:
@@ -307,6 +312,7 @@ public sealed partial class DetailsPage : Page
         PosterCache.SetSource(PosterImage, details.Poster);
 
         _descriptionExpanded = false;
+        _peopleExpanded = false;
         DescriptionText.Text = details.Description ?? "";
         DescriptionText.MaxLines = 3;
         DescriptionText.TextTrimming = TextTrimming.CharacterEllipsis;
@@ -315,14 +321,8 @@ public sealed partial class DetailsPage : Page
         DescriptionExpandButton.Visibility = DescriptionText.Text.Length > 180
             ? Visibility.Visible : Visibility.Collapsed;
         DescriptionExpandButton.Content = Loc.Get("Details.ShowMore");
-        RatingsPanel.Children.Clear();
-        AddRating("Rezka", details.SiteRating);
-        AddRating("IMDb", details.ImdbRating);
-        AddRating("KP", details.KpRating);
+        RefreshPresentation();
         BuildRateRow();
-
-        MetaPanel.Children.Clear();
-        BuildMeta(details);
 
         // Preserve translator IDs and selected instance: the episode endpoint
         // needs the MovieVoiceActing object, not a localized display string.
@@ -624,19 +624,188 @@ public sealed partial class DetailsPage : Page
         await window.ShowCenteredModalAsync(Loc.Get("Details.Ratings"), scroll);
     }
 
-    private int MetaLabelWidth => _isNarrow ? 110 : 160;
+    private int MetaLabelWidth => _isNarrow ? 88 : 110;
+
+    private enum MetadataTone
+    {
+        Neutral, Country, GenreBlue, GenreGreen, GenrePurple, GenreRose,
+        TimeShort, TimeMedium, TimeLong, People, Rating, Age
+    }
+
+    private bool IsColorful => SettingsService.Instance.DetailPalette == DetailsPalette.Colorful;
+    private bool IsLightTheme => ActualTheme == ElementTheme.Light;
+
+    private Microsoft.UI.Xaml.Media.SolidColorBrush Brush(byte r, byte g, byte b) =>
+        new(Windows.UI.Color.FromArgb(255, r, g, b));
+
+    /// <summary>
+    /// One semantic palette for both light and dark themes. Colorful mode
+    /// touches only badges, not system accent/backgrounds or action buttons.
+    /// </summary>
+    private (Microsoft.UI.Xaml.Media.SolidColorBrush Bg, Microsoft.UI.Xaml.Media.SolidColorBrush Fg)
+        BadgeBrushes(MetadataTone tone)
+    {
+        if (!IsColorful)
+            return IsLightTheme
+                ? (Brush(238, 239, 241), Brush(42, 43, 45))
+                : (Brush(51, 53, 56), Brush(242, 242, 242));
+
+        var color = tone switch
+        {
+            MetadataTone.Country => IsLightTheme ? (222, 236, 251, 28, 58, 88) : (40, 67, 92, 223, 239, 255),
+            MetadataTone.GenreBlue => IsLightTheme ? (222, 236, 251, 25, 67, 100) : (38, 62, 88, 218, 237, 255),
+            MetadataTone.GenreGreen => IsLightTheme ? (220, 245, 229, 25, 85, 49) : (36, 76, 58, 220, 255, 231),
+            MetadataTone.GenrePurple => IsLightTheme ? (237, 225, 251, 81, 42, 118) : (72, 50, 90, 238, 226, 255),
+            MetadataTone.GenreRose => IsLightTheme ? (251, 227, 231, 126, 38, 64) : (86, 49, 63, 255, 226, 232),
+            MetadataTone.TimeShort => IsLightTheme ? (220, 245, 229, 25, 85, 49) : (36, 76, 58, 220, 255, 231),
+            MetadataTone.TimeMedium => IsLightTheme ? (252, 240, 209, 109, 66, 15) : (80, 66, 43, 255, 239, 201),
+            MetadataTone.TimeLong => IsLightTheme ? (253, 224, 221, 132, 43, 38) : (89, 48, 45, 255, 225, 221),
+            MetadataTone.Age => IsLightTheme ? (253, 224, 221, 132, 43, 38) : (89, 48, 45, 255, 225, 221),
+            MetadataTone.People => IsLightTheme ? (229, 232, 242, 48, 56, 93) : (52, 58, 76, 226, 233, 250),
+            MetadataTone.Rating => IsLightTheme ? (251, 239, 216, 97, 66, 21) : (79, 66, 45, 255, 240, 214),
+            _ => IsLightTheme ? (235, 238, 244, 36, 49, 78) : (50, 57, 70, 235, 241, 251)
+        };
+        return (Brush((byte)color.Item1, (byte)color.Item2, (byte)color.Item3),
+                Brush((byte)color.Item4, (byte)color.Item5, (byte)color.Item6));
+    }
+
+    private Border Chip(string text, MetadataTone tone)
+    {
+        var (background, foreground) = BadgeBrushes(tone);
+        return new Border
+        {
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(10, 6, 10, 6),
+            Background = background,
+            BorderThickness = new Thickness(0),
+            Child = new TextBlock
+            {
+                Text = text,
+                FontSize = 12,
+                Foreground = foreground,
+                MaxWidth = 210,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                VerticalAlignment = VerticalAlignment.Center
+            }
+        };
+    }
+
+    private void AddMetaRow(string label, UIElement value)
+    {
+        var grid = new Grid { ColumnSpacing = 12 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(MetaLabelWidth) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        grid.Children.Add(new TextBlock
+        {
+            Text = label,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            FontSize = 12,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
+        });
+        Grid.SetColumn(value, 1);
+        grid.Children.Add(value);
+        MetaPanel.Children.Add(grid);
+    }
+
+    /// <summary>
+    /// Flow chips into short rows sized against the available page width.
+    /// No external toolkit/WrapPanel, no horizontal overflow for long genres.
+    /// </summary>
+    private StackPanel WrapChips(IEnumerable<(string Name, MetadataTone Tone)> items)
+    {
+        var stack = new StackPanel { Spacing = 6 };
+        var pageWidth = ActualWidth > 0 ? ActualWidth : 1100;
+        var leftRight = pageWidth < 510 ? 24 : pageWidth < 850 ? 40 : 56;
+        var available = pageWidth - leftRight - MetaLabelWidth - 32;
+        if (!_isNarrow)
+            available -= PosterPanel.Width + HeaderGrid.ColumnSpacing;
+        available = Math.Max(130, available);
+
+        StackPanel line = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
+        double used = 0;
+        foreach (var (name, tone) in items)
+        {
+            var estimated = Math.Min(230, 22 + name.Length * 7.2);
+            if (line.Children.Count > 0 && used + 6 + estimated > available)
+            {
+                stack.Children.Add(line);
+                line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+                used = 0;
+            }
+            line.Children.Add(Chip(name, tone));
+            used += (used > 0 ? 6 : 0) + estimated;
+        }
+        if (line.Children.Count > 0) stack.Children.Add(line);
+        return stack;
+    }
+
+    private static string CountryFlag(string name)
+    {
+        var n = name.ToLowerInvariant();
+        if (n.Contains("япон") || n.Contains("japan") || n.Contains("японі")) return "🇯🇵";
+        if (n.Contains("сша") || n.Contains("usa") || n.Contains("united states") ||
+            n.Contains("сполучені штати")) return "🇺🇸";
+        if (n.Contains("росси") || n.Contains("russia") || n.Contains("росі")) return "🇷🇺";
+        if (n.Contains("южная корея") || n.Contains("south korea") || n.Contains("південна корея")) return "🇰🇷";
+        if (n.Contains("китай") || n.Contains("china") || n.Contains("кита")) return "🇨🇳";
+        if (n.Contains("великобрит") || n.Contains("united kingdom") || n.Contains("британ")) return "🇬🇧";
+        if (n.Contains("франц") || n.Contains("france")) return "🇫🇷";
+        if (n.Contains("герман") || n.Contains("germany") || n.Contains("німеч")) return "🇩🇪";
+        if (n.Contains("укра") || n.Contains("ukrain")) return "🇺🇦";
+        return "🌐";
+    }
 
     private void BuildMeta(MovieDetailed details)
     {
         MetaPanel.Children.Clear();
-        if (details.Year != null) AddMeta(Loc.Get("Details.Year"), details.Year);
-        if (details.Countries is { Count: > 0 }) AddMeta(Loc.Get("Details.Country"), string.Join(", ", details.Countries.Select(c => c.Name)));
-        if (details.Genres is { Count: > 0 }) AddMeta(Loc.Get("Details.Genre"), string.Join(", ", details.Genres.Select(g => g.Name)));
-        if (details.Duration is { } mins) AddMeta(Loc.Get("Details.Duration"), $"{mins} {Loc.Get("Common.Minutes")}");
-        if (details.Producers is { Count: > 0 }) AddPersonsMeta(Loc.Get("Details.Director"), details.Producers);
-        if (details.Actors is { Count: > 0 }) AddPersonsMeta(Loc.Get("Details.Actors"), details.Actors);
-        if (details.Slogan is { Length: > 0 }) AddMeta(Loc.Get("Details.Slogan"), details.Slogan);
-        if (details.AgeRestriction is { } age) AddMeta(Loc.Get("Details.Age"), age);
+        if (details.Countries is { Count: > 0 })
+            AddMetaRow(Loc.Get("Details.Country"),
+                WrapChips(details.Countries.Select(c => (CountryFlag(c.Name) + " " + c.Name, MetadataTone.Country))));
+
+        if (details.Genres is { Count: > 0 })
+        {
+            var tones = new[] { MetadataTone.GenreBlue, MetadataTone.GenreRose,
+                MetadataTone.GenreGreen, MetadataTone.GenrePurple };
+            AddMetaRow(Loc.Get("Details.Genre"), WrapChips(details.Genres.Select((g, i) =>
+                (g.Name, tones[i % tones.Length]))));
+        }
+
+        if (details.Duration is { } mins)
+        {
+            var minutes = int.TryParse(mins.ToString(), out var parsed) ? parsed : 0;
+            var tone = minutes is > 0 and <= 30 ? MetadataTone.TimeShort
+                : minutes is > 30 and <= 90 ? MetadataTone.TimeMedium : MetadataTone.TimeLong;
+            AddMetaRow(Loc.Get("Details.Duration"),
+                WrapChips([( "⏱ " + mins + " " + Loc.Get("Common.Minutes"), tone)]));
+        }
+
+        if (details.Producers is { Count: > 0 })
+            AddPersonsMeta(Loc.Get("Details.Director"), details.Producers);
+        if (details.Actors is { Count: > 0 })
+            AddPersonsMeta(Loc.Get("Details.Actors"), details.Actors);
+        if (details.Year != null)
+            AddMetaRow(Loc.Get("Details.Year"), WrapChips([(details.Year, MetadataTone.Neutral)]));
+        if (details.Slogan is { Length: > 0 })
+            AddMeta(Loc.Get("Details.Slogan"), details.Slogan);
+    }
+
+    private void UpdateAgeBadgeStyle()
+    {
+        var (background, foreground) = BadgeBrushes(MetadataTone.Age);
+        AgeRatingBorder.Background = background;
+        AgeRatingText.Foreground = foreground;
+    }
+
+    private void RefreshPresentation()
+    {
+        if (_details is not { } details) return;
+        RatingsPanel.Children.Clear();
+        AddRating("Rezka", details.SiteRating);
+        AddRating("IMDb", details.ImdbRating);
+        AddRating("KP", details.KpRating);
+        BuildMeta(details);
+        UpdateAgeBadgeStyle();
     }
 
     private void AddRating(string label, MovieRating? rating)
@@ -644,30 +813,58 @@ public sealed partial class DetailsPage : Page
         if (rating?.Value == null) return;
         var border = new Border
         {
-            Style = Application.Current.Resources["RatingCardBorder"] as Style,
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(9, 7, 9, 7),
+            Background = BadgeBrushes(MetadataTone.Rating).Bg,
         };
-        var stack = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
-        stack.Children.Add(new TextBlock
+        var stack = new StackPanel
         {
-            Text = label,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            Style = Application.Current.Resources["SecondaryText"] as Style,
+            Orientation = Orientation.Horizontal,
+            Spacing = 6,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var logo = label switch
+        {
+            "IMDb" => "IMDb",
+            "KP" => "КП",
+            _ => "R"
+        };
+        var logoBg = label switch
+        {
+            "IMDb" => Brush(242, 198, 35),
+            "KP" => Brush(245, 129, 49),
+            _ => Brush(70, 73, 78)
+        };
+        var logoFg = label == "Rezka" ? Brush(255, 255, 255) : Brush(25, 25, 25);
+        stack.Children.Add(new Border
+        {
+            CornerRadius = new CornerRadius(5),
+            Background = logoBg,
+            Padding = new Thickness(5, 2, 5, 2),
+            Child = new TextBlock
+            {
+                Text = logo,
+                Foreground = logoFg,
+                FontSize = label == "IMDb" ? 11 : 12,
+                FontWeight = Microsoft.UI.Text.FontWeights.Bold,
+                VerticalAlignment = VerticalAlignment.Center
+            }
         });
         stack.Children.Add(new TextBlock
         {
             Text = rating.Value.Value.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture),
             FontWeight = Microsoft.UI.Text.FontWeights.Bold,
-            Style = Application.Current.Resources["PrimaryText"] as Style,
+            Foreground = BadgeBrushes(MetadataTone.Rating).Fg
         });
         if (rating.Votes != null)
-        {
             stack.Children.Add(new TextBlock
             {
-                Text = $"({rating.Votes} {Loc.Get("Common.Votes")})",
+                Text = "(" + rating.Votes + ")",
                 FontSize = 11,
-                Style = Application.Current.Resources["TertiaryText"] as Style,
+                Foreground = BadgeBrushes(MetadataTone.Rating).Fg,
+                Opacity = .8,
+                VerticalAlignment = VerticalAlignment.Center
             });
-        }
 
         border.Child = stack;
         RatingsPanel.Children.Add(border);
@@ -836,44 +1033,43 @@ public sealed partial class DetailsPage : Page
 
     private void AddPersonsMeta(string label, IReadOnlyList<PersonSimple> persons)
     {
-        var grid = new Grid { ColumnDefinitions = { new ColumnDefinition { Width = new GridLength(MetaLabelWidth) }, new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) } } };
-        grid.Children.Add(new TextBlock
+        // Keep person navigation intact. A capped inline list avoids turning a
+        // large anime cast into dozens of rows; 'more' expands in-place.
+        var text = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = 12 };
+        var visible = _peopleExpanded ? persons.Count : Math.Min(6, persons.Count);
+        for (var i = 0; i < visible; i++)
         {
-            Text = label,
-            Style = Application.Current.Resources["DetailsLabel"] as Style,
-        });
-        var val = new TextBlock
-        {
-            TextWrapping = TextWrapping.Wrap,
-            Style = Application.Current.Resources["DetailsValue"] as Style,
-        };
-        for (var i = 0; i < persons.Count; i++)
-        {
-            if (i > 0) val.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = ", " });
+            if (i > 0) text.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = ", " });
             var person = persons[i];
             var link = new Microsoft.UI.Xaml.Documents.Hyperlink();
             link.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = person.Name });
             link.Click += (_, _) => Nav.Go<PersonPage>(person);
-            val.Inlines.Add(link);
+            text.Inlines.Add(link);
+        }
+        if (visible < persons.Count)
+        {
+            text.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run { Text = "  ·  " });
+            var more = new Microsoft.UI.Xaml.Documents.Hyperlink();
+            more.Inlines.Add(new Microsoft.UI.Xaml.Documents.Run
+            {
+                Text = "+" + (persons.Count - visible) + " " + Loc.Get("Details.ShowMore")
+            });
+            more.Click += (_, _) => { _peopleExpanded = true; if (_details != null) BuildMeta(_details); };
+            text.Inlines.Add(more);
         }
 
-        Grid.SetColumn(val, 1);
-        grid.Children.Add(val);
-        MetaPanel.Children.Add(grid);
+        AddMetaRow(label, new Border
+        {
+            CornerRadius = new CornerRadius(10),
+            Padding = new Thickness(10, 7, 10, 7),
+            Background = BadgeBrushes(MetadataTone.People).Bg,
+            Child = text
+        });
     }
 
     private void AddMeta(string label, string value)
     {
-        var grid = new Grid { ColumnDefinitions = { new ColumnDefinition { Width = new GridLength(MetaLabelWidth) }, new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) } } };
-        grid.Children.Add(new TextBlock
-        {
-            Text = label,
-            Style = Application.Current.Resources["DetailsLabel"] as Style,
-        });
-        var val = new TextBlock { Text = value, Style = Application.Current.Resources["DetailsValue"] as Style };
-        Grid.SetColumn(val, 1);
-        grid.Children.Add(val);
-        MetaPanel.Children.Add(grid);
+        AddMetaRow(label, WrapChips([(value, MetadataTone.Neutral)]));
     }
 
     private async void VoiceBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
