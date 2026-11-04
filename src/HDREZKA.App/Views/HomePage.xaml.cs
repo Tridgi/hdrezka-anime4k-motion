@@ -9,7 +9,7 @@ namespace HDREZKA.App.Views;
 
 public sealed partial class HomePage : Page
 {
-    private const int SectionPreviewCount = 12;
+    private const int SectionPreviewCount = 16;
     private const int HeroCount = 5;
     private const int HomeContinueCount = 3;
 
@@ -21,7 +21,14 @@ public sealed partial class HomePage : Page
     private bool _mirrorRecovered;
     private readonly List<MovieSimple> _heroItems = new();
     private int _heroIndex;
-    private readonly DispatcherTimer _heroTimer = new() { Interval = TimeSpan.FromSeconds(6) };
+    private readonly DispatcherTimer _heroTimer = new() { Interval = TimeSpan.FromSeconds(10) };
+    private readonly Dictionary<string, string> _heroDescriptions = new(StringComparer.OrdinalIgnoreCase);
+    private CancellationTokenSource? _heroDescriptionCts;
+    private CancellationTokenSource? _homeHoverCts;
+    private MovieCard? _hoverCard;
+    private string? _hoverMovieId;
+    private readonly Dictionary<string, MovieDetailed> _hoverCache =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public HomePage()
     {
@@ -38,6 +45,16 @@ public sealed partial class HomePage : Page
         PopularAllButton.Tag = new CatalogLaunch(Section.Films, ListFilter.Popular);
         WatchingAllButton.Tag = new CatalogLaunch(Section.Films, ListFilter.WatchingNow);
         SoonAllButton.Tag = new CatalogLaunch(Section.Films, ListFilter.Soon);
+        // Both the header and the final "See all" tile open the same listing.
+        FilmsEndButton.Tag = FilmsAllButton.Tag;
+        SeriesEndButton.Tag = SeriesAllButton.Tag;
+        CartoonsEndButton.Tag = CartoonsAllButton.Tag;
+        PopularEndButton.Tag = PopularAllButton.Tag;
+        WatchingEndButton.Tag = WatchingAllButton.Tag;
+        SoonEndButton.Tag = SoonAllButton.Tag;
+        HomePreviewHeader.Text = Loc.Get("Details.AboutMovie");
+        SettingsService.Instance.PosterSizeChanged += UpdateRailEndTileSizes;
+
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -57,6 +74,8 @@ public sealed partial class HomePage : Page
         }
 
         ApplyHeroMetrics();
+        UpdateRailEndTileSizes();
+        SettingsService.Instance.DetailPaletteChanged += OnHomePaletteChanged;
         SettingsService.Instance.PosterSizeChanged += OnPosterSizeChanged;
         TrackedSeriesService.UpdatesChanged += OnTrackedUpdatesChanged;
         RenderContinue();
@@ -67,6 +86,9 @@ public sealed partial class HomePage : Page
     {
         base.OnNavigatedFrom(e);
         _heroTimer.Stop();
+        HideHomePreview();
+        try { _heroDescriptionCts?.Cancel(); } catch { }
+        SettingsService.Instance.DetailPaletteChanged -= OnHomePaletteChanged;
         try { _loadCts?.Cancel(); } catch { }
         SettingsService.Instance.PosterSizeChanged -= OnPosterSizeChanged;
         TrackedSeriesService.UpdatesChanged -= OnTrackedUpdatesChanged;
@@ -104,6 +126,14 @@ public sealed partial class HomePage : Page
         RetryButton.Content = Loc.Get("Common.Retry");
         MirrorButton.Content = Loc.Get("Settings.AutoMirror");
         HeroWatchButton.Content = Loc.Get("Common.Watch");
+        HomePreviewHeader.Text = Loc.Get("Details.AboutMovie");
+        var endLabel = Loc.Get("Home.MoreTitles");
+        FilmsEndText.Text = endLabel;
+        SeriesEndText.Text = endLabel;
+        CartoonsEndText.Text = endLabel;
+        PopularEndText.Text = endLabel;
+        WatchingEndText.Text = endLabel;
+        SoonEndText.Text = endLabel;
         ContinueHeader.Text = Loc.Get("Continue.Home");
         TrackedHeader.Text = Loc.Get("Home.Tracked");
         FilmsHeader.Text = Loc.Get("Section.Films") + " — " + Loc.Get("Filter.Latest");
@@ -208,8 +238,8 @@ public sealed partial class HomePage : Page
         {
             var dot = new Microsoft.UI.Xaml.Shapes.Ellipse
             {
-                Width = 8,
-                Height = 8,
+                Width = 9,
+                Height = 9,
                 Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
                 Tag = i,
             };
@@ -257,6 +287,9 @@ public sealed partial class HomePage : Page
         HeroKicker.Text = $"{Loc.Get("Filter.Hot")} · #{_heroIndex + 1}";
         HeroTitle.Text = movie.Name ?? "";
         HeroDetails.Text = movie.Details ?? "";
+        HeroDescription.Text = _heroDescriptions.GetValueOrDefault(movie.Id) ?? "";
+        _ = LoadHeroDescriptionAsync(movie);
+
 
         if (!string.IsNullOrEmpty(movie.Poster))
         {
@@ -284,9 +317,15 @@ public sealed partial class HomePage : Page
         {
             if (HeroDots.Children[i] is Microsoft.UI.Xaml.Shapes.Ellipse dot)
             {
-                dot.Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                    i == _heroIndex ? Microsoft.UI.Colors.White : Windows.UI.Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
-                dot.Width = i == _heroIndex ? 20 : 8;
+                // All indicators are circles; active state is conveyed by
+                // accent, a gentle outline and opacity, not an oval.
+                dot.Fill = i == _heroIndex
+                    ? ThemeHelper.AccentTextBrush
+                    : new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                        Windows.UI.Color.FromArgb(110, 255, 255, 255));
+                dot.Width = 9;
+                dot.Height = 9;
+                dot.Opacity = i == _heroIndex ? 1 : .72;
             }
         }
     }
@@ -328,13 +367,14 @@ public sealed partial class HomePage : Page
         _heroTimer.Start();
     }
 
-    private void BindSection(string id, StackPanel section, GridView grid, IReadOnlyList<MovieSimple> items)
+    private void BindSection(string id, StackPanel section, ItemsControl grid, IReadOnlyList<MovieSimple> items)
     {
         var preview = items.Take(SectionPreviewCount).ToList();
         grid.ItemsSource = preview;
         var show = preview.Count > 0;
         _sectionHasContent[id] = show;
         section.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        DispatcherQueue.TryEnqueue(UpdateRailButtons);
     }
 
     /// <summary>
@@ -586,6 +626,12 @@ public sealed partial class HomePage : Page
     private void HeroCard_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         HeroClipRect.Rect = new Windows.Foundation.Rect(0, 0, Math.Max(0, e.NewSize.Width), Math.Max(0, e.NewSize.Height));
+        var narrow = e.NewSize.Width < 700;
+        HeroPosterBorder.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        HeroInnerGrid.Padding = narrow ? new Thickness(60, 18, 60, 30)
+            : new Thickness(70, 20, 70, 34);
+        HeroTitle.FontSize = e.NewSize.Width < 530 ? 22 : narrow ? 27 : 31;
+        HeroDescription.MaxLines = narrow ? 3 : 4;
     }
 
     private void ShowAll_Click(object sender, RoutedEventArgs e)
