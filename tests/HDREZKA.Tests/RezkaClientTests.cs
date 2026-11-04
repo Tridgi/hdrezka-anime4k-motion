@@ -143,6 +143,31 @@ public class RezkaClientTests
         await client.SignInAsync("user", "pass");
     }
 
+    [Theory]
+    [InlineData("""{"success":true,"comment":"ok"}""")]
+    [InlineData("""{"success":1,"comment":"ok"}""")]
+    [InlineData("""{"success":"1","comment":"ok"}""")]
+    public async Task CommentPost_AcceptsExplicitSiteAcknowledgement(string response)
+    {
+        using var client = CreateClient((_, _) => Json(response));
+        Assert.Equal("ok", await client.SendCommentAsync("123", "Test comment"));
+    }
+
+    [Theory]
+    [InlineData("""{"success":false,"message":"Captcha required"}""", "Captcha required")]
+    [InlineData("""{"success":0,"message":"Session expired"}""", "Session expired")]
+    [InlineData("""{"success":"0","error":"Try again"}""", "Try again")]
+    [InlineData("""{"message":"No success flag"}""", "No success flag")]
+    [InlineData("<html>login</html>", "не JSON")]
+    public async Task CommentPost_PreservesServerRejectionReason(string response, string expected)
+    {
+        using var client = CreateClient((_, _) => Json(response));
+        var ex = await Assert.ThrowsAsync<RezkaException>(
+            () => client.SendCommentAsync("123", "Unsent draft"));
+        Assert.Equal(RezkaError.Site, ex.Kind);
+        Assert.Contains(expected, ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static RezkaClient CreateClient(Func<HttpRequestMessage, int, HttpResponseMessage> responder) =>
         new(new RezkaClientOptions
         {
