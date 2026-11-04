@@ -58,6 +58,32 @@ public sealed partial class MovieCard : UserControl
     }
 
     private double _cardWidthOverride;
+    private float? _detailRating;
+
+    /// <summary>
+    /// Catalog listings frequently omit their score. Once the hovered
+    /// details have been fetched, update the existing poster in place.
+    /// Do not request dozens of detail pages just to draw score badges.
+    /// </summary>
+    public void SetRatingFromDetails(float? rating)
+    {
+        if (Movie == null || Movie.Rating.HasValue || !rating.HasValue) return;
+        _detailRating = rating;
+        UpdateRatingBadge();
+    }
+
+    private void UpdateRatingBadge()
+    {
+        var score = Movie?.Rating ?? _detailRating;
+        RatingBadge.Visibility = score.HasValue
+            ? Visibility.Visible : Visibility.Collapsed;
+        if (!score.HasValue) return;
+        RatingText.Text = "R " + score.Value.ToString("0.0",
+            System.Globalization.CultureInfo.InvariantCulture);
+        RatingBadge.Background = RezkaScoreColors.Gradient(score.Value);
+        RatingText.Foreground = new SolidColorBrush(Microsoft.UI.Colors.White);
+    }
+
 
     /// <summary>
     /// Details recommendations may scale to their grid slot without changing
@@ -84,6 +110,7 @@ public sealed partial class MovieCard : UserControl
     {
         if (d is MovieCard card)
         {
+            card._detailRating = null;
             card.Update();
         }
     }
@@ -97,27 +124,7 @@ public sealed partial class MovieCard : UserControl
 
         PosterCache.SetSource(PosterImage, Movie.Poster);
 
-        RatingBadge.Visibility = Movie.Rating.HasValue ? Visibility.Visible : Visibility.Collapsed;
-        if (Movie.Rating is { } score)
-        {
-            RatingText.Text = "R " + score.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
-            // Smooth red -> orange -> green on the 0–10 scale.
-            var t = Math.Clamp(score, 0f, 10f) / 10f;
-            var start = t < .5f
-                ? (r: 218.0, g: 64.0, b: 70.0, endR: 237.0, endG: 148.0, endB: 48.0, w: t * 2)
-                : (r: 237.0, g: 148.0, b: 48.0, endR: 27.0, endG: 155.0, endB: 100.0, w: (t - .5f) * 2);
-            byte Mix(double a, double b, double weight) =>
-                (byte)Math.Clamp(Math.Round(a + (b - a) * weight), 0, 255);
-            RatingBadge.Background = new SolidColorBrush(Windows.UI.Color.FromArgb(239,
-                Mix(start.r, start.endR, start.w),
-                Mix(start.g, start.endG, start.w),
-                Mix(start.b, start.endB, start.w)));
-            // Midscale orange is bright: use dark ink for legibility.
-            RatingText.Foreground = new SolidColorBrush(
-                score >= 4.4f && score < 7f
-                    ? Windows.UI.Color.FromArgb(255, 31, 34, 38)
-                    : Microsoft.UI.Colors.White);
-        }
+        UpdateRatingBadge();
 
         if (Movie.Info == MediaInfoType.Series && Movie.Season is { } s && Movie.Episode is { } e)
         {
