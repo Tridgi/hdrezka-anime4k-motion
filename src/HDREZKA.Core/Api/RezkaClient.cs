@@ -510,8 +510,61 @@ public sealed class RezkaClient : IDisposable
 
     public async Task<IReadOnlyList<CollectionSimple>> GetAllCollectionsAsync(CancellationToken ct = default)
     {
-        var html = await GetStringAsync("collections/", ct).ConfigureAwait(false);
-        return Parsers.ParseCollectionsList(html);
+        // HDRezka collections use /collections/page/N/, not a single index.
+        // A conservative cap plus duplicate-page detection protects against a
+        // mirror that ignores /page/N/ and returns the first page repeatedly.
+        const int hardPageLimit = 25;
+        var result = new List<CollectionSimple>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (var page = 1; page <= hardPageLimit; page++)
+        {
+            ct.ThrowIfCancellationRequested();
+            string html;
+            try
+            {
+                html = await GetStringAsync(PageUrl("collections/", page), ct)
+                    .ConfigureAwait(false);
+            }
+            catch (RezkaException ex) when (page > 1 &&
+                ex.Kind == RezkaError.NotFound)
+            {
+                break; // end of pagination on mirrors returning a 404
+            }
+            var items = Parsers.ParseCollectionsList(html);
+            if (items.Count == 0) break;
+            var fresh = 0;
+            foreach (var item in items)
+                if (seen.Add(item.Id))
+                {
+                    result.Add(item);
+                    fresh++;
+                }
+            if (fresh == 0) break; // mirror repeated a page (or looped)
+            // If the website exposes pagination, stop at its last page. When
+            // absent, probe the next page, stopping on empty/duplicate/404.
+            var lastPage = Parsers.ParseCollectionsLastPage(html);
+            if (lastPage is { } last && page >= last) break;
+        }
+
+        return result;
+    }
+
+    public Task<(string Title, IReadOnlyList<MovieSimple> Items)> GetGenreListAsync(
+        string genrePath, int page = 1, CancellationToken ct = default)
+    {
+        // Only a same-site genre route is accepted; never make the application
+        // follow an arbitrary URL supplied by page markup.
+        var normalized = genrePath.Trim('/');
+        if (!normalized.StartsWith("genre/", StringComparison.OrdinalIgnoreCase) &&
+            !normalized.Contains("/genre/", StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("Expected a genre page path", nameof(genrePath));
+        if (normalized.Contains("..", StringComparison.Ordinal) ||
+            normalized.Contains("://", StringComparison.Ordinal) ||
+            normalized.Contains('?', StringComparison.Ordinal) ||
+            normalized.Contains('#', StringComparison.Ordinal))
+            throw new ArgumentException("Unsafe genre path", nameof(genrePath));
+        return GetListAsync(PageUrl(normalized + "/", page), ct);
     }
 
     public async Task<IReadOnlyList<MovieSimple>> GetHotMoviesAsync(int genre = 0, CancellationToken ct = default)
