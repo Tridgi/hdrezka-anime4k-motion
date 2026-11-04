@@ -915,7 +915,8 @@ public sealed partial class DetailsPage : Page
                 line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
                 used = 0;
             }
-            var badge = Chip(name, tone);
+            var badge = tone == MetadataTone.Country
+                ? CountryChip(name) : Chip(name, tone);
             if (tone == MetadataTone.Country) ApplyCountryTint(badge, name);
             badge.MaxWidth = Math.Max(124, Math.Min(220, available));
             line.Children.Add(badge);
@@ -928,17 +929,130 @@ public sealed partial class DetailsPage : Page
     private static string CountryFlag(string name)
     {
         var n = name.ToLowerInvariant();
-        if (n.Contains("япон") || n.Contains("japan") || n.Contains("японі")) return "🇯🇵";
-        if (n.Contains("сша") || n.Contains("usa") || n.Contains("united states") ||
-            n.Contains("сполучені штати")) return "🇺🇸";
+        if (n.Contains("греци") || n.Contains("греці") || n.Contains("greece")) return "🇬🇷";
+        if (n.Contains("кипр") || n.Contains("кіпр") || n.Contains("cyprus")) return "🇨🇾";
+        if (n.Contains("япон") || n.Contains("japan")) return "🇯🇵";
+        if (n.Contains("сша") || n.Contains("usa") || n.Contains("united states")) return "🇺🇸";
         if (n.Contains("росси") || n.Contains("russia") || n.Contains("росі")) return "🇷🇺";
-        if (n.Contains("южная корея") || n.Contains("south korea") || n.Contains("південна корея")) return "🇰🇷";
-        if (n.Contains("китай") || n.Contains("china") || n.Contains("кита")) return "🇨🇳";
+        if (n.Contains("корея") || n.Contains("korea")) return "🇰🇷";
+        if (n.Contains("китай") || n.Contains("china")) return "🇨🇳";
         if (n.Contains("великобрит") || n.Contains("united kingdom") || n.Contains("британ")) return "🇬🇧";
         if (n.Contains("франц") || n.Contains("france")) return "🇫🇷";
         if (n.Contains("герман") || n.Contains("germany") || n.Contains("німеч")) return "🇩🇪";
         if (n.Contains("укра") || n.Contains("ukrain")) return "🇺🇦";
+        if (n.Contains("итал") || n.Contains("italy") || n.Contains("італ")) return "🇮🇹";
+        if (n.Contains("испан") || n.Contains("spain") || n.Contains("іспан")) return "🇪🇸";
+        if (n.Contains("польш") || n.Contains("poland") || n.Contains("польщ")) return "🇵🇱";
         return "🌐";
+    }
+
+    private Border CountryChip(string country)
+    {
+        var badge = Chip(country, MetadataTone.Country);
+        var label = (TextBlock)badge.Child;
+        badge.Child = null;
+        var content = new StackPanel
+        {
+            Orientation = Orientation.Horizontal, Spacing = 7,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        content.Children.Add(FlagVisual(CountryFlag(country)));
+        content.Children.Add(label);
+        badge.Child = content;
+        return badge;
+    }
+
+    /// <summary>Lightweight native-vector flags: unlike emoji, reliable in WinUI 3.</summary>
+    private Border FlagVisual(string flag)
+    {
+        var canvas = new Canvas { Width = 24, Height = 16, Background = Brush(255, 255, 255) };
+        static Windows.UI.Color C(byte r, byte g, byte b) => Windows.UI.Color.FromArgb(255, r, g, b);
+        var white = C(255, 255, 255);
+        var red = C(205, 39, 53);
+        var blue = C(25, 88, 163);
+        void Rect(double x, double y, double w, double h, Windows.UI.Color color)
+        {
+            var rect = new Microsoft.UI.Xaml.Shapes.Rectangle
+            {
+                Width = w, Height = h,
+                Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(color)
+            };
+            Canvas.SetLeft(rect, x); Canvas.SetTop(rect, y); canvas.Children.Add(rect);
+        }
+        void H(params Windows.UI.Color[] stripes)
+        {
+            for (var i = 0; i < stripes.Length; i++)
+                Rect(0, i * 16.0 / stripes.Length, 24, 16.0 / stripes.Length + .05, stripes[i]);
+        }
+        void V(params Windows.UI.Color[] stripes)
+        {
+            for (var i = 0; i < stripes.Length; i++)
+                Rect(i * 24.0 / stripes.Length, 0, 24.0 / stripes.Length + .05, 16, stripes[i]);
+        }
+        switch (flag)
+        {
+            case "🇬🇷":
+                for (var i = 0; i < 9; i++) Rect(0, i * 16.0 / 9, 24, 16.0 / 9 + .05,
+                    i % 2 == 0 ? C(13, 94, 175) : white);
+                Rect(0, 0, 10.5, 8.9, C(13, 94, 175));
+                Rect(4.2, 0, 2.1, 8.9, white);
+                Rect(0, 3.4, 10.5, 2.1, white);
+                break;
+            case "🇨🇾":
+                // Cyprus: copper-coloured island over two olive branches.
+                var island = new Microsoft.UI.Xaml.Shapes.Polygon
+                {
+                    Points = new Microsoft.UI.Xaml.Media.PointCollection
+                    {
+                        new Windows.Foundation.Point(2, 7), new Windows.Foundation.Point(6, 5),
+                        new Windows.Foundation.Point(11, 6), new Windows.Foundation.Point(16, 4),
+                        new Windows.Foundation.Point(22, 7), new Windows.Foundation.Point(17, 9),
+                        new Windows.Foundation.Point(12, 11), new Windows.Foundation.Point(5, 10)
+                    },
+                    Fill = Brush(194, 123, 61)
+                };
+                canvas.Children.Add(island);
+                Rect(6.5, 12, 5, 1.3, C(51, 133, 69));
+                Rect(12.5, 12, 5, 1.3, C(51, 133, 69));
+                break;
+            case "🇯🇵":
+                var disc = new Microsoft.UI.Xaml.Shapes.Ellipse { Width = 8, Height = 8, Fill = Brush(185, 37, 52) };
+                Canvas.SetLeft(disc, 8); Canvas.SetTop(disc, 4); canvas.Children.Add(disc); break;
+            case "🇺🇦": H(C(0, 91, 187), C(255, 213, 0)); break;
+            case "🇷🇺": H(white, C(0, 57, 166), red); break;
+            case "🇩🇪": H(C(22, 22, 22), C(205, 21, 36), C(255, 206, 0)); break;
+            case "🇫🇷": V(C(0, 85, 164), white, C(239, 65, 53)); break;
+            case "🇮🇹": V(C(0, 146, 70), white, red); break;
+            case "🇵🇱": H(white, red); break;
+            case "🇪🇸": H(red, C(255, 196, 0), red); break;
+            case "🇺🇸":
+                for (var i = 0; i < 13; i++) Rect(0, i * 16.0 / 13, 24, 16.0 / 13 + .05, i % 2 == 0 ? red : white);
+                Rect(0, 0, 10, 8.7, C(25, 52, 116)); break;
+            case "🇬🇧":
+                Rect(0, 0, 24, 16, C(1, 33, 106));
+                Rect(10, 0, 4, 16, white); Rect(0, 6, 24, 4, white);
+                Rect(11, 0, 2, 16, red); Rect(0, 7, 24, 2, red); break;
+            case "🇨🇳":
+                Rect(0, 0, 24, 16, C(222, 41, 16));
+                var star = new TextBlock { Text = "★", FontSize = 8, Foreground = Brush(255, 222, 0) };
+                Canvas.SetLeft(star, 2); Canvas.SetTop(star, 0); canvas.Children.Add(star); break;
+            case "🇰🇷":
+                var symbol = new Microsoft.UI.Xaml.Shapes.Ellipse
+                { Width = 9, Height = 9, Fill = Brush(204, 38, 56) };
+                Canvas.SetLeft(symbol, 7.5); Canvas.SetTop(symbol, 3.5);
+                canvas.Children.Add(symbol); break;
+            default:
+                var globe = new TextBlock { Text = "🌐", FontSize = 12 };
+                Canvas.SetLeft(globe, 4); Canvas.SetTop(globe, 0);
+                canvas.Children.Add(globe); break;
+        }
+        return new Border
+        {
+            Width = 25, Height = 17, Child = canvas,
+            BorderBrush = Brush(117, 120, 128),
+            BorderThickness = new Thickness(.5), CornerRadius = new CornerRadius(2),
+            VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false
+        };
     }
 
     private void BuildMeta(MovieDetailed details)
@@ -946,7 +1060,7 @@ public sealed partial class DetailsPage : Page
         MetaPanel.Children.Clear();
         if (details.Countries is { Count: > 0 })
             AddMetaRow(Loc.Get("Details.Country"),
-                WrapChips(details.Countries.Select(c => (CountryFlag(c.Name) + " " + c.Name, MetadataTone.Country))));
+                WrapChips(details.Countries.Select(c => (c.Name, MetadataTone.Country))));
 
         if (details.Genres is { Count: > 0 })
         {
