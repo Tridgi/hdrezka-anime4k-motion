@@ -768,12 +768,18 @@ public sealed partial class DetailsPage : Page
             PreviewDirector.Text = "";
             PreviewCast.Text = "";
             StyleRecommendationPreview();
+            if (movie.Rating is { } localScore)
+            {
+                PreviewRezkaBadge.Background = RezkaScoreColors.Gradient(localScore);
+                PreviewRezkaValue.Foreground = Brush(255, 255, 255);
+            }
             RecommendationPreviewOverlay.Visibility = Visibility.Visible;
             PositionRecommendationPreview(card);
 
             if (_recommendationPreviewCache.TryGetValue(movie.Id, out var cached))
             {
                 UpdateRecommendationPreview(cached);
+                card.SetRatingFromDetails(cached.SiteRating?.Value);
                 PositionRecommendationPreview(card);
                 return;
             }
@@ -789,6 +795,7 @@ public sealed partial class DetailsPage : Page
                     _recommendationPreviewCache.Keys.First());
             _recommendationPreviewCache[movie.Id] = details;
             UpdateRecommendationPreview(details);
+            card.SetRatingFromDetails(details.SiteRating?.Value);
             PositionRecommendationPreview(card);
         }
         catch (OperationCanceledException) { }
