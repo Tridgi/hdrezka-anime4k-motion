@@ -43,8 +43,8 @@ public static class GenreColors
         if (name.Contains("фантаст") || name.Contains("sci-fi") ||
             name.Contains("science fiction")) return 204;
         if (name.Contains("фэнтез") || name.Contains("fantasy")) return 266;
-        if (name.Contains("драм") || name.Contains("drama")) return 349;
         if (name.Contains("мелодрам") || name.Contains("romance")) return 312;
+        if (name.Contains("драм") || name.Contains("drama")) return 349;
         if (name.Contains("приключ") || name.Contains("adventure")) return 143;
         if (name.Contains("комед") || name.Contains("comedy")) return 50;
         if (name.Contains("детектив") || name.Contains("detective")) return 185;
