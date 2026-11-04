@@ -410,6 +410,17 @@
                                     <TextBlock x:Name="CommentStatusText" FontSize="12" TextWrapping="Wrap"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                Visibility="Collapsed"/>
+                                    <Button x:Name="CommentOpenSiteButton"
+                                            Click="CommentOpenSiteButton_Click"
+                                            Visibility="Collapsed"
+                                            HorizontalAlignment="Left"
+                                            Padding="12,7"
+                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon Glyph="&#xE774;" FontSize="14"/>
+                                            <TextBlock x:Name="CommentOpenSiteText"/>
+                                        </StackPanel>
+                                    </Button>
                                 </StackPanel>
                             </Border>
                             <StackPanel x:Name="CommentsList" Spacing="10"/>
