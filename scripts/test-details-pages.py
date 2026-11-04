@@ -19,7 +19,7 @@ def contents(name):
 
 class DetailsLayoutSmokeTests(unittest.TestCase):
     def test_xaml_well_formed_and_handlers_exist(self):
-        for name in ("DetailsPage", "SettingsPage", "UpdatesPage"):
+        for name in ("DetailsPage", "SettingsPage", "UpdatesPage", "AppearancePage"):
             markup = contents(name + ".xaml")
             code = contents(name + ".xaml.cs")
             root = ET.fromstring(markup)
@@ -103,6 +103,54 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("CommentOpenSiteButton_Click", code)
         self.assertIn('x:Name="CommentOpenSiteButton"', markup)
         self.assertIn("ex.Kind == RezkaError.Site ? ex.Message", code)
+
+    def test_appearance_page_is_in_footer_and_settings_links_to_it(self):
+        settings = contents("SettingsPage.xaml")
+        appearance = contents("AppearancePage.xaml")
+        code = contents("AppearancePage.xaml.cs")
+        navigation = contents("../MainWindow.xaml")
+        navigation_code = contents("../MainWindow.xaml.cs")
+        self.assertNotIn('x:Name="ThemeBox"', settings)
+        self.assertNotIn('x:Name="PaletteBox"', settings)
+        self.assertIn('x:Name="OpenAppearanceButton"', settings)
+        for name in ("ThemeBox", "ManualBrightnessBox", "AccentMatrixGrid",
+                     "AccentHexBox", "PaletteBox", "PosterSizeBox",
+                     "ResetAppearanceButton", "PreviewRezkaBadge"):
+            self.assertIn('x:Name="' + name + '"', appearance)
+        self.assertIn("SetDetailPalette(palette)", code)
+        self.assertIn("ThemeHelper.Apply(theme)", code)
+        self.assertIn('x:Name="NavAppearance" Tag="Appearance"', navigation)
+        self.assertLess(navigation.index('x:Name="NavAppearance"'),
+                        navigation.index('x:Name="NavSupport"'))
+        self.assertIn('typeof(AppearancePage)', navigation_code)
+
+    def test_mouse_side_buttons_navigate_frame_history(self):
+        code = contents("../MainWindow.xaml.cs")
+        self.assertIn("IsXButton1Pressed", code)
+        self.assertIn("IsXButton2Pressed", code)
+        self.assertIn("ContentFrame.CanGoBack", code)
+        self.assertIn("ContentFrame.CanGoForward", code)
+        self.assertIn("RootGrid.AddHandler(UIElement.PointerPressedEvent", code)
+
+    def test_all_pages_hide_vertical_scrollbar_but_keep_scrolling(self):
+        for file in VIEWS.glob("*.xaml"):
+            text = file.read_text(encoding="utf-8-sig")
+            self.assertNotIn('VerticalScrollBarVisibility="Auto"', text, file.name)
+        self.assertNotIn("VerticalScrollBarVisibility = ScrollBarVisibility.Auto",
+                         contents("DetailsPage.xaml.cs"))
+        self.assertNotIn("VerticalScrollBarVisibility = ScrollBarVisibility.Auto",
+                         contents("VersionHistoryDialog.cs"))
+
+    def test_hover_badges_and_genre_chips_follow_details_palette(self):
+        markup = contents("DetailsPage.xaml")
+        code = contents("DetailsPage.xaml.cs")
+        for name in ("PreviewHeader", "PreviewRezkaBadge", "PreviewImdbBadge",
+                     "PreviewKpBadge", "PreviewGenreChips"):
+            self.assertIn('x:Name="' + name + '"', markup)
+        self.assertIn("StyleRecommendationPreview()", code)
+        self.assertIn("BadgeBrushes(MetadataTone.Rating)", code)
+        self.assertIn("RenderPreviewGenres(IReadOnlyList<MovieGenre>? genres)", code)
+        self.assertIn('Loc.Get("Details.AboutMovie")', code)
 
     def test_notifications_preferences_only_on_notifications_page(self):
         settings = contents("SettingsPage.xaml")
