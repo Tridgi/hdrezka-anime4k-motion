@@ -21,7 +21,8 @@ public sealed partial class HomePage : Page
     private bool _mirrorRecovered;
     private readonly List<MovieSimple> _heroItems = new();
     private int _heroIndex;
-    private readonly DispatcherTimer _heroTimer = new() { Interval = TimeSpan.FromSeconds(10) };
+    private readonly DispatcherTimer _heroTimer = new() { Interval = TimeSpan.FromSeconds(14) };
+    private bool _heroHovered;
     private readonly Dictionary<string, string> _heroDescriptions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _heroBackdrops = new(StringComparer.OrdinalIgnoreCase);
     private CancellationTokenSource? _heroDescriptionCts;
@@ -34,6 +35,19 @@ public sealed partial class HomePage : Page
     public HomePage()
     {
         InitializeComponent();
+
+        // Pause auto-advance while the viewer reads the synopsis or uses
+        // the carousel. It resumes only after the pointer leaves the banner.
+        HeroCard.PointerEntered += (_, _) =>
+        {
+            _heroHovered = true;
+            _heroTimer.Stop();
+        };
+        HeroCard.PointerExited += (_, _) =>
+        {
+            _heroHovered = false;
+            RestartHeroTimer();
+        };
 
         // Страница кэшируется: возврат с деталей не пересоздаёт главную.
         NavigationCacheMode = NavigationCacheMode.Required;
@@ -326,7 +340,9 @@ public sealed partial class HomePage : Page
         if (movie.Rating is { } rating)
         {
             HeroRatingBadge.Visibility = Visibility.Visible;
-            HeroRatingText.Text = rating.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+            HeroRatingText.Text = "R  " + rating.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+            HeroRatingBadge.Background = RezkaScoreColors.Gradient(rating);
+            HeroRatingText.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
         }
         else
         {
@@ -382,9 +398,9 @@ public sealed partial class HomePage : Page
 
     private void RestartHeroTimer()
     {
-        if (_heroItems.Count <= 1) return;
         _heroTimer.Stop();
-        _heroTimer.Start();
+        if (_heroItems.Count > 1 && !_heroHovered)
+            _heroTimer.Start();
     }
 
     private async Task LoadHeroDescriptionAsync(MovieSimple movie)
@@ -670,9 +686,9 @@ public sealed partial class HomePage : Page
         HomePreviewRezka.Visibility = r != null ? Visibility.Visible : Visibility.Collapsed;
         HomePreviewImdb.Visibility = imdb != null ? Visibility.Visible : Visibility.Collapsed;
         HomePreviewKp.Visibility = kp != null ? Visibility.Visible : Visibility.Collapsed;
-        HomePreviewRezkaText.Text = r != null ? "R " + r.Value.ToString("0.0") : "";
-        HomePreviewImdbText.Text = imdb != null ? "IMDb " + imdb.Value.ToString("0.0") : "";
-        HomePreviewKpText.Text = kp != null ? "КП " + kp.Value.ToString("0.0") : "";
+        HomePreviewRezkaText.Text = r?.ToString("0.0") ?? "";
+        HomePreviewImdbText.Text = imdb?.ToString("0.0") ?? "";
+        HomePreviewKpText.Text = kp?.ToString("0.0") ?? "";
         HomePreviewDescription.Text = details.Description ?? "";
         RenderHomePreviewGenres(details.Genres);
         HomePreviewDirector.Text = details.Producers is { Count: > 0 }
@@ -704,8 +720,7 @@ public sealed partial class HomePage : Page
                 ? Visibility.Visible : Visibility.Collapsed;
             HomePreviewImdb.Visibility = Visibility.Collapsed;
             HomePreviewKp.Visibility = Visibility.Collapsed;
-            HomePreviewRezkaText.Text = movie.Rating.HasValue
-                ? "R " + movie.Rating.Value.ToString("0.0") : "";
+            HomePreviewRezkaText.Text = movie.Rating?.ToString("0.0") ?? "";
             HomePreviewDescription.Text = "";
             HomePreviewDirector.Text = "";
             HomePreviewActors.Text = "";
