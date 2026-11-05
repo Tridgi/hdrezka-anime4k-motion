@@ -149,7 +149,8 @@ public sealed partial class MovieCard : UserControl
     private void CardButton_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
         _hovering = true;
-        AnimateScale(1.045f);
+        Canvas.SetZIndex(CardButton, 20);
+        AnimateScale(1.055f);
         AnimateOpacity(HoverOverlay, 1);
         if (RecommendationPreview)
             RecommendationHoverChanged?.Invoke(this,
@@ -159,6 +160,7 @@ public sealed partial class MovieCard : UserControl
     private void CardButton_PointerExited(object sender, PointerRoutedEventArgs e)
     {
         _hovering = false;
+        Canvas.SetZIndex(CardButton, 0);
         AnimateScale(1.0f);
         AnimateOpacity(HoverOverlay, 0);
         if (RecommendationPreview)
@@ -168,7 +170,7 @@ public sealed partial class MovieCard : UserControl
 
     private void CardButton_PointerPressed(object sender, PointerRoutedEventArgs e) => AnimateScale(0.97f);
 
-    private void CardButton_PointerReleased(object sender, PointerRoutedEventArgs e) => AnimateScale(_hovering ? 1.045f : 1.0f);
+    private void CardButton_PointerReleased(object sender, PointerRoutedEventArgs e) => AnimateScale(_hovering ? 1.055f : 1.0f);
 
     private void AnimateScale(float to)
     {
