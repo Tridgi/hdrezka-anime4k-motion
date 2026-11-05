@@ -276,7 +276,9 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         code = contents("HomePage.xaml.cs")
         self.assertIn('x:Name="HeroDescription"', markup)
         self.assertIn('x:Name="HeroInnerGrid"', markup)
-        self.assertIn("TimeSpan.FromSeconds(10)", code)
+        self.assertIn("TimeSpan.FromSeconds(14)", code)
+        self.assertIn("_heroHovered", code)
+        self.assertIn('HeroRatingBadge.Background = RezkaScoreColors.Gradient(rating)', code)
         self.assertIn("LoadHeroDescriptionAsync", code)
         self.assertNotIn('dot.Width = i == _heroIndex ? 20 : 8', code)
         self.assertIn("dot.Width = 9", code)
@@ -302,13 +304,44 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("PositionHomePreview", code)
         self.assertIn("Task.Delay(160, ct)", code)
         self.assertIn('Height="92"', card)
-        self.assertIn('MinHeight="37"', card)
+        self.assertIn('Height="40"', card)
+        self.assertIn('Height="32"', card)
+        self.assertIn('VerticalAlignment="Top" HorizontalAlignment="Left"', card)
+        self.assertIn('Margin="10,20,18,22"', markup)
         self.assertIn('x:Name="RatingBadge"', card)
         self.assertIn("RezkaScoreColors.Gradient(score.Value)", card_code)
         self.assertIn("new CubicEase", card_code)
         self.assertIn("RatingBadge.Margin = InfoBadge.Visibility", card_code)
         self.assertNotIn("SetRatingFromDetails(float? rating)", card_code)
         self.assertIn("var score = Movie?.Rating", card_code)
+
+    def test_full_bleed_palettes_and_zoom_have_no_extra_dark_title_pill(self):
+        appearance = contents("AppearancePage.xaml.cs")
+        card = contents("../Controls/MovieCard.xaml.cs")
+        for fragment in ("var halves = new LinearGradientBrush",
+                         "FontSize = 18", "tile.Children.Add(label);",
+                         "var ink = new SolidColorBrush"):
+            self.assertIn(fragment, appearance)
+        self.assertNotIn("The slight centre shadow keeps white labels", appearance)
+        self.assertIn("Canvas.SetZIndex(CardButton, 20)", card)
+        self.assertIn("AnimateScale(1.055f)", card)
+
+    def test_hover_cards_and_catalog_rows_allow_margin_for_scale(self):
+        for page in ("CatalogPage.xaml", "SearchPage.xaml", "BookmarksPage.xaml"):
+            markup = contents(page)
+            self.assertIn('Value="12,18,12,22"', markup)
+            self.assertIn('VerticalContentAlignment" Value="Top"', markup)
+
+    def test_home_hover_uses_individual_rating_brand_marks(self):
+        markup = contents("HomePage.xaml")
+        code = contents("HomePage.xaml.cs")
+        for name in ("HomePreviewRezka", "HomePreviewImdb",
+                     "HomePreviewKp", "HomePreviewRezkaText",
+                     "HomePreviewImdbText", "HomePreviewKpText"):
+            self.assertIn('x:Name="' + name + '"', markup)
+        self.assertIn('Text="IMDb"', markup)
+        self.assertIn('Text="КП"', markup)
+        self.assertIn('HomePreviewImdbText.Text = imdb?.ToString("0.0")', code)
 
     def test_color_schemes_are_full_bleed_and_hover_genres_text_only(self):
         appearance = contents("AppearancePage.xaml.cs")
