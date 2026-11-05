@@ -253,45 +253,49 @@ public sealed partial class AppearancePage : Page
 
             var selected = scheme.Primary.Equals(
                 SettingsService.Instance.ManualAccentHex, StringComparison.OrdinalIgnoreCase);
-            // Two *full-tile* swatches: sharp 50/50 split, not two tiny dots.
-            // The slight centre shadow keeps white labels legible on light schemes.
+            // Exactly two full-bleed color fields: no darkening overlay and
+            // no third-color label pill. The high-contrast title is centred.
             var halves = new LinearGradientBrush
             {
-                StartPoint = new Windows.Foundation.Point(0, 0.5),
-                EndPoint = new Windows.Foundation.Point(1, 0.5)
+                StartPoint = new Windows.Foundation.Point(0, .5),
+                EndPoint = new Windows.Foundation.Point(1, .5)
             };
             halves.GradientStops.Add(new GradientStop { Offset = 0, Color = primary });
             halves.GradientStops.Add(new GradientStop { Offset = .5, Color = primary });
             halves.GradientStops.Add(new GradientStop { Offset = .5, Color = secondary });
             halves.GradientStops.Add(new GradientStop { Offset = 1, Color = secondary });
+
+            // Choose ink that remains readable across both halves. These
+            // palettes were designed as pairs, so one ink tone suffices.
+            static double Brightness(Windows.UI.Color c) =>
+                (.2126 * c.R + .7152 * c.G + .0722 * c.B) / 255d;
+            var avg = (Brightness(primary) + Brightness(secondary)) / 2;
+            var ink = new SolidColorBrush(avg > .58
+                ? Windows.UI.Color.FromArgb(255, 20, 27, 35)
+                : Windows.UI.Color.FromArgb(255, 255, 255, 255));
             var label = new TextBlock
             {
                 Text = scheme.Name,
-                FontSize = 17,
+                FontSize = 18,
                 FontWeight = Microsoft.UI.Text.FontWeights.Bold,
                 TextAlignment = TextAlignment.Center,
                 TextTrimming = TextTrimming.CharacterEllipsis,
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
+                Foreground = ink
             };
-            var tile = new Grid { MinHeight = 64, HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch };
-            tile.Children.Add(new Border { Background = halves, CornerRadius = new CornerRadius(10) });
+            var tile = new Grid
+            {
+                MinHeight = 72,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
             tile.Children.Add(new Border
             {
-                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(66, 0, 0, 0)),
+                Background = halves,
                 CornerRadius = new CornerRadius(10)
             });
-            tile.Children.Add(new Border
-            {
-                Background = new SolidColorBrush(Windows.UI.Color.FromArgb(108, 0, 0, 0)),
-                CornerRadius = new CornerRadius(8),
-                Padding = new Thickness(12, 6, 12, 6),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                Child = label
-            });
+            tile.Children.Add(label);
             if (selected)
             {
                 var marker = new Border
