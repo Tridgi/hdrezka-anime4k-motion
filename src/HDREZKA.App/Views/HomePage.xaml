@@ -22,7 +22,7 @@
         <DataTemplate x:Key="HomeMovieTemplate" x:DataType="api:MovieSimple">
             <controls:MovieCard Movie="{x:Bind}" RecommendationPreview="True"
                                 RecommendationHoverChanged="HomeMovie_HoverChanged"
-                                Margin="0,12,16,12"/>
+                                Margin="10,20,18,22" VerticalAlignment="Top"/>
         </DataTemplate>
     </Page.Resources>
 
