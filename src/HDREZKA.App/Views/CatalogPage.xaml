@@ -53,10 +53,10 @@
                     <GridView.ItemContainerStyle>
                         <Style TargetType="GridViewItem">
                             <Setter Property="Padding" Value="0"/>
-                            <Setter Property="Margin" Value="0,0,12,16"/>
+                            <Setter Property="Margin" Value="12,18,12,22"/>
                             <Setter Property="MinWidth" Value="0"/>
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                            <Setter Property="VerticalContentAlignment" Value="Top"/>
                             <Setter Property="IsTabStop" Value="False"/>
                         </Style>
                     </GridView.ItemContainerStyle>
