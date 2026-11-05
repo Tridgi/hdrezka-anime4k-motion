@@ -209,7 +209,7 @@
                                 </ItemsControl>
                                 <Button x:Name="FilmsEndButton"
                                         Tag="Films" Click="ShowAll_Click"
-                                        VerticalAlignment="Top" Margin="0,12,12,12"
+                                        VerticalAlignment="Top" Margin="0,20,12,22"
                                         Width="178" Height="198"
                                         Padding="16" CornerRadius="16" BorderThickness="1"
                                         BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
@@ -290,7 +290,7 @@
                                 </ItemsControl>
                                 <Button x:Name="SeriesEndButton"
                                         Tag="Series" Click="ShowAll_Click"
-                                        VerticalAlignment="Top" Margin="0,12,12,12"
+                                        VerticalAlignment="Top" Margin="0,20,12,22"
                                         Width="178" Height="198"
                                         Padding="16" CornerRadius="16" BorderThickness="1"
                                         BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
@@ -371,7 +371,7 @@
                                 </ItemsControl>
                                 <Button x:Name="CartoonsEndButton"
                                         Tag="Cartoons" Click="ShowAll_Click"
-                                        VerticalAlignment="Top" Margin="0,12,12,12"
+                                        VerticalAlignment="Top" Margin="0,20,12,22"
                                         Width="178" Height="198"
                                         Padding="16" CornerRadius="16" BorderThickness="1"
                                         BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
@@ -452,7 +452,7 @@
                                 </ItemsControl>
                                 <Button x:Name="PopularEndButton"
                                         Tag="Popular" Click="ShowAll_Click"
-                                        VerticalAlignment="Top" Margin="0,12,12,12"
+                                        VerticalAlignment="Top" Margin="0,20,12,22"
                                         Width="178" Height="198"
                                         Padding="16" CornerRadius="16" BorderThickness="1"
                                         BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
@@ -533,7 +533,7 @@
                                 </ItemsControl>
                                 <Button x:Name="WatchingEndButton"
                                         Tag="Watching" Click="ShowAll_Click"
-                                        VerticalAlignment="Top" Margin="0,12,12,12"
+                                        VerticalAlignment="Top" Margin="0,20,12,22"
                                         Width="178" Height="198"
                                         Padding="16" CornerRadius="16" BorderThickness="1"
                                         BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
@@ -614,7 +614,7 @@
                                 </ItemsControl>
                                 <Button x:Name="SoonEndButton"
                                         Tag="Soon" Click="ShowAll_Click"
-                                        VerticalAlignment="Top" Margin="0,12,12,12"
+                                        VerticalAlignment="Top" Margin="0,20,12,22"
                                         Width="178" Height="198"
                                         Padding="16" CornerRadius="16" BorderThickness="1"
                                         BorderBrush="{ThemeResource AccentFillColorSecondaryBrush}"
