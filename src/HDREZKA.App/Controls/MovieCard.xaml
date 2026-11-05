@@ -8,6 +8,7 @@
     mc:Ignorable="d">
 
     <Button x:Name="CardButton" Padding="2" Background="Transparent" BorderThickness="0"
+            VerticalAlignment="Top" HorizontalAlignment="Left"
             Click="CardButton_Click"
             PointerEntered="CardButton_PointerEntered"
             PointerExited="CardButton_PointerExited"
@@ -61,11 +62,11 @@
             <StackPanel Grid.Row="1" Margin="4,6,4,0" Spacing="2">
                 <Grid>
                     <TextBlock x:Name="TitleText" Style="{StaticResource CardTitleText}"
-                               MinHeight="37" VerticalAlignment="Top"/>
+                               Height="40" VerticalAlignment="Top"/>
 
                 </Grid>
                 <TextBlock x:Name="DetailsText" Style="{StaticResource CardDetailsText}"
-                           MinHeight="28" VerticalAlignment="Top"/>
+                           Height="32" VerticalAlignment="Top"/>
             </StackPanel>
         </Grid>
     </Button>
