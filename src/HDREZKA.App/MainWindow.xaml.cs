@@ -94,8 +94,6 @@ public sealed partial class MainWindow : Window
 
         ContentFrame.Navigate(typeof(HomePage));
         NavView.SelectedItem = NavHome;
-        NavView.PaneOpened += (_, _) => UpdatePaneGlyph();
-        NavView.PaneClosed += (_, _) => UpdatePaneGlyph();
         UpdatePaneGlyph();
     }
 
