@@ -122,6 +122,43 @@ public class ParserTests
     }
 
     [Fact]
+    public void ParseGenreLinks_ReadsOriginalHdrezkaNavbarWithoutGenreSegment()
+    {
+        var html = """
+            <html><body><div id="wrapper">
+              <ul id="topnav-menu">
+                <li class="b-topnav__item i1"><div><div><ul class="left">
+                  <li><a href="/films/drama/">Драмы</a></li>
+                  <li><a href="/films/melodrama/">Мелодрамы</a></li>
+                </ul></div></div></li>
+                <li class="b-topnav__item i2"><div><div><ul class="left">
+                  <li><a href="/series/melodrama/">Мелодрамы</a></li>
+                  <li><a href="/series/detective/">Детективы</a></li>
+                  <li><a href="/series/popular/">Топ сериалов</a></li>
+                </ul></div></div></li>
+                <li class="b-topnav__item i3"><div><div><ul class="left">
+                  <li><a href="/cartoons/comedy/">Комедии</a></li>
+                </ul></div></div></li>
+                <li class="b-topnav__item i5"><div><div><ul class="left">
+                  <li><a href="/animation/fantasy/">Фэнтези</a></li>
+                </ul></div></div></li>
+              </ul>
+            </div></body></html>
+            """;
+
+        Assert.Equal(
+            ["series/melodrama", "series/detective"],
+            Parsers.ParseGenreLinks(html, Section.Series).Select(x => x.Id));
+        Assert.Equal(
+            ["films/drama", "films/melodrama"],
+            Parsers.ParseGenreLinks(html, Section.Films).Select(x => x.Id));
+        Assert.Equal("cartoons/comedy",
+            Assert.Single(Parsers.ParseGenreLinks(html, Section.Cartoons)).Id);
+        Assert.Equal("animation/fantasy",
+            Assert.Single(Parsers.ParseGenreLinks(html, Section.Anime)).Id);
+    }
+
+    [Fact]
     public void ParseGenreLinks_HandlesNumericGenreSelectOnOtherMirrors()
     {
         var html = """
