@@ -581,17 +581,21 @@ public sealed class RezkaClient : IDisposable
         string genrePath, int page = 1, CancellationToken ct = default,
         ListFilter? filter = null)
     {
-        // Only a same-site genre route is accepted; never make the application
-        // follow an arbitrary URL supplied by page markup.
-        var normalized = genrePath.Trim('/');
-        if (!normalized.StartsWith("genre/", StringComparison.OrdinalIgnoreCase) &&
-            !normalized.Contains("/genre/", StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("Expected a genre page path", nameof(genrePath));
-        if (normalized.Contains("..", StringComparison.Ordinal) ||
+        // Accept the URLs really emitted by the site's navigation:
+        // /series/melodrama/ and /films/drama/ are valid genre pages.
+        // Also support alternate /series/genre/melodrama/ and /genre/drama/.
+        // Reject arbitrary URLs, traversal, query strings or other site routes.
+        var normalized = genrePath.Trim().Trim('/');
+        if (!System.Text.RegularExpressions.Regex.IsMatch(
+            normalized,
+            @"^(?:genre/[a-z0-9_%-]+|(?:films|series|animation|cartoons|show)/(?:genre/)?[a-z0-9_%-]+)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase) ||
+            normalized.Contains("..", StringComparison.Ordinal) ||
             normalized.Contains("://", StringComparison.Ordinal) ||
+            normalized.Contains('\\') ||
             normalized.Contains('?') ||
             normalized.Contains('#'))
-            throw new ArgumentException("Unsafe genre path", nameof(genrePath));
+            throw new ArgumentException("Invalid same-site genre route", nameof(genrePath));
         var query = filter is null ? null :
             new Dictionary<string, string?> { ["filter"] = filter.Value.ToQuery() };
         return GetListAsync(PageUrl(normalized + "/", page, query), ct);
