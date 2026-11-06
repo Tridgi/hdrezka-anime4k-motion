@@ -78,10 +78,11 @@ public class RezkaClientTests
     [InlineData("series/../../secret")]
     [InlineData("series/melodrama?other=1")]
     [InlineData("series/popular/page/2")]
-    public void GetGenreList_RejectsNonGenreOrUnsafePaths(string path)
+    public async Task GetGenreList_RejectsNonGenreOrUnsafePaths(string path)
     {
         using var client = CreateClient((_, _) => Html(DetailsHtml));
-        Assert.Throws<ArgumentException>(() => client.GetGenreListAsync(path));
+        await Assert.ThrowsAsync<ArgumentException>(
+            async () => await client.GetGenreListAsync(path));
     }
 
     [Fact]
