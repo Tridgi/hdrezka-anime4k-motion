@@ -109,6 +109,64 @@ public static class Parsers
         return (title, items);
     }
 
+    /// <summary>
+    /// Discover genres from the markup returned by the active HDRezka mirror,
+    /// rather than assuming slugs or IDs that may differ between mirrors.
+    /// Supports category-scoped genre links, legacy global genre links and
+    /// the numeric genre selector used by some site layouts.
+    /// </summary>
+    public static IReadOnlyList<MovieGenre> ParseGenreLinks(string html, Section section)
+    {
+        var doc = ParseHtml(html);
+        CheckDocument(doc);
+
+        var sectionPrefix = section.ToPath() + "/";
+        var scoped = new List<MovieGenre>();
+        var global = new List<MovieGenre>();
+        foreach (var anchor in doc.QuerySelectorAll("a[href]"))
+        {
+            var path = CleanPath(anchor.GetAttribute("href"));
+            if (path == null) continue;
+            path = path.Split('?', '#')[0].Trim('/');
+            var match = System.Text.RegularExpressions.Regex.Match(path,
+                @"^(?:(films|series|cartoons|animation|show)/)?genre/([a-z0-9_%-]+)(?:/([a-z0-9_%-]+))?$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!match.Success) continue;
+
+            var name = Text(anchor);
+            if (name.Length == 0) name = anchor.GetAttribute("title")?.Trim() ?? "";
+            if (name.Length is < 2 or > 70) continue;
+            if (match.Groups[1].Success)
+            {
+                if (path.StartsWith(sectionPrefix, StringComparison.OrdinalIgnoreCase))
+                    scoped.Add(new MovieGenre(name, path));
+            }
+            else global.Add(new MovieGenre(name, path));
+        }
+
+        var source = scoped.Count > 0 ? scoped : global;
+        if (source.Count == 0)
+        {
+            // Some mirrors expose a numeric <select name="genre">, submitted
+            // together with the existing catalog ?filter=... query.
+            foreach (var option in doc.QuerySelectorAll(
+                "select[name='genre'] option[value], select[id*='genre'] option[value]"))
+            {
+                var value = option.GetAttribute("value")?.Trim();
+                if (!int.TryParse(value, out var id) || id <= 0) continue;
+                var name = Text(option);
+                if (name.Length is < 2 or > 70) continue;
+                source.Add(new MovieGenre(name, "id:" + id));
+            }
+        }
+
+        return source
+            .Where(x => x.Name.Length > 0)
+            .GroupBy(x => x.Name.Trim(), StringComparer.CurrentCultureIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+    }
+
     public static IReadOnlyList<MovieSimple> ParseHotMovies(string html)
     {
         var doc = ParseHtml(html);
