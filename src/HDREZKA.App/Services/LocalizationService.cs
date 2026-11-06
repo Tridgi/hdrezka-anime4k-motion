@@ -348,6 +348,7 @@ public sealed class LocalizationService
         ["Catalog.GenreSelected"] = "Жанр:",
         ["Catalog.ClearGenre"] = "Сбросить",
         ["Catalog.AllGenres"] = "Все жанры",
+        ["Catalog.InvalidGenreUrl"] = "Зеркало вернуло неподдерживаемый адрес жанра. Попробуйте другое зеркало или другой жанр.",
         ["Person.Filmography"] = "Фильмография",
         ["Person.Works"] = "работ",
 };
@@ -664,6 +665,7 @@ public sealed class LocalizationService
         ["Catalog.GenreSelected"] = "Genre:",
         ["Catalog.ClearGenre"] = "Clear",
         ["Catalog.AllGenres"] = "All genres",
+        ["Catalog.InvalidGenreUrl"] = "The mirror returned an unsupported genre link. Try another mirror or genre.",
         ["Person.Filmography"] = "Filmography",
         ["Person.Works"] = "titles",
 };
@@ -980,6 +982,7 @@ public sealed class LocalizationService
         ["Catalog.GenreSelected"] = "Жанр:",
         ["Catalog.ClearGenre"] = "Скинути",
         ["Catalog.AllGenres"] = "Усі жанри",
+        ["Catalog.InvalidGenreUrl"] = "Дзеркало повернуло непідтримуване посилання на жанр. Спробуйте інше дзеркало або жанр.",
         ["Person.Filmography"] = "Фільмографія",
         ["Person.Works"] = "робіт",
 };
