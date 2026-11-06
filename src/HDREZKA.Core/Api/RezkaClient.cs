@@ -967,7 +967,7 @@ public sealed class RezkaClient : IDisposable
 
         result = System.Net.WebUtility.HtmlDecode(
             System.Text.RegularExpressions.Regex.Replace(result, "<[^>]*>", " "));
-        result = System.Text.RegularExpressions.Regex.Replace(result, @"\\s+", " ").Trim();
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", " ").Trim();
         return result.Length > 350 ? result[..350] : result;
     }
 
