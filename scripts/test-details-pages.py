@@ -19,7 +19,7 @@ def contents(name):
 
 class DetailsLayoutSmokeTests(unittest.TestCase):
     def test_xaml_well_formed_and_handlers_exist(self):
-        for name in ("DetailsPage", "SettingsPage", "UpdatesPage", "AppearancePage", "HomePage", "CatalogPage", "CollectionsPage", "PersonPage"):
+        for name in ("DetailsPage", "SettingsPage", "UpdatesPage", "AppearancePage", "HomePage", "CatalogPage", "CollectionsPage", "PersonPage", "SupportPage"):
             markup = contents(name + ".xaml")
             code = contents(name + ".xaml.cs")
             root = ET.fromstring(markup)
@@ -97,7 +97,11 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         code = contents("CatalogPage.xaml.cs")
         self.assertLess(markup.index('x:Name="FilterBox"'),
                         markup.index('x:Name="SectionPanel"'))
-        self.assertIn('Grid.Column="0" Width="205"', markup)
+        self.assertLess(markup.index('x:Name="SectionPanel"'),
+                        markup.index('x:Name="GenreBox"'))
+        self.assertLess(markup.index('x:Name="GenreBox"'),
+                        markup.index('x:Name="ClearGenreButton"'))
+        self.assertNotIn('x:Name="GenreFilterPanel"', markup)
         self.assertIn('RecommendationPreview="True"', markup)
         self.assertIn('RecommendationHoverChanged="CatalogMovie_HoverChanged"', markup)
         self.assertIn('x:Name="CatalogPreviewLayer"', markup)
@@ -110,6 +114,26 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("GenreColors.Palette", code)
         self.assertIn("HideCatalogPreview();", code)
         self.assertIn("if (_previewCache.Count >= 24)", code)
+
+    def test_boosty_support_page_has_no_redemption_form(self):
+        markup = contents("SupportPage.xaml")
+        code = contents("SupportPage.xaml.cs")
+        self.assertIn('x:Name="BoostyButton"', markup)
+        self.assertIn("https://boosty.to/tridgi", code)
+        for name in ("DonorBox", "ApplyDonorButton", "BoostyQrImage",
+                     "DonorStatusText", "DonorPerksText"):
+            self.assertNotIn(name, markup)
+            self.assertNotIn(name, code)
+
+    def test_comment_ownership_and_error_decoding_are_implemented(self):
+        details = contents("DetailsPage.xaml.cs")
+        core = contents("../../HDREZKA.Core/Api/RezkaClient.cs")
+        parser = contents("../../HDREZKA.Core/Api/Parsers.cs")
+        self.assertIn('Loc.Get("Comments.YourComment")', details)
+        self.assertIn('comment.IsOwn', details)
+        self.assertIn('IsOwn: isOwn', parser)
+        self.assertIn('allowed_comments', core)
+        self.assertIn('CleanCommentMessage(', core)
 
     def test_collections_browse_grid_replaces_horizontal_strip(self):
         markup = contents("CollectionsPage.xaml")
