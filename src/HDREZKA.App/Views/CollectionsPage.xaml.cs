@@ -158,6 +158,17 @@ public sealed partial class CollectionsPage : Page
 
     private void BrowseRetryButton_Click(object sender, RoutedEventArgs e) => LoadCollections();
 
+    // The window-level Back button and mouse Back should leave an opened
+    // collection before navigating to the previously visited application page.
+    public bool IsDetailOpen => _collectionViewActive;
+
+    public bool TryReturnToBrowse()
+    {
+        if (!_collectionViewActive) return false;
+        ReturnToBrowse();
+        return true;
+    }
+
     private void BackToCollectionsButton_Click(object sender, RoutedEventArgs e)
         => ReturnToBrowse();
 
@@ -214,7 +225,11 @@ public sealed partial class CollectionsPage : Page
             posterBorder.Child = new Image
             {
                 Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(uri),
-                Stretch = Stretch.UniformToFill
+                // Collection covers are already landscape images. Keep the entire
+                // artwork visible instead of cropping titles/logos at the edges.
+                Stretch = Stretch.Uniform,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch
             };
         }
         else
