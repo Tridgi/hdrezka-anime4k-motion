@@ -236,6 +236,67 @@ public class RezkaClientTests
         Assert.Contains(expected, ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("""{"success":false,"message":["Нельзя отправить комментарий","Проверьте вход"]}""",
+        "Нельзя отправить комментарий Проверьте вход")]
+    [InlineData("""{"success":false,"message":["Комментарий слишком короткий"]}""",
+        "Комментарий слишком короткий")]
+    public async Task CommentPost_ShowsReadableMessageArray(string response, string expected)
+    {
+        using var client = CreateClient((_, _) => Json(response));
+        var error = await Assert.ThrowsAsync<RezkaException>(
+            () => client.SendCommentAsync("100", "Сохранённый черновик"));
+        Assert.Equal(RezkaError.Site, error.Kind);
+        Assert.Contains(expected, error.Message);
+    }
+
+    [Fact]
+    public async Task CommentPost_DecodesNestedJsonAndUnicode()
+    {
+        var nested = System.Text.Json.JsonSerializer.Serialize(
+            new[] { "Не удалось отправить", "Проверьте авторизацию" });
+        var response = System.Text.Json.JsonSerializer.Serialize(
+            new { success = false, message = nested });
+        using var client = CreateClient((_, _) => Json(response));
+        var error = await Assert.ThrowsAsync<RezkaException>(
+            () => client.SendCommentAsync("100", "Черновик"));
+        Assert.Equal("Не удалось отправить Проверьте авторизацию", error.Message);
+        Assert.DoesNotContain(@"\u041", error.Message);
+    }
+
+    [Fact]
+    public async Task CommentPost_AcknowledgesModeration()
+    {
+        using var client = CreateClient((_, _) =>
+            Json("""{"success":true,"on_moderation":true,"message":["Комментарий на модерации"]}"""));
+        Assert.Contains("модерации",
+            await client.SendCommentAsync("100", "Мой комментарий"));
+    }
+
+    [Fact]
+    public async Task CommentPost_PreservesOriginAndMovieReferer()
+    {
+        string? body = null;
+        string? origin = null, referer = null, requestedWith = null;
+        using var client = CreateClient((request, _) =>
+        {
+            body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            origin = request.Headers.GetValues("Origin").Single();
+            referer = request.Headers.Referrer?.AbsoluteUri;
+            requestedWith = request.Headers.GetValues("X-Requested-With").Single();
+            return Json("""{"success":true}""");
+        });
+
+        await client.SendCommentAsync("54321", "Проверка", sourcePath: "films/54321-film.html");
+
+        Assert.Contains("post_id=54321", body);
+        Assert.Contains("comments=", body);
+        Assert.Contains("has_adb=2", body);
+        Assert.Equal("https://mirror.example", origin);
+        Assert.Equal("https://mirror.example/films/54321-film.html", referer);
+        Assert.Equal("XMLHttpRequest", requestedWith);
+    }
+
     private static RezkaClient CreateClient(Func<HttpRequestMessage, int, HttpResponseMessage> responder) =>
         new(new RezkaClientOptions
         {
