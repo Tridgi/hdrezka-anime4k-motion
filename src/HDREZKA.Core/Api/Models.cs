@@ -72,7 +72,8 @@ public sealed record CommentItem(
     IReadOnlyList<CommentItem> Replies,
     int Likes,
     bool IsLiked,
-    bool IsAdmin);
+    bool IsAdmin,
+    bool IsOwn = false);
 
 public sealed record BookmarkCategory(int Id, string Name, int Count);
 
