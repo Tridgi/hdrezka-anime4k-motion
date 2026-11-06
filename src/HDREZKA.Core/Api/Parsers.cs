@@ -324,6 +324,7 @@ public static class Parsers
                             year = Text(valueEl);
                             break;
                         case "Режиссер":
+                        case "Режиссеры":
                             producers = MergePersons(producers, ParsePersons(valueEl));
                             break;
                         case "Возраст":
@@ -334,6 +335,10 @@ public static class Parsers
                                 .Select(a => new MovieCountry(Text(a), CleanPath(a.GetAttribute("href")) ?? "")).ToList();
                             break;
                         case "Жанр":
+                        case "Жанры":
+                        case "Жанри":
+                        case "Genre":
+                        case "Genres":
                             genres = valueEl.QuerySelectorAll("a")
                                 .Select(a => new MovieGenre(Text(a), CleanPath(a.GetAttribute("href")) ?? "")).ToList();
                             break;
