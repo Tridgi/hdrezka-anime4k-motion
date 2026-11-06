@@ -17,33 +17,32 @@
 
         <StackPanel Spacing="10">
             <TextBlock x:Name="TitleText" FontSize="28" FontWeight="Bold"/>
-            <!-- Filter first, directly beside the media-type buttons. -->
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <ComboBox x:Name="FilterBox" Grid.Column="0" Width="205"
-                          MinWidth="175" VerticalAlignment="Center"
-                          SelectionChanged="FilterBox_SelectionChanged"/>
-                <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Hidden"
-                              HorizontalScrollMode="Auto" VerticalScrollMode="Disabled"
-                              VerticalScrollBarVisibility="Disabled">
-                    <StackPanel x:Name="SectionPanel" Orientation="Horizontal" Spacing="8"/>
-                </ScrollViewer>
-            </Grid>
-            <!-- Genres are read from the active mirror, not a fixed local list. -->
-            <ComboBox x:Name="GenreBox" Width="245" MinWidth="185"
-                      HorizontalAlignment="Left" VerticalAlignment="Center"
-                      SelectionChanged="GenreBox_SelectionChanged"/>
-            <StackPanel x:Name="GenreFilterPanel" Orientation="Horizontal"
-                        Spacing="10" Visibility="Collapsed">
-                <TextBlock x:Name="GenreFilterText" FontSize="12"
-                           VerticalAlignment="Center"
-                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                <Button x:Name="ClearGenreButton" Click="ClearGenreButton_Click"
-                        MinWidth="0" Padding="10,4" CornerRadius="8"/>
-            </StackPanel>
+            <!-- A single toolbar; on smaller windows the user can scroll
+                 horizontally instead of losing access to a filter. -->
+            <ScrollViewer HorizontalScrollMode="Auto"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollMode="Disabled"
+                          VerticalScrollBarVisibility="Disabled">
+                <StackPanel Orientation="Horizontal" Spacing="10"
+                            VerticalAlignment="Center">
+                    <ComboBox x:Name="FilterBox" Width="190"
+                              MinWidth="175" VerticalAlignment="Center"
+                              SelectionChanged="FilterBox_SelectionChanged"/>
+                    <Border Width="1" Height="25" VerticalAlignment="Center"
+                            Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
+                    <StackPanel x:Name="SectionPanel" Orientation="Horizontal"
+                                Spacing="6" VerticalAlignment="Center"/>
+                    <Border Width="1" Height="25" VerticalAlignment="Center"
+                            Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
+                    <ComboBox x:Name="GenreBox" Width="215" MinWidth="180"
+                              VerticalAlignment="Center"
+                              SelectionChanged="GenreBox_SelectionChanged"/>
+                    <Button x:Name="ClearGenreButton" Click="ClearGenreButton_Click"
+                            Visibility="Collapsed"
+                            Padding="12,6" MinWidth="0"
+                            CornerRadius="8" VerticalAlignment="Center"/>
+                </StackPanel>
+            </ScrollViewer>
         </StackPanel>
 
         <ScrollViewer x:Name="ItemsScroll" Grid.Row="1" VerticalScrollBarVisibility="Hidden" ViewChanged="ItemsScroll_ViewChanged">
