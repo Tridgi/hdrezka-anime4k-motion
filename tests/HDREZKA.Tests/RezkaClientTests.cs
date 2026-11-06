@@ -17,6 +17,73 @@ public class RezkaClientTests
         </div></body></html>
         """;
 
+    [Theory]
+    [InlineData("series/melodrama", "/series/melodrama/?filter=last")]
+    [InlineData("films/drama", "/films/drama/?filter=last")]
+    [InlineData("series/genre/melodrama", "/series/genre/melodrama/?filter=last")]
+    [InlineData("genre/fantastic", "/genre/fantastic/?filter=last")]
+    public async Task GetGenreList_UsesExactValidSiteRoute(
+        string genrePath, string expectedRequest)
+    {
+        var paths = new List<string>();
+        using var client = CreateClient((request, _) =>
+        {
+            paths.Add(request.RequestUri!.PathAndQuery);
+            return Html("""
+                <html><body><div id="wrapper">
+                  <div class="b-content__inline_item"
+                       data-url="/series/1234-love.html">
+                    <div class="b-content__inline_item-cover">
+                      <a><img src="https://cdn.example/1.jpg"></a>
+                    </div>
+                    <div class="b-content__inline_item-link"><a>Любовь</a></div>
+                  </div>
+                </div></body></html>
+                """);
+        });
+
+        var (_, items) = await client.GetGenreListAsync(genrePath, filter: ListFilter.Latest);
+
+        Assert.Equal(expectedRequest, Assert.Single(paths));
+        Assert.Equal("Любовь", Assert.Single(items).Name);
+    }
+
+    [Fact]
+    public async Task GetGenreOptions_UsesCorrectMediaNavbarFromActiveMirror()
+    {
+        var paths = new List<string>();
+        using var client = CreateClient((request, _) =>
+        {
+            paths.Add(request.RequestUri!.AbsolutePath);
+            return Html("""
+                <html><body><div id="wrapper"><ul>
+                  <li class="b-topnav__item i1"><ul class="left">
+                    <li><a href="/films/melodrama/">Мелодрамы</a></li>
+                  </ul></li>
+                  <li class="b-topnav__item i2"><ul class="left">
+                    <li><a href="/series/melodrama/">Мелодрамы</a></li>
+                  </ul></li>
+                </ul></div></body></html>
+                """);
+        });
+
+        var series = await client.GetGenreOptionsAsync(Section.Series);
+
+        Assert.Equal("/series/", Assert.Single(paths));
+        Assert.Equal("series/melodrama", Assert.Single(series).Id);
+    }
+
+    [Theory]
+    [InlineData("https://evil.example/series/melodrama")]
+    [InlineData("series/../../secret")]
+    [InlineData("series/melodrama?other=1")]
+    [InlineData("series/popular/page/2")]
+    public void GetGenreList_RejectsNonGenreOrUnsafePaths(string path)
+    {
+        using var client = CreateClient((_, _) => Html(DetailsHtml));
+        Assert.Throws<ArgumentException>(() => client.GetGenreListAsync(path));
+    }
+
     [Fact]
     public async Task Get_403_FlipsHeaderVariant_AndRetriesOnce()
     {
