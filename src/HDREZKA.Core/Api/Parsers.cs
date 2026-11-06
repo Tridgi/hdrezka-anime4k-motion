@@ -1334,6 +1334,11 @@ public static class Parsers
             var text = textEl != null ? ElementToPlainText(textEl) : "";
 
             var like = el.QuerySelector(".b-comment__like_it");
+            // Site markup exposes owner-only edit actions and disables likes
+            // for the author's own comment. These work even when the user
+            // signed in with an email that differs from their visible nickname.
+            var isOwn = el.QuerySelector(".actions ul.edit a, ul.edit a") != null
+                || el.QuerySelector(".show-likes-comment.self-disabled, .b-comment__like_it.self-disabled") != null;
 
             result.Add(new CommentItem(
                 Id: el.GetAttribute("data-id") ?? "",
@@ -1344,7 +1349,8 @@ public static class Parsers
                 Replies: ParseCommentsLevel(el, depth + 1),
                 Likes: ToInt(like?.GetAttribute("data-likes_num")) ?? 0,
                 IsLiked: like != null && like.ClassList.Contains("disabled"),
-                IsAdmin: el.QuerySelector(".b-comment")?.ClassList.Contains("b-comment__admin") == true));
+                IsAdmin: el.QuerySelector(".b-comment")?.ClassList.Contains("b-comment__admin") == true,
+                IsOwn: isOwn));
         }
 
         return result;
