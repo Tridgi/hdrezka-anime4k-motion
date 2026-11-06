@@ -30,6 +30,10 @@ public sealed partial class CatalogPage : Page
     private int _page = 1;
     private string? _genrePath;
     private string? _genreName;
+    private IReadOnlyList<MovieGenre> _availableGenres = [];
+    private long _genreRequestVersion;
+    private long _requestVersion;
+    private long _activeRequestVersion;
     private bool _hasMore = true;
     private bool _loading;
     private bool _mirrorRecovered;
@@ -54,6 +58,14 @@ public sealed partial class CatalogPage : Page
         {
             _genrePath = genre.Genre.Id;
             _genreName = genre.Genre.Name;
+            // Select the matching media section when a film's genre link
+            // leads into a different section of the source website.
+            foreach (var candidate in Sections)
+                if (_genrePath.StartsWith(candidate.ToPath() + "/", StringComparison.OrdinalIgnoreCase))
+                {
+                    _section = candidate;
+                    break;
+                }
             _page = 1;
             _items.Clear();
             ItemsGrid.ItemsSource = null;
@@ -88,6 +100,8 @@ public sealed partial class CatalogPage : Page
         MarkSection(_section);
         BuildFilters();
         UpdateGenreFilter();
+        RebuildGenreBox();
+        _ = LoadGenresAsync();
         if (_items.Count == 0)
         {
             Reload();
@@ -108,6 +122,7 @@ public sealed partial class CatalogPage : Page
             ApplyLocalization();
             BuildFilters();
             MarkSection(_section);
+            RebuildGenreBox();
         });
     }
 
@@ -116,6 +131,7 @@ public sealed partial class CatalogPage : Page
         TitleText.Text = Loc.Get("Catalog.Title");
         ClearGenreButton.Content = Loc.Get("Catalog.ClearGenre");
         UpdateGenreFilter();
+        RebuildGenreBox();
         CatalogPreviewHeader.Text = Loc.Get("Details.AboutMovie");
         MoreButton.Content = Loc.Get("Common.LoadMore");
         RetryButton.Content = Loc.Get("Common.Retry");
@@ -165,6 +181,64 @@ public sealed partial class CatalogPage : Page
         FilterBox.SelectionChanged += FilterBox_SelectionChanged;
     }
 
+    private void RebuildGenreBox()
+    {
+        GenreBox.SelectionChanged -= GenreBox_SelectionChanged;
+        GenreBox.Header = Loc.Get("Details.Genre");
+        GenreBox.Items.Clear();
+        GenreBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Catalog.AllGenres") });
+        foreach (var genre in _availableGenres)
+            GenreBox.Items.Add(new ComboBoxItem { Content = genre.Name, Tag = genre });
+
+        var selectedIndex = _availableGenres.ToList().FindIndex(g =>
+            string.Equals(g.Id, _genrePath, StringComparison.OrdinalIgnoreCase));
+        if (selectedIndex < 0 && !string.IsNullOrWhiteSpace(_genrePath))
+        {
+            // Preserve a genre opened directly from a movie, even when the
+            // active mirror omitted it from its main navigation menu.
+            GenreBox.Items.Add(new ComboBoxItem
+            {
+                Content = _genreName ?? _genrePath,
+                Tag = new MovieGenre(_genreName ?? _genrePath, _genrePath)
+            });
+            GenreBox.SelectedIndex = GenreBox.Items.Count - 1;
+        }
+        else GenreBox.SelectedIndex = selectedIndex + 1;
+        GenreBox.SelectionChanged += GenreBox_SelectionChanged;
+    }
+
+    private async Task LoadGenresAsync()
+    {
+        var section = _section;
+        var version = ++_genreRequestVersion;
+        try
+        {
+            var genres = await RezkaService.Instance.Client.GetGenreOptionsAsync(section);
+            if (version != _genreRequestVersion || section != _section) return;
+            _availableGenres = genres;
+            Log.Info($"[Catalog] section={section} source genres={genres.Count}");
+        }
+        catch (Exception ex)
+        {
+            if (version != _genreRequestVersion || section != _section) return;
+            _availableGenres = [];
+            Log.Info("[Catalog] Genre menu unavailable: " + ex.Message);
+        }
+        RebuildGenreBox();
+    }
+
+    private void GenreBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (GenreBox.SelectedItem is not ComboBoxItem choice) return;
+        var selected = choice.Tag as MovieGenre;
+        var path = selected?.Id;
+        if (string.Equals(_genrePath, path, StringComparison.OrdinalIgnoreCase)) return;
+        _genrePath = path;
+        _genreName = selected?.Name;
+        UpdateGenreFilter();
+        Reload();
+    }
+
     private void UpdateGenreFilter()
     {
         if (GenreFilterPanel == null) return;
@@ -178,6 +252,7 @@ public sealed partial class CatalogPage : Page
         _genreName = null;
         _genrePath = null;
         UpdateGenreFilter();
+        RebuildGenreBox();
         Reload();
     }
 
@@ -191,6 +266,9 @@ public sealed partial class CatalogPage : Page
         _genreName = null;
         UpdateGenreFilter();
         MarkSection(section);
+        _availableGenres = [];
+        RebuildGenreBox();
+        _ = LoadGenresAsync();
         Reload();
     }
 
@@ -205,6 +283,9 @@ public sealed partial class CatalogPage : Page
 
     private void Reload()
     {
+        // Invalidate an old response when the user changes a genre or filter
+        // while a previous request is still in flight.
+        _requestVersion++;
         HideCatalogPreview();
         _page = 1;
         _items.Clear();
@@ -216,42 +297,67 @@ public sealed partial class CatalogPage : Page
 
     private async Task LoadAsync()
     {
-        if (_loading) return;
+        if (_loading && _activeRequestVersion == _requestVersion) return;
+        var version = _requestVersion;
+        var section = _section;
+        var filter = _filter;
+        var genrePath = _genrePath;
+        var page = _page;
+        _activeRequestVersion = version;
         _loading = true;
         MoreRing.IsActive = true;
         MorePanel.Visibility = Visibility.Visible;
         MoreButton.IsEnabled = false;
+        bool IsCurrent() => version == _requestVersion;
 
         try
         {
-            var (_, items) = _genrePath is { Length: > 0 } genre
-                ? await RezkaService.Instance.Client.GetGenreListAsync(genre, _page)
-                : await RezkaService.Instance.Client.GetSectionListAsync(_section, _filter, 0, _page);
-            _items.AddRange(items);
+            (string _, IReadOnlyList<MovieSimple> items) result;
+            if (genrePath is { Length: > 0 } genre)
+            {
+                result = genre.StartsWith("id:", StringComparison.OrdinalIgnoreCase) &&
+                    int.TryParse(genre.AsSpan(3), out var genreId)
+                    ? await RezkaService.Instance.Client.GetSectionListAsync(section, filter, genreId, page)
+                    : await RezkaService.Instance.Client.GetGenreListAsync(genre, page, filter: filter);
+            }
+            else result = await RezkaService.Instance.Client.GetSectionListAsync(section, filter, 0, page);
+
+            if (!IsCurrent()) return;
+            _items.AddRange(result.items);
             ItemsGrid.ItemsSource = _items.ToList();
-            _hasMore = items.Count > 0;
+            _hasMore = result.items.Count > 0;
             ShowState(false, "");
         }
         catch (RezkaException ex)
         {
+            if (!IsCurrent()) return;
             if (!_mirrorRecovered && ex.Kind is RezkaError.Network or RezkaError.AccessDenied or RezkaError.MirrorBanned)
             {
                 _mirrorRecovered = true;
                 if (await MirrorRecovery.TryRecoverAsync())
                 {
-                    DispatcherQueue.TryEnqueue(() => _ = LoadAsync());
+                    if (IsCurrent()) DispatcherQueue.TryEnqueue(() => _ = LoadAsync());
                     return;
                 }
             }
 
-            ShowState(true, RezkaService.Instance.ErrorText(ex), showRetry: true);
+            if (IsCurrent()) ShowState(true, RezkaService.Instance.ErrorText(ex), showRetry: true);
+        }
+        catch (Exception ex)
+        {
+            if (!IsCurrent()) return;
+            Log.Error("[Catalog] Loading failed", ex);
+            ShowState(true, Loc.Get("Error.Network"), showRetry: true);
         }
         finally
         {
-            _loading = false;
-            MoreRing.IsActive = false;
-            MoreButton.IsEnabled = true;
-            MorePanel.Visibility = _hasMore && _items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (IsCurrent())
+            {
+                _loading = false;
+                MoreRing.IsActive = false;
+                MoreButton.IsEnabled = true;
+                MorePanel.Visibility = _hasMore && _items.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
     }
 
