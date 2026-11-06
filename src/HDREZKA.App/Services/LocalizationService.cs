@@ -347,6 +347,7 @@ public sealed class LocalizationService
         ["Details.Collections"] = "В подборках",
         ["Catalog.GenreSelected"] = "Жанр:",
         ["Catalog.ClearGenre"] = "Сбросить",
+        ["Catalog.AllGenres"] = "Все жанры",
         ["Person.Filmography"] = "Фильмография",
         ["Person.Works"] = "работ",
 };
@@ -662,6 +663,7 @@ public sealed class LocalizationService
         ["Details.Collections"] = "In collections",
         ["Catalog.GenreSelected"] = "Genre:",
         ["Catalog.ClearGenre"] = "Clear",
+        ["Catalog.AllGenres"] = "All genres",
         ["Person.Filmography"] = "Filmography",
         ["Person.Works"] = "titles",
 };
@@ -977,6 +979,7 @@ public sealed class LocalizationService
         ["Details.Collections"] = "У добірках",
         ["Catalog.GenreSelected"] = "Жанр:",
         ["Catalog.ClearGenre"] = "Скинути",
+        ["Catalog.AllGenres"] = "Усі жанри",
         ["Person.Filmography"] = "Фільмографія",
         ["Person.Works"] = "робіт",
 };
