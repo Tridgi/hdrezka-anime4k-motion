@@ -110,45 +110,78 @@ public static class Parsers
     }
 
     /// <summary>
-    /// Discover genres from the markup returned by the active HDRezka mirror,
-    /// rather than assuming slugs or IDs that may differ between mirrors.
-    /// Supports category-scoped genre links, legacy global genre links and
-    /// the numeric genre selector used by some site layouts.
+    /// Find the actual genre links advertised by the current mirror. The
+    /// original HDRezka navbar uses /films/drama/, /series/melodrama/, etc.
+    /// Some mirrors additionally use /series/genre/melodrama/ or /genre/...
+    /// The navbar for the selected media section has priority; never show
+    /// film genre routes in the series selector.
     /// </summary>
     public static IReadOnlyList<MovieGenre> ParseGenreLinks(string html, Section section)
     {
         var doc = ParseHtml(html);
         CheckDocument(doc);
 
-        var sectionPrefix = section.ToPath() + "/";
-        var scoped = new List<MovieGenre>();
-        var global = new List<MovieGenre>();
-        foreach (var anchor in doc.QuerySelectorAll("a[href]"))
+        var sectionPath = section.ToPath();
+        var navbarIndex = section switch
         {
-            var path = CleanPath(anchor.GetAttribute("href"));
-            if (path == null) continue;
-            path = path.Split('?', '#')[0].Trim('/');
-            var match = System.Text.RegularExpressions.Regex.Match(path,
-                @"^(?:(films|series|cartoons|animation|show)/)?genre/([a-z0-9_%-]+)(?:/([a-z0-9_%-]+))?$",
+            Section.Films => 1,
+            Section.Series => 2,
+            Section.Cartoons => 3,
+            Section.Show => 4,
+            Section.Anime => 5,
+            _ => 1
+        };
+        var sectionMenu = doc.QuerySelectorAll(
+            $"li.b-topnav__item.i{navbarIndex} ul.left a[href]");
+
+        static bool IsGenreSlug(string slug) =>
+            slug is not ("best" or "popular" or "year" or "country" or
+                         "new" or "page" or "genre" or "collections");
+
+        static MovieGenre? ParseLink(IElement anchor, string sectionPath, bool globalAllowed)
+        {
+            var path = CleanPath(anchor.GetAttribute("href"))?.Split('?', '#')[0].Trim('/');
+            if (path == null) return null;
+            var pattern = @"^(films|series|cartoons|animation|show)/(?:genre/)?([a-z0-9_%-]+)$";
+            var match = System.Text.RegularExpressions.Regex.Match(path, pattern,
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-            if (!match.Success) continue;
+            if (match.Success)
+            {
+                if (!match.Groups[1].Value.Equals(sectionPath, StringComparison.OrdinalIgnoreCase)
+                    || !IsGenreSlug(match.Groups[2].Value.ToLowerInvariant()))
+                    return null;
+            }
+            else if (!globalAllowed || !System.Text.RegularExpressions.Regex.IsMatch(
+                path, @"^genre/[a-z0-9_%-]+$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                return null;
 
             var name = Text(anchor);
             if (name.Length == 0) name = anchor.GetAttribute("title")?.Trim() ?? "";
-            if (name.Length is < 2 or > 70) continue;
-            if (match.Groups[1].Success)
-            {
-                if (path.StartsWith(sectionPrefix, StringComparison.OrdinalIgnoreCase))
-                    scoped.Add(new MovieGenre(name, path));
-            }
-            else global.Add(new MovieGenre(name, path));
+            if (name.Length is < 2 or > 70) return null;
+            return new MovieGenre(name, path);
         }
 
-        var source = scoped.Count > 0 ? scoped : global;
+        var menu = sectionMenu
+            .Select(a => ParseLink(a, sectionPath, globalAllowed: false))
+            .Where(g => g != null).Select(g => g!).ToList();
+        var source = menu;
         if (source.Count == 0)
         {
-            // Some mirrors expose a numeric <select name="genre">, submitted
-            // together with the existing catalog ?filter=... query.
+            // The media page may omit the dropdown; search its other links.
+            // Never mix links for other sections into this genre list.
+            var anchors = doc.QuerySelectorAll("a[href]");
+            source = anchors.Select(a => ParseLink(a, sectionPath, globalAllowed: false))
+                .Where(g => g != null).Select(g => g!).ToList();
+            if (source.Count == 0)
+                source = anchors.Select(a => ParseLink(a, sectionPath, globalAllowed: true))
+                    .Where(g => g != null && g.Id.StartsWith("genre/", StringComparison.OrdinalIgnoreCase))
+                    .Select(g => g!).ToList();
+        }
+
+        if (source.Count == 0)
+        {
+            // Numeric filters exist on a few alternate page layouts.
             foreach (var option in doc.QuerySelectorAll(
                 "select[name='genre'] option[value], select[id*='genre'] option[value]"))
             {
@@ -161,7 +194,6 @@ public static class Parsers
         }
 
         return source
-            .Where(x => x.Name.Length > 0)
             .GroupBy(x => x.Name.Trim(), StringComparer.CurrentCultureIgnoreCase)
             .Select(g => g.First())
             .ToList();
