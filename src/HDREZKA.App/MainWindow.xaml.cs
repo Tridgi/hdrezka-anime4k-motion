@@ -479,6 +479,10 @@ else
 
     private void GoBack()
     {
+        // Collection cards swap their content inside the same Page; Frame.GoBack
+        // alone would skip their landing grid and jump to an unrelated screen.
+        if (ContentFrame.Content is CollectionsPage collections &&
+            collections.TryReturnToBrowse()) return;
         if (ContentFrame.CanGoBack) ContentFrame.GoBack();
     }
 
@@ -493,7 +497,8 @@ else
         // The modal owns input while displayed.
         if (CenteredModalLayer.Visibility == Visibility.Visible) return;
         var properties = e.GetCurrentPoint(RootGrid).Properties;
-        if (properties.IsXButton1Pressed && ContentFrame.CanGoBack)
+        if (properties.IsXButton1Pressed &&
+            (ContentFrame.CanGoBack || ContentFrame.Content is CollectionsPage { IsDetailOpen: true }))
         {
             GoBack();
             e.Handled = true;
