@@ -1331,6 +1331,34 @@ public sealed partial class DetailsPage : Page
     }
 
     /// <summary>
+    /// Use one painted element as the entire clickable pill. Placing a Border
+    /// inside an otherwise transparent Button creates two competing layouts:
+    /// the WinUI button template can measure/hover outside its colored child.
+    /// </summary>
+    private Button ClickableChip(Border badge, string tooltip, Action action)
+    {
+        var content = badge.Child;
+        badge.Child = null; // detach before parenting under the button
+        var button = new Button
+        {
+            Content = content,
+            Background = badge.Background,
+            BorderThickness = new Thickness(0),
+            CornerRadius = badge.CornerRadius,
+            Padding = badge.Padding,
+            MinWidth = 0,
+            MinHeight = 0,
+            MaxWidth = badge.MaxWidth,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            HorizontalContentAlignment = HorizontalAlignment.Center,
+            VerticalContentAlignment = VerticalAlignment.Center
+        };
+        ToolTipService.SetToolTip(button, tooltip);
+        button.Click += (_, _) => action();
+        return button;
+    }
+
+    /// <summary>
     /// Low-saturation flag-color gradients keep country labels readable even
     /// against dark backgrounds. The flag icon is retained for recognition.
     /// </summary>
@@ -1474,22 +1502,10 @@ public sealed partial class DetailsPage : Page
                     string.Equals(g.Name, name, StringComparison.Ordinal));
                 if (linked is { Id.Length: > 0 })
                 {
-                    // Preserve the same colored chip; add a transparent button
-                    // surface with a real navigation action.
                     var target = linked;
-                    var button = new Button
-                    {
-                        Content = badge, MinWidth = 0, MinHeight = 0,
-                        Padding = new Thickness(0), BorderThickness = new Thickness(0),
-                        Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                            Windows.UI.Color.FromArgb(0, 0, 0, 0)),
-                        CornerRadius = new CornerRadius(10),
-                        HorizontalAlignment = HorizontalAlignment.Left
-                    };
-                    ToolTipService.SetToolTip(button, Loc.Get("Details.OpenGenre"));
-                    button.Click += (_, _) => Nav.Go<CatalogPage>(
-                        new CatalogGenreLaunch(target));
-                    line.Children.Add(button);
+                    line.Children.Add(ClickableChip(
+                        badge, Loc.Get("Details.OpenGenre"),
+                        () => Nav.Go<CatalogPage>(new CatalogGenreLaunch(target))));
                 }
                 else line.Children.Add(badge);
             }
@@ -1519,15 +1535,7 @@ public sealed partial class DetailsPage : Page
             var target = link;
             var chip = Chip(link.Name, MetadataTone.GenreBlue);
             chip.MaxWidth = width;
-            var button = new Button
-            {
-                Content = chip, MinWidth = 0, MinHeight = 0,
-                Padding = new Thickness(0), BorderThickness = new Thickness(0),
-                Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                            Windows.UI.Color.FromArgb(0, 0, 0, 0)), CornerRadius = new CornerRadius(10)
-            };
-            button.Click += (_, _) => navigate(target);
-            row.Children.Add(button);
+            row.Children.Add(ClickableChip(chip, link.Name, () => navigate(target)));
             used += width + 6;
         }
         if (row.Children.Count > 0) panel.Children.Add(row);
@@ -1998,7 +2006,10 @@ public sealed partial class DetailsPage : Page
                 row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
                 used = 0;
             }
-            pill.MaxWidth = Math.Max(100, width);
+            // The painted button and its measured width must agree.
+            // Otherwise a long name can visually bleed beyond its chip.
+            pill.Width = width;
+            pill.MaxWidth = Math.Min(220, available);
             row.Children.Add(pill);
             used += width + (row.Children.Count > 1 ? 6 : 0);
         }
