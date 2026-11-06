@@ -61,7 +61,10 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("WrapNavigationChips(parts", details)
         self.assertIn("new CollectionLaunch(link.Id, link.Name)", details)
         self.assertIn("new CatalogGenreLaunch(target)", details)
-        self.assertIn("GetGenreListAsync(genre, _page)", catalog)
+        self.assertIn("GetGenreListAsync(genre, page, filter: filter)", catalog)
+        self.assertIn("GetSectionListAsync(section, filter, genreId, page)", catalog)
+        self.assertIn("GetGenreOptionsAsync(section)", catalog)
+        self.assertIn("ClickableChip(", details)
         self.assertIn("ClearGenreButton_Click", catalog)
 
     def test_person_page_uses_adaptive_poster_grid_without_scrollbars(self):
@@ -128,6 +131,8 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("if (ex.Kind == RezkaError.NotFound)", code)
         self.assertIn('ReturnToBrowse(Loc.Get("Collections.Unavailable"))', code)
         self.assertIn("BackToCollectionsButton_Click", code)
+        self.assertIn("Stretch = Stretch.Uniform,", code)
+        self.assertIn("TryReturnToBrowse()", code)
         self.assertIn("version == _requestVersion", code)
         self.assertIn("DetailsBackButton.Visibility", code)
         self.assertIn('Loc.Get("Collections.EmptyFolder")', code)
