@@ -331,6 +331,7 @@ public sealed partial class CatalogPage : Page
         catch (RezkaException ex)
         {
             if (!IsCurrent()) return;
+            Log.Error($"[Catalog] Failed section={section} filter={filter} genre={genrePath ?? "(all)"} page={page}; site={ex.Kind}", ex);
             if (!_mirrorRecovered && ex.Kind is RezkaError.Network or RezkaError.AccessDenied or RezkaError.MirrorBanned)
             {
                 _mirrorRecovered = true;
@@ -346,8 +347,10 @@ public sealed partial class CatalogPage : Page
         catch (Exception ex)
         {
             if (!IsCurrent()) return;
-            Log.Error("[Catalog] Loading failed", ex);
-            ShowState(true, Loc.Get("Error.Network"), showRetry: true);
+            Log.Error($"[Catalog] Failed section={section} filter={filter} genre={genrePath ?? "(all)"} page={page}", ex);
+            ShowState(true, ex is ArgumentException
+                ? Loc.Get("Catalog.InvalidGenreUrl")
+                : Loc.Get("Error.Network"), showRetry: true);
         }
         finally
         {
