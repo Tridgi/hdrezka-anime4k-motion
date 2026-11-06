@@ -401,7 +401,8 @@ public sealed class RezkaClient : IDisposable
         }
     }
 
-    private async Task<string> PostFormAsync(string pathAndQuery, IReadOnlyDictionary<string, string?> form, CancellationToken ct)
+    private async Task<string> PostFormAsync(string pathAndQuery, IReadOnlyDictionary<string, string?> form,
+        CancellationToken ct, string? refererPath = null)
     {
         await _requestGate.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -412,10 +413,22 @@ public sealed class RezkaClient : IDisposable
                 try
                 {
                     using var resp = await SendWithRedirectsAsync(
-                        () => new HttpRequestMessage(HttpMethod.Post, pathAndQuery)
+                        () =>
                         {
-                            Content = new FormUrlEncodedContent(form.Where(kv => kv.Value != null)
-                                .Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value!))),
+                            var request = new HttpRequestMessage(HttpMethod.Post, pathAndQuery)
+                            {
+                                Content = new FormUrlEncodedContent(form.Where(kv => kv.Value != null)
+                                    .Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value!))),
+                            };
+                            if (refererPath != null)
+                            {
+                                var origin = new Uri(Options.Mirror);
+                                request.Headers.Referrer = new Uri(origin, refererPath.TrimStart('/'));
+                                request.Headers.TryAddWithoutValidation("Origin",
+                                    origin.GetLeftPart(UriPartial.Authority));
+                                request.Headers.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
+                            }
+                            return request;
                         }, isPost: true, ct: ct, allowInsecureDowngrade: false).ConfigureAwait(false);
                     if (resp.StatusCode == HttpStatusCode.Forbidden)
                     {
@@ -825,30 +838,46 @@ public sealed class RezkaClient : IDisposable
         return Parsers.ParseCommentsResponse(body);
     }
 
-    public async Task<string> SendCommentAsync(string postId, string text, string? parentId = null, string? adb = null, CancellationToken ct = default)
+    public async Task<string> SendCommentAsync(string postId, string text,
+        string? parentId = null, string? adb = null, CancellationToken ct = default,
+        string? sourcePath = null)
     {
-        var body = await PostFormAsync(
-            "ajax/add_comment/",
+        // HDRezka's own page script marks comment posting as available via
+        // this cookie. It is not sent by the API's read-only movie requests.
+        // Preserve login cookies; only add the site's expected flag.
+        var mirrorUri = new Uri(Options.Mirror);
+        _cookies.Add(mirrorUri, new Cookie("allowed_comments", "1", "/"));
+
+        var postPage = sourcePath is { Length: > 0 } path &&
+            !path.Contains("..", StringComparison.Ordinal) &&
+            !path.Contains("://", StringComparison.Ordinal) &&
+            !path.Contains('?') && !path.Contains('#')
+            ? path : "";
+
+        var body = await PostFormAsync("ajax/add_comment/",
             new Dictionary<string, string?>
             {
                 ["parent"] = parentId ?? "0",
-                ["replyto_id"] = parentId,
+                ["replyto_id"] = parentId ?? "0",
                 ["post_id"] = postId,
-                ["name"] = null,
+                ["name"] = "",
+                ["mail"] = "",
                 ["comments"] = text,
                 ["type"] = "0",
-                ["has_adb"] = adb ?? "1",
-                ["g_recaptcha_response"] = "",
-            },
-            ct).ConfigureAwait(false);
+                ["has_adb"] = adb ?? "2",
+                ["sec_code"] = "",
+                ["question_answer"] = "",
+                ["is_admin"] = "",
+                ["g_recaptcha_response"] = ""
+            }, ct, refererPath: postPage).ConfigureAwait(false);
 
         return ValidatePostedComment(body);
     }
 
     /// <summary>
-    /// DLE mirrors have sent success as true/1/"1". Treat missing/unknown
-    /// replies as failures rather than clearing the user's unsent draft.
-    /// Do not guess whether CAPTCHA / an expired session can be bypassed.
+    /// Handle actual site responses, including an array of localized messages,
+    /// double-encoded JSON strings and moderation acknowledgements.
+    /// Never report a failed post as successful or erase an unsent draft.
     /// </summary>
     public static string ValidatePostedComment(string body)
     {
@@ -865,43 +894,81 @@ public sealed class RezkaClient : IDisposable
         {
             var root = json.RootElement;
             if (root.ValueKind != JsonValueKind.Object)
-                throw RezkaException.Site("Некорректный ответ сайта на комментарий.");
-            if (!root.TryGetProperty("success", out var value))
-                throw RezkaException.Site(ExtractCommentError(root) ??
-                    "Сайт не подтвердил отправку комментария. Попробуйте на сайте.");
+                throw RezkaException.Site(
+                    CleanCommentMessage(root) ?? "Некорректный ответ сайта на комментарий.");
 
-            var accepted = value.ValueKind switch
-            {
-                JsonValueKind.True => true,
-                JsonValueKind.Number => value.TryGetInt32(out var count) && count > 0,
-                JsonValueKind.String => value.GetString()?.Trim().ToLowerInvariant()
-                    is "1" or "true" or "ok" or "success",
-                _ => false
-            };
-            if (!accepted)
-                throw RezkaException.Site(ExtractCommentError(root) ??
-                    "Сайт отказал в отправке. Возможно, нужна повторная авторизация или CAPTCHA.");
+            var moderation = root.TryGetProperty("on_moderation", out var moderationEl)
+                && IsTruthy(moderationEl);
+            var message = ExtractCommentError(root);
+            if (root.TryGetProperty("success", out var value) && IsTruthy(value))
+                return moderation
+                    ? (message ?? "Комментарий отправлен на модерацию.")
+                    : (root.TryGetProperty("comment", out var posted) &&
+                        posted.ValueKind == JsonValueKind.String
+                        ? posted.GetString() ?? "" : "");
 
-            return root.TryGetProperty("comment", out var posted) &&
-                posted.ValueKind == JsonValueKind.String ? posted.GetString() ?? "" : "";
+            if (moderation)
+                return message ?? "Комментарий отправлен на модерацию.";
+
+            throw RezkaException.Site(message ??
+                "Сайт не подтвердил отправку комментария. Возможно, требуется CAPTCHA или повторная авторизация.");
         }
     }
+
+    private static bool IsTruthy(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.True => true,
+        JsonValueKind.Number => value.TryGetInt32(out var n) && n > 0,
+        JsonValueKind.String => value.GetString()?.Trim().ToLowerInvariant()
+            is "1" or "true" or "ok" or "success",
+        _ => false
+    };
 
     private static string? ExtractCommentError(JsonElement root)
     {
         foreach (var key in new[] { "message", "msg", "error", "reason" })
-        {
-            if (!root.TryGetProperty(key, out var value)) continue;
-            var raw = value.ValueKind == JsonValueKind.String
-                ? value.GetString() : value.ToString();
-            if (string.IsNullOrWhiteSpace(raw)) continue;
-            var plain = System.Net.WebUtility.HtmlDecode(
-                System.Text.RegularExpressions.Regex.Replace(raw,
-                    "<[^>]*>", " ")).Trim();
-            if (!string.IsNullOrWhiteSpace(plain))
-                return plain.Length > 350 ? plain[..350] : plain;
-        }
+            if (root.TryGetProperty(key, out var value))
+            {
+                var message = CleanCommentMessage(value);
+                if (!string.IsNullOrWhiteSpace(message)) return message;
+            }
         return null;
+    }
+
+    private static string? CleanCommentMessage(JsonElement value, int depth = 0)
+    {
+        if (depth > 3) return null;
+        string? result = value.ValueKind switch
+        {
+            JsonValueKind.Array => string.Join(" ", value.EnumerateArray()
+                .Select(x => CleanCommentMessage(x, depth + 1))
+                .Where(x => !string.IsNullOrWhiteSpace(x))),
+            JsonValueKind.Object => ExtractCommentError(value),
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Null or JsonValueKind.Undefined => null,
+            _ => value.ToString()
+        };
+        if (string.IsNullOrWhiteSpace(result)) return null;
+
+        // Some mirrors return message as the serialized text '["\\u041f..."]'.
+        // Deserialize once more instead of printing raw JSON/escape codes.
+        var trimmed = result.Trim();
+        if (depth < 3 && (trimmed.StartsWith("[") || trimmed.StartsWith("{") ||
+            (trimmed.StartsWith('"') && trimmed.EndsWith('"'))))
+        {
+            try
+            {
+                using var nested = JsonDocument.Parse(trimmed);
+                var decoded = CleanCommentMessage(nested.RootElement, depth + 1);
+                if (!string.IsNullOrWhiteSpace(decoded)) result = decoded;
+            }
+            catch (JsonException) { }
+        }
+
+        result = System.Net.WebUtility.HtmlDecode(
+            System.Text.RegularExpressions.Regex.Replace(result, "<[^>]*>", " "));
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\\s+", " ").Trim();
+        return result.Length > 350 ? result[..350] : result;
     }
 
     public async Task<bool> ToggleCommentLikeAsync(string commentId, CancellationToken ct = default)
