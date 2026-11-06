@@ -577,6 +577,38 @@ public class ParserTests
     }
 
     [Fact]
+    public void ParseCommentsResponse_RecognizesOwnCommentFromSiteControls()
+    {
+        var html = """
+            <div class="comments-tree-item" data-id="23" data-indent="0">
+              <div class="b-comment">
+                <span class="name">Мой ник</span><span class="date">сегодня</span>
+                <div class="text">Текст</div>
+                <div class="actions"><ul class="edit">
+                  <li><a href="#">Редактировать</a></li></ul></div>
+              </div>
+            </div>
+            <div class="comments-tree-item" data-id="24" data-indent="0">
+              <div class="b-comment">
+                <span class="name">Чужой</span><div class="text">Текст</div>
+                <span class="show-likes-comment">Нравится</span>
+              </div>
+            </div>
+            <div class="comments-tree-item" data-id="25" data-indent="0">
+              <div class="b-comment"><span class="name">Я</span>
+                <span class="show-likes-comment self-disabled">Нравится</span>
+              </div>
+            </div>
+            """;
+        var json = System.Text.Json.JsonSerializer.Serialize(new { comments = html });
+        var parsed = Parsers.ParseCommentsResponse(json);
+        Assert.Equal(3, parsed.Count);
+        Assert.True(parsed[0].IsOwn);
+        Assert.False(parsed[1].IsOwn);
+        Assert.True(parsed[2].IsOwn);
+    }
+
+    [Fact]
     public void ParseBookmarksCategories_Works()
     {
         var html = """
