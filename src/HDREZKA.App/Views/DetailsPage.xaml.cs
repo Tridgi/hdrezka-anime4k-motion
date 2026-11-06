@@ -2632,6 +2632,13 @@ public sealed partial class DetailsPage : Page
 
     private UIElement BuildComment(CommentItem comment, int depth)
     {
+        var login = SettingsService.Instance.AccountLogin.Trim();
+        // First trust the site's own-only edit/like controls. Fall back to
+        // matching the visible nickname when login used a username, not email.
+        var isOwn = RezkaService.Instance.IsLoggedIn &&
+            (comment.IsOwn || (login.Length > 0 && !login.Contains('@') &&
+                string.Equals(login, comment.Author.Trim(), StringComparison.OrdinalIgnoreCase)));
+
         var fg = Brush(IsLightTheme ? (byte)35 : (byte)240,
             IsLightTheme ? (byte)39 : (byte)242, IsLightTheme ? (byte)44 : (byte)246);
         var subdued = Brush(IsLightTheme ? (byte)105 : (byte)174,
@@ -2641,8 +2648,14 @@ public sealed partial class DetailsPage : Page
             CornerRadius = new CornerRadius(12),
             Padding = new Thickness(14, 12, 14, 12),
             Margin = new Thickness(Math.Min(2, depth) * 18, 0, 0, 0),
-            Background = Brush(IsLightTheme ? (byte)243 : (byte)45,
-                IsLightTheme ? (byte)244 : (byte)47, IsLightTheme ? (byte)247 : (byte)51),
+            Background = isOwn
+                ? Brush(IsLightTheme ? (byte)233 : (byte)37,
+                    IsLightTheme ? (byte)242 : (byte)49,
+                    IsLightTheme ? (byte)252 : (byte)65)
+                : Brush(IsLightTheme ? (byte)243 : (byte)45,
+                    IsLightTheme ? (byte)244 : (byte)47, IsLightTheme ? (byte)247 : (byte)51),
+            BorderBrush = isOwn ? ThemeHelper.AccentBrush : null,
+            BorderThickness = isOwn ? new Thickness(3, 1, 1, 1) : new Thickness(0),
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
         var layout = new StackPanel { Spacing = 9 };
@@ -2673,6 +2686,23 @@ public sealed partial class DetailsPage : Page
             FontSize = 14, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
             Foreground = fg, TextTrimming = TextTrimming.CharacterEllipsis
         });
+        if (isOwn)
+        {
+            heading.Children.Add(new Border
+            {
+                Background = ThemeHelper.AccentBrush,
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(7, 3, 7, 3),
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Child = new TextBlock
+                {
+                    Text = Loc.Get("Comments.YourComment"),
+                    FontSize = 10,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    Foreground = Brush(255, 255, 255)
+                }
+            });
+        }
         if (comment.IsAdmin)
             heading.Children.Add(new TextBlock
             {
@@ -2777,8 +2807,8 @@ public sealed partial class DetailsPage : Page
         CommentOpenSiteButton.Visibility = Visibility.Collapsed;
         try
         {
-            await RezkaService.Instance.Client.SendCommentAsync(
-                numericId, text, _replyTo, _details.Adb);
+            var response = await RezkaService.Instance.Client.SendCommentAsync(
+                numericId, text, _replyTo, _details.Adb, sourcePath: _details.Id);
             if (_details?.Id != titleId) return;
             CommentInput.Text = "";
             _replyTo = null;
@@ -2786,7 +2816,8 @@ public sealed partial class DetailsPage : Page
             _commentsLoaded = false;
             _commentsPage = 1;
             await LoadCommentsAsync();
-            CommentStatusText.Text = Loc.Get("Comments.Sent");
+            CommentStatusText.Text = response.Contains("модерац", StringComparison.OrdinalIgnoreCase)
+                ? response : Loc.Get("Comments.Sent");
             CommentStatusText.Visibility = Visibility.Visible;
         }
         catch (RezkaException ex)
