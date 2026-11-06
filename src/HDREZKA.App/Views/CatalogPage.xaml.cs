@@ -184,7 +184,7 @@ public sealed partial class CatalogPage : Page
     private void RebuildGenreBox()
     {
         GenreBox.SelectionChanged -= GenreBox_SelectionChanged;
-        GenreBox.Header = Loc.Get("Details.Genre");
+        ToolTipService.SetToolTip(GenreBox, Loc.Get("Details.Genre"));
         GenreBox.Items.Clear();
         GenreBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Catalog.AllGenres") });
         foreach (var genre in _availableGenres)
@@ -241,10 +241,11 @@ public sealed partial class CatalogPage : Page
 
     private void UpdateGenreFilter()
     {
-        if (GenreFilterPanel == null) return;
-        GenreFilterPanel.Visibility = string.IsNullOrWhiteSpace(_genrePath)
+        // The selected genre is already visible inside the combo box.
+        // Keep a compact reset action in the same toolbar, never a duplicate row.
+        if (ClearGenreButton == null) return;
+        ClearGenreButton.Visibility = string.IsNullOrWhiteSpace(_genrePath)
             ? Visibility.Collapsed : Visibility.Visible;
-        GenreFilterText.Text = Loc.Get("Catalog.GenreSelected") + " " + (_genreName ?? "");
     }
 
     private void ClearGenreButton_Click(object sender, RoutedEventArgs e)
