@@ -563,8 +563,23 @@ public sealed class RezkaClient : IDisposable
         return GetListAsync(PageUrl(path + "/", page), ct);
     }
 
+    public async Task<IReadOnlyList<MovieGenre>> GetGenreOptionsAsync(
+        Section section, CancellationToken ct = default)
+    {
+        // Read the current mirror's real genre URLs / option IDs. Do not keep
+        // a hardcoded catalog: different mirrors can publish different routes.
+        var html = await GetStringAsync(section.ToPath() + "/", ct).ConfigureAwait(false);
+        var genres = Parsers.ParseGenreLinks(html, section);
+        if (genres.Count > 0) return genres;
+
+        // On layouts where menus exist only on the home page, retry there.
+        html = await GetStringAsync("", ct).ConfigureAwait(false);
+        return Parsers.ParseGenreLinks(html, section);
+    }
+
     public Task<(string Title, IReadOnlyList<MovieSimple> Items)> GetGenreListAsync(
-        string genrePath, int page = 1, CancellationToken ct = default)
+        string genrePath, int page = 1, CancellationToken ct = default,
+        ListFilter? filter = null)
     {
         // Only a same-site genre route is accepted; never make the application
         // follow an arbitrary URL supplied by page markup.
@@ -577,7 +592,9 @@ public sealed class RezkaClient : IDisposable
             normalized.Contains('?') ||
             normalized.Contains('#'))
             throw new ArgumentException("Unsafe genre path", nameof(genrePath));
-        return GetListAsync(PageUrl(normalized + "/", page), ct);
+        var query = filter is null ? null :
+            new Dictionary<string, string?> { ["filter"] = filter.Value.ToQuery() };
+        return GetListAsync(PageUrl(normalized + "/", page, query), ct);
     }
 
     public async Task<IReadOnlyList<MovieSimple>> GetHotMoviesAsync(int genre = 0, CancellationToken ct = default)
