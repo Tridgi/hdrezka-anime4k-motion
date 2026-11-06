@@ -92,6 +92,55 @@ public class ParserTests
         """;
 
     [Fact]
+    public void ParseGenreLinks_PrefersActiveSectionAndDeduplicates()
+    {
+        var html = """
+            <html><body><div id="wrapper">
+              <nav>
+                <a href="/films/genre/drama/">Драма</a>
+                <a href="https://mirror.example/films/genre/comedy/">Комедия</a>
+                <a href="/films/genre/drama/">Драма</a>
+                <a href="/series/genre/sitcom/">Ситком</a>
+                <a href="/genre/thriller/">Триллер</a>
+                <a href="https://another.example/films/123-film.html">Не жанр</a>
+              </nav>
+            </div></body></html>
+            """;
+
+        var films = Parsers.ParseGenreLinks(html, Section.Films);
+        Assert.Equal(2, films.Count);
+        Assert.Equal("films/genre/drama", films[0].Id);
+        Assert.Equal("films/genre/comedy", films[1].Id);
+
+        var series = Parsers.ParseGenreLinks(html, Section.Series);
+        Assert.Single(series);
+        Assert.Equal("series/genre/sitcom", series[0].Id);
+
+        var anime = Parsers.ParseGenreLinks(html, Section.Anime);
+        Assert.Single(anime);
+        Assert.Equal("genre/thriller", anime[0].Id);
+    }
+
+    [Fact]
+    public void ParseGenreLinks_HandlesNumericGenreSelectOnOtherMirrors()
+    {
+        var html = """
+            <html><body><div id="wrapper">
+              <select name="genre">
+                <option value="0">Все жанры</option>
+                <option value="11">Комедия</option>
+                <option value="22">Фантастика</option>
+              </select>
+            </div></body></html>
+            """;
+
+        var genres = Parsers.ParseGenreLinks(html, Section.Films);
+        Assert.Equal(2, genres.Count);
+        Assert.Equal(new MovieGenre("Комедия", "id:11"), genres[0]);
+        Assert.Equal(new MovieGenre("Фантастика", "id:22"), genres[1]);
+    }
+
+    [Fact]
     public void ParseDetails_Works()
     {
         var details = Parsers.ParseDetails(DetailsHtml, "films/999-test-movie.html");
