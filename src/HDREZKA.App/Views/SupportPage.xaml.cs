@@ -31,7 +31,7 @@ public sealed partial class SupportPage : Page
         TitleText.Text = Loc.Get("Settings.Donate");
         SupportDescriptionText.Text = Loc.Get("Settings.DonateHint");
         BoostyTitleText.Text = "Boosty";
-        BoostyDescriptionText.Text = Loc.Get("Settings.DonateHint");
+        BoostyDescriptionText.Text = Loc.Get("Support.BoostyDetails");
         BoostyButtonText.Text = Loc.Get("Settings.DonateBoosty");
     }
 
