@@ -32,6 +32,10 @@
                     <StackPanel x:Name="SectionPanel" Orientation="Horizontal" Spacing="8"/>
                 </ScrollViewer>
             </Grid>
+            <!-- Genres are read from the active mirror, not a fixed local list. -->
+            <ComboBox x:Name="GenreBox" Width="245" MinWidth="185"
+                      HorizontalAlignment="Left" VerticalAlignment="Center"
+                      SelectionChanged="GenreBox_SelectionChanged"/>
             <StackPanel x:Name="GenreFilterPanel" Orientation="Horizontal"
                         Spacing="10" Visibility="Collapsed">
                 <TextBlock x:Name="GenreFilterText" FontSize="12"
