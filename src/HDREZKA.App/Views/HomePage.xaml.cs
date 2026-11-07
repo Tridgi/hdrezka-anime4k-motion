@@ -421,6 +421,12 @@ public sealed partial class HomePage : Page
             _heroDescriptions[movie.Id] = synopsis;
             if (!string.IsNullOrWhiteSpace(details.BigPoster))
                 _heroBackdrops[movie.Id] = details.BigPoster;
+            // The hot-slider endpoint may provide lazy/empty poster URLs.
+            // Fall back to the details-page poster rather than leaving a blank Top card.
+            if (string.IsNullOrWhiteSpace(movie.Poster) &&
+                !string.IsNullOrWhiteSpace(details.Poster) &&
+                _heroItems.Count > _heroIndex && _heroItems[_heroIndex].Id == movie.Id)
+                PosterCache.SetSource(HeroPoster, details.Poster);
             if (_heroItems.Count > _heroIndex &&
                 _heroItems[_heroIndex].Id == movie.Id)
             {
@@ -814,7 +820,7 @@ public sealed partial class HomePage : Page
     {
         ContinueRow.Children.Clear();
 
-        var items = PositionService.Instance.GetAll()
+        var items = PositionService.Instance.GetContinueTitles()
             .Take(HomeContinueCount)
             .Select(ContinueWatchingPage.FromLocal)
             .ToList();
