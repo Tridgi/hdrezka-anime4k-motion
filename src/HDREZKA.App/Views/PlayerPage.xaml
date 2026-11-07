@@ -309,6 +309,11 @@
                 </StackPanel>
             </Grid>
         </Grid>
+        <!-- Tiny invisible secondary render surface. It decodes one low-res
+             preview frame without altering the main playback position. -->
+        <SwapChainPanel x:Name="ThumbnailVideoSurface" Width="178" Height="100"
+                        HorizontalAlignment="Left" VerticalAlignment="Top"
+                        Opacity="0.01" IsHitTestVisible="False"/>
         <!-- Timeline pointer tooltip; image remains optional on inaccessible streams. -->
         <Canvas x:Name="SeekPreviewOverlay" IsHitTestVisible="False" Visibility="Collapsed">
             <Border x:Name="SeekPreviewBubble" CornerRadius="10" Padding="7"
