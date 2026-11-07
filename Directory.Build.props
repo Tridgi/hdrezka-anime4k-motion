@@ -11,11 +11,11 @@
   -->
   <PropertyGroup>
     <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
-    <Version>2.1.0</Version>
-    <FileVersion>2.1.0.0</FileVersion>
-    <AssemblyVersion>2.1.0.0</AssemblyVersion>
-    <InformationalVersion>2.1.0</InformationalVersion>
-    <Product>HDREZKA Anime4K Motion 2.1</Product>
+    <Version>2.2.0-preview.1</Version>
+    <FileVersion>2.2.0.1</FileVersion>
+    <AssemblyVersion>2.2.0.0</AssemblyVersion>
+    <InformationalVersion>2.2.0-preview.1</InformationalVersion>
+    <Product>HDREZKA Anime4K Motion 2.2 Preview</Product>
     <Company>HDREZKA Anime4K Motion contributors</Company>
     <Copyright>Copyright (c) 2026. Portions based on HDrezka for macOS, MIT License (c) 2025 voidboost.</Copyright>
   </PropertyGroup>
