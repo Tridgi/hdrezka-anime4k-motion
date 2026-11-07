@@ -23,6 +23,7 @@ public sealed class PositionService
 
     private static readonly string FilePath = Path.Combine(Dir, "positions.json");
     private static readonly string WatchedFilePath = Path.Combine(Dir, "watched.json");
+    private static readonly string ActiveFilePath = Path.Combine(Dir, "active-playback.json");
 
     public static PositionService Instance { get; } = new();
 
@@ -32,11 +33,14 @@ public sealed class PositionService
 
     private Dictionary<string, WatchPosition> _positions = new();
     private HashSet<string> _watched = new();
+    // One active episode per title, independent of per-voice/episode positions.
+    private Dictionary<string, string> _activeEpisodeKeys = new(StringComparer.OrdinalIgnoreCase);
 
     private PositionService()
     {
         Load();
         LoadWatched();
+        LoadActive();
     }
 
     private static string Key(string movieId, string translatorId, string? season, string? episode) =>
@@ -51,15 +55,47 @@ public sealed class PositionService
         }
     }
 
+    private static bool IsResumable(WatchPosition p) =>
+        p.DurationSeconds > 60 && p.PositionSeconds > 30 &&
+        p.PositionSeconds < p.DurationSeconds - 30;
+
     public IReadOnlyList<WatchPosition> GetAll()
     {
         lock (_lock)
+            return _positions.Values.Where(IsResumable)
+                .OrderByDescending(p => p.UpdatedAt).ToList();
+    }
+
+    /// <summary>One newest resumable card per work, regardless of season or voice.</summary>
+    public IReadOnlyList<WatchPosition> GetContinueTitles()
+    {
+        lock (_lock)
         {
-            return _positions.Values
-                .Where(p => p is { DurationSeconds: > 60, PositionSeconds: > 30 } &&
-                            p.PositionSeconds < p.DurationSeconds - 30)
+            return _positions.Values.Where(IsResumable)
+                .GroupBy(p => p.MovieId, StringComparer.OrdinalIgnoreCase)
+                .Select(g =>
+                {
+                    var first = g.OrderByDescending(p => p.UpdatedAt).First();
+                    return _activeEpisodeKeys.TryGetValue(g.Key, out var active) &&
+                           _positions.TryGetValue(active, out var preferred) &&
+                           IsResumable(preferred) ? preferred : first;
+                })
                 .OrderByDescending(p => p.UpdatedAt)
                 .ToList();
+        }
+    }
+
+    /// <summary>Only a successful media-open changes the active episode;
+    /// background position saves must never switch the user's active series.</summary>
+    public void SetActive(string movieId, string translatorId, string? season, string? episode)
+    {
+        lock (_lock)
+        {
+            var key = Key(movieId, translatorId, season, episode);
+            if (_activeEpisodeKeys.GetValueOrDefault(movieId) == key) return;
+            _activeEpisodeKeys[movieId] = key;
+            PersistActive();
+            Log.Info($"[PlaybackHistory] active movie={movieId} voice={translatorId} season={season ?? "0"} episode={episode ?? "0"}");
         }
     }
 
@@ -72,10 +108,15 @@ public sealed class PositionService
     {
         lock (_lock)
         {
-            return _positions.Values
+            var relevant = _positions.Values
                 .Where(p => p.MovieId == movieId || (pagePath != null && p.PagePath == pagePath))
-                .OrderByDescending(p => p.UpdatedAt)
-                .FirstOrDefault();
+                .ToList();
+            // An episode intentionally started by the user wins over an older
+            // voice or the last timer write from a previously played episode.
+            var active = relevant.FirstOrDefault(p =>
+                _activeEpisodeKeys.TryGetValue(p.MovieId, out var key) &&
+                key == Key(p.MovieId, p.TranslatorId, p.SeasonId, p.EpisodeId));
+            return active ?? relevant.OrderByDescending(p => p.UpdatedAt).FirstOrDefault();
         }
     }
 
@@ -102,6 +143,7 @@ public sealed class PositionService
             }
 
             if (keys.Count > 0) Persist();
+            if (_activeEpisodeKeys.Remove(movieId)) PersistActive();
 
             // Drop manual "watched" checkmarks for the same title.
             var watchedKeys = _watched
@@ -163,6 +205,41 @@ public sealed class PositionService
         }
     }
 
+    private void LoadActive()
+    {
+        try
+        {
+            if (File.Exists(ActiveFilePath))
+                _activeEpisodeKeys = JsonSerializer.Deserialize<Dictionary<string, string>>(
+                    File.ReadAllText(ActiveFilePath)) ?? new(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("[PlaybackHistory] Cannot load active-playback.json: " + ex.Message);
+            _activeEpisodeKeys = new(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private void PersistActive()
+    {
+        WriteAtomically(ActiveFilePath, _activeEpisodeKeys);
+    }
+
+    private static void WriteAtomically<T>(string path, T value)
+    {
+        try
+        {
+            Directory.CreateDirectory(Dir);
+            var temp = path + ".tmp";
+            File.WriteAllText(temp, JsonSerializer.Serialize(value));
+            File.Move(temp, path, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("[PlaybackHistory] Save failed: " + ex.Message);
+        }
+    }
+
     private void LoadWatched()
     {
         try
@@ -181,8 +258,7 @@ public sealed class PositionService
     {
         try
         {
-            Directory.CreateDirectory(Dir);
-            File.WriteAllText(WatchedFilePath, JsonSerializer.Serialize(_watched));
+            WriteAtomically(WatchedFilePath, _watched);
         }
         catch
         {
@@ -208,8 +284,7 @@ public sealed class PositionService
     {
         try
         {
-            Directory.CreateDirectory(Dir);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(_positions));
+            WriteAtomically(FilePath, _positions);
         }
         catch
         {
