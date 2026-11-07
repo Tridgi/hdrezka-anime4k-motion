@@ -97,6 +97,13 @@ public sealed partial class SettingsPage : Page
         SettingsService.Instance.Save();
     }
 
+    private void SeekThumbnailsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_initialized) return;
+        SettingsService.Instance.EnableSeekThumbnails = SeekThumbnailsCheck.IsChecked == true;
+        SettingsService.Instance.Save();
+    }
+
     private void RememberSpeedCheck_Changed(object sender, RoutedEventArgs e)
     {
         if (!_initialized) return;
