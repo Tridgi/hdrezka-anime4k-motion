@@ -102,6 +102,13 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertLess(markup.index('x:Name="GenreBox"'),
                         markup.index('x:Name="ClearGenreButton"'))
         self.assertNotIn('x:Name="GenreFilterPanel"', markup)
+        self.assertNotIn('HorizontalScrollMode="Auto"', markup)
+        for row in ("CatalogFiltersHost", "CatalogMainFilterRow",
+                    "CatalogSecondaryFilterRow", "CatalogTertiaryFilterRow"):
+            self.assertIn('x:Name="' + row + '"', markup)
+        self.assertIn("CatalogFiltersHost_SizeChanged(", code)
+        self.assertIn("ReflowSectionButtons(", code)
+        self.assertIn("CatalogSecondaryFilterRow.Children.Add(SectionPanel)", code)
         self.assertIn('RecommendationPreview="True"', markup)
         self.assertIn('RecommendationHoverChanged="CatalogMovie_HoverChanged"', markup)
         self.assertIn('x:Name="CatalogPreviewLayer"', markup)
@@ -120,10 +127,15 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         code = contents("SupportPage.xaml.cs")
         self.assertIn('x:Name="BoostyButton"', markup)
         self.assertIn("https://boosty.to/tridgi", code)
-        for name in ("DonorBox", "ApplyDonorButton", "BoostyQrImage",
+        for name in ("DonorBox", "ApplyDonorButton",
                      "DonorStatusText", "DonorPerksText"):
             self.assertNotIn(name, markup)
             self.assertNotIn(name, code)
+        self.assertIn('x:Name="BoostyQrImage"', markup)
+        self.assertIn('x:Name="BoostyQrCard"', markup)
+        self.assertIn('x:Name="BoostyContentLayout"', markup)
+        self.assertIn("BoostyContentLayout_SizeChanged(", code)
+        self.assertIn("boosty-qr.png", code)
 
     def test_comment_ownership_and_error_decoding_are_implemented(self):
         details = contents("DetailsPage.xaml.cs")
