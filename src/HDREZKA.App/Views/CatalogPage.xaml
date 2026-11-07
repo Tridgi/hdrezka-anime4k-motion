@@ -17,16 +17,37 @@
 
         <StackPanel Spacing="10">
             <TextBlock x:Name="TitleText" FontSize="28" FontWeight="Bold"/>
-            <ScrollViewer HorizontalScrollBarVisibility="Hidden" HorizontalScrollMode="Auto"
-                          VerticalScrollMode="Disabled" VerticalScrollBarVisibility="Disabled">
-                <StackPanel x:Name="SectionPanel" Orientation="Horizontal" Spacing="8"/>
-            </ScrollViewer>
-            <ComboBox x:Name="FilterBox" MinWidth="200" SelectionChanged="FilterBox_SelectionChanged"/>
+            <!-- The toolbar reflows into real rows as the window shrinks.
+                 No horizontal scrollbars and no clipped category controls. -->
+            <StackPanel x:Name="CatalogFiltersHost" Spacing="8"
+                        SizeChanged="CatalogFiltersHost_SizeChanged">
+                <StackPanel x:Name="CatalogMainFilterRow"
+                            Orientation="Horizontal" Spacing="10">
+                    <ComboBox x:Name="FilterBox" Width="185"
+                              MinWidth="160" VerticalAlignment="Center"
+                              SelectionChanged="FilterBox_SelectionChanged"/>
+                    <StackPanel x:Name="SectionPanel"
+                                Orientation="Vertical" Spacing="6"
+                                VerticalAlignment="Center"/>
+                    <ComboBox x:Name="GenreBox" Width="210" MinWidth="175"
+                              VerticalAlignment="Center"
+                              SelectionChanged="GenreBox_SelectionChanged"/>
+                    <Button x:Name="ClearGenreButton" Click="ClearGenreButton_Click"
+                            Visibility="Collapsed" Padding="12,6" MinWidth="0"
+                            CornerRadius="8" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel x:Name="CatalogSecondaryFilterRow"
+                            Orientation="Horizontal" Spacing="10"
+                            Visibility="Collapsed"/>
+                <StackPanel x:Name="CatalogTertiaryFilterRow"
+                            Orientation="Horizontal" Spacing="10"
+                            Visibility="Collapsed"/>
+            </StackPanel>
         </StackPanel>
 
-        <ScrollViewer x:Name="ItemsScroll" Grid.Row="1" VerticalScrollBarVisibility="Auto" ViewChanged="ItemsScroll_ViewChanged">
+        <ScrollViewer x:Name="ItemsScroll" Grid.Row="1" VerticalScrollBarVisibility="Hidden" ViewChanged="ItemsScroll_ViewChanged">
             <StackPanel>
-                <GridView x:Name="ItemsGrid" SelectionMode="None" IsItemClickEnabled="False">
+                <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="ItemsGrid" SelectionMode="None" IsItemClickEnabled="False">
                     <GridView.ItemsPanel>
                         <ItemsPanelTemplate>
                             <ItemsWrapGrid Orientation="Horizontal"/>
@@ -35,16 +56,17 @@
                     <GridView.ItemContainerStyle>
                         <Style TargetType="GridViewItem">
                             <Setter Property="Padding" Value="0"/>
-                            <Setter Property="Margin" Value="0,0,12,16"/>
+                            <Setter Property="Margin" Value="12,18,12,22"/>
                             <Setter Property="MinWidth" Value="0"/>
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                            <Setter Property="VerticalContentAlignment" Value="Top"/>
                             <Setter Property="IsTabStop" Value="False"/>
                         </Style>
                     </GridView.ItemContainerStyle>
                     <GridView.ItemTemplate>
                         <DataTemplate x:DataType="api:MovieSimple">
-                            <controls:MovieCard Movie="{x:Bind}"/>
+                            <controls:MovieCard Movie="{x:Bind}" RecommendationPreview="True"
+                                                RecommendationHoverChanged="CatalogMovie_HoverChanged"/>
                         </DataTemplate>
                     </GridView.ItemTemplate>
                 </GridView>
@@ -61,5 +83,57 @@
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
+        <!-- One page-level, pointer-transparent preview is not clipped by
+             GridView virtualization or an individual poster's hit area. -->
+        <Canvas x:Name="CatalogPreviewLayer" Grid.RowSpan="2" Canvas.ZIndex="100"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                IsHitTestVisible="False">
+            <Border x:Name="CatalogPreviewPanel" Width="336" Visibility="Collapsed"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="16" Padding="17">
+                <StackPanel Spacing="9">
+                    <TextBlock x:Name="CatalogPreviewHeader" FontSize="12"
+                               FontWeight="SemiBold"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                    <Border Width="48" Height="3" CornerRadius="2"
+                            HorizontalAlignment="Left"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"/>
+                    <TextBlock x:Name="CatalogPreviewTitle" FontSize="18" FontWeight="Bold"
+                               MaxLines="2" TextWrapping="Wrap"/>
+                    <TextBlock x:Name="CatalogPreviewOriginal" FontSize="12"
+                               MaxLines="2" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <Border x:Name="CatalogPreviewRezkaBadge" CornerRadius="8"
+                                Padding="9,6" Visibility="Collapsed">
+                            <TextBlock x:Name="CatalogPreviewRezka" FontSize="12"
+                                       FontWeight="SemiBold"/>
+                        </Border>
+                        <Border x:Name="CatalogPreviewImdbBadge" CornerRadius="8"
+                                Padding="9,6" Visibility="Collapsed">
+                            <TextBlock x:Name="CatalogPreviewImdb" FontSize="12"
+                                       FontWeight="SemiBold"/>
+                        </Border>
+                        <Border x:Name="CatalogPreviewKpBadge" CornerRadius="8"
+                                Padding="9,6" Visibility="Collapsed">
+                            <TextBlock x:Name="CatalogPreviewKp" FontSize="12"
+                                       FontWeight="SemiBold"/>
+                        </Border>
+                    </StackPanel>
+                    <TextBlock x:Name="CatalogPreviewDescription" FontSize="12"
+                               TextWrapping="Wrap" MaxLines="5"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock x:Name="CatalogPreviewGenres" FontSize="12"
+                               TextWrapping="Wrap" MaxLines="3"/>
+                    <TextBlock x:Name="CatalogPreviewDirector" FontSize="12"
+                               TextWrapping="Wrap" MaxLines="2"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock x:Name="CatalogPreviewActors" FontSize="12"
+                               TextWrapping="Wrap" MaxLines="3"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+            </Border>
+        </Canvas>
     </Grid>
 </Page>

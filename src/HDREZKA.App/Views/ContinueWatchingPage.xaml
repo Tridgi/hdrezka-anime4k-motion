@@ -19,7 +19,7 @@
             <ProgressRing x:Name="LoadingRing" Width="20" Height="20" VerticalAlignment="Center" IsActive="False"/>
         </StackPanel>
 
-        <ScrollViewer Grid.Row="1" Margin="0,8,0,0" VerticalScrollBarVisibility="Auto">
+        <ScrollViewer Grid.Row="1" Margin="0,8,0,0" VerticalScrollBarVisibility="Hidden">
             <ItemsControl x:Name="List">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>

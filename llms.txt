@@ -1,11 +1,16 @@
-# HDREZKA Anime4K Motion
+# HDREZKA Anime4K Motion 2.1.0
 
-> Unofficial open-source Windows HDREZKA client with Anime4K image processing and independent OpenCL motion interpolation in the integrated player.
+> Unofficial open-source Windows x64 HDRezka client with integrated Anime4K image processing, independent OpenCL motion interpolation and redesigned movie browsing UI.
 
-- [Russian README](README.md): Features, requirements, setup, tested hardware and limitations.
-- [English README](README.en.md): English overview.
-- [Build](docs/BUILD.md): Dependency hashes and Windows x64 build instructions.
+- [Русский README](README.md): Feature overview, download, requirements, update guide and limitations.
+- [English README](README.en.md): English overview and installation.
+- [Release 2.1 details](docs/RELEASE_2.1.md): Catalog, genres, UI, comments, migration and test scope.
+- [User guide / Руководство](docs/USER_GUIDE.md): Navigation, playback, catalog, comments, updates, troubleshooting.
+- [Full changelog](CHANGELOG.md): v2.1.0 release notes and earlier changes.
+- [Build](docs/BUILD.md): Reproducible Windows x64 build and checks.
+- [Publishing](docs/RELEASES.md): Stable/test release workflows.
+- [Updater](docs/UPDATER.md): Release catalog, SHA-256 verification, backup and rollback.
 - [Licenses](THIRD_PARTY.md): Upstream attribution and dependency source references.
-- [Releases](https://github.com/Tridgi/hdrezka-anime4k-motion/releases): Portable binaries and source packages.
+- [Stable 2.1 release](https://github.com/Tridgi/hdrezka-anime4k-motion/releases/tag/v2.1.0): Portable ZIP and SHA256SUMS.txt.
 
-Facts: Anime4K A/B/C/Light; independent 60/120/165 FPS targets; 165 experimental; opening skip default 85 seconds; cursor auto-hide after 3 seconds. Tested on P106-100, not all GPUs. Not NVIDIA DLSS or RIFE. No bundled accounts or media. No guaranteed performance, search ranking or endorsement.
+Facts: Windows 10 build 19041+ / Windows 11, x64. Anime4K Off/A/B/C/Light. Independent 60/120/experimental 165 FPS via SVPflow/VapourSynth/OpenCL; 165 is not guaranteed. Custom themes, genre parsing from the active mirror, collections, comments and stable/test updates. No bundled accounts or media. Not DLSS or RIFE. Source website restrictions, authentication and CAPTCHA remain external. This is not an official HDRezka release.

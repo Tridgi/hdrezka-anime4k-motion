@@ -109,6 +109,96 @@ public static class Parsers
         return (title, items);
     }
 
+    /// <summary>
+    /// Find the actual genre links advertised by the current mirror. The
+    /// original HDRezka navbar uses /films/drama/, /series/melodrama/, etc.
+    /// Some mirrors additionally use /series/genre/melodrama/ or /genre/...
+    /// The navbar for the selected media section has priority; never show
+    /// film genre routes in the series selector.
+    /// </summary>
+    public static IReadOnlyList<MovieGenre> ParseGenreLinks(string html, Section section)
+    {
+        var doc = ParseHtml(html);
+        CheckDocument(doc);
+
+        var sectionPath = section.ToPath();
+        var navbarIndex = section switch
+        {
+            Section.Films => 1,
+            Section.Series => 2,
+            Section.Cartoons => 3,
+            Section.Show => 4,
+            Section.Anime => 5,
+            _ => 1
+        };
+        var sectionMenu = doc.QuerySelectorAll(
+            $"li.b-topnav__item.i{navbarIndex} ul.left a[href]");
+
+        static bool IsGenreSlug(string slug) =>
+            slug is not ("best" or "popular" or "year" or "country" or
+                         "new" or "page" or "genre" or "collections");
+
+        static MovieGenre? ParseLink(IElement anchor, string sectionPath, bool globalAllowed)
+        {
+            var path = CleanPath(anchor.GetAttribute("href"))?.Split('?', '#')[0].Trim('/');
+            if (path == null) return null;
+            var pattern = @"^(films|series|cartoons|animation|show)/(?:genre/)?([a-z0-9_%-]+)$";
+            var match = System.Text.RegularExpressions.Regex.Match(path, pattern,
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                if (!match.Groups[1].Value.Equals(sectionPath, StringComparison.OrdinalIgnoreCase)
+                    || !IsGenreSlug(match.Groups[2].Value.ToLowerInvariant()))
+                    return null;
+            }
+            else if (!globalAllowed || !System.Text.RegularExpressions.Regex.IsMatch(
+                path, @"^genre/[a-z0-9_%-]+$",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                return null;
+
+            var name = Text(anchor);
+            if (name.Length == 0) name = anchor.GetAttribute("title")?.Trim() ?? "";
+            if (name.Length is < 2 or > 70) return null;
+            return new MovieGenre(name, path);
+        }
+
+        var menu = sectionMenu
+            .Select(a => ParseLink(a, sectionPath, globalAllowed: false))
+            .Where(g => g != null).Select(g => g!).ToList();
+        var source = menu;
+        if (source.Count == 0)
+        {
+            // The media page may omit the dropdown; search its other links.
+            // Never mix links for other sections into this genre list.
+            var anchors = doc.QuerySelectorAll("a[href]");
+            source = anchors.Select(a => ParseLink(a, sectionPath, globalAllowed: false))
+                .Where(g => g != null).Select(g => g!).ToList();
+            if (source.Count == 0)
+                source = anchors.Select(a => ParseLink(a, sectionPath, globalAllowed: true))
+                    .Where(g => g != null && g.Id.StartsWith("genre/", StringComparison.OrdinalIgnoreCase))
+                    .Select(g => g!).ToList();
+        }
+
+        if (source.Count == 0)
+        {
+            // Numeric filters exist on a few alternate page layouts.
+            foreach (var option in doc.QuerySelectorAll(
+                "select[name='genre'] option[value], select[id*='genre'] option[value]"))
+            {
+                var value = option.GetAttribute("value")?.Trim();
+                if (!int.TryParse(value, out var id) || id <= 0) continue;
+                var name = Text(option);
+                if (name.Length is < 2 or > 70) continue;
+                source.Add(new MovieGenre(name, "id:" + id));
+            }
+        }
+
+        return source
+            .GroupBy(x => x.Name.Trim(), StringComparer.CurrentCultureIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+    }
+
     public static IReadOnlyList<MovieSimple> ParseHotMovies(string html)
     {
         var doc = ParseHtml(html);
@@ -216,6 +306,8 @@ public static class Parsers
         var voiceRatings = isComingSoon ? null : ParseVoiceActingRatings(doc);
         var watchAlso = ParseWatchAlso(doc);
         var schedule = isComingSoon ? null : ParseSchedule(doc);
+        var franchise = ParseFranchiseParts(doc, pagePath);
+        var collectionLinks = ParseDetailCollectionLinks(doc);
 
         var isRated = content.QuerySelectorAll(".b-post__rating .b-post__rating_wrapper").Length == 0;
         var siteRatingValue = ToFloat(content.QuerySelector(".b-post__rating .num")?.TextContent);
@@ -229,6 +321,7 @@ public static class Parsers
         int? duration = null;
         IReadOnlyList<MovieCountry>? countries = null;
         IReadOnlyList<MovieGenre>? genres = null;
+        var sourceSeries = new List<NamedLink>();
         IReadOnlyList<PersonSimple>? producers = null, actors = null;
 
         var info = content.QuerySelector(".b-post__info");
@@ -263,6 +356,7 @@ public static class Parsers
                             year = Text(valueEl);
                             break;
                         case "Режиссер":
+                        case "Режиссеры":
                             producers = MergePersons(producers, ParsePersons(valueEl));
                             break;
                         case "Возраст":
@@ -273,8 +367,27 @@ public static class Parsers
                                 .Select(a => new MovieCountry(Text(a), CleanPath(a.GetAttribute("href")) ?? "")).ToList();
                             break;
                         case "Жанр":
+                        case "Жанры":
+                        case "Жанри":
+                        case "Genre":
+                        case "Genres":
                             genres = valueEl.QuerySelectorAll("a")
                                 .Select(a => new MovieGenre(Text(a), CleanPath(a.GetAttribute("href")) ?? "")).ToList();
+                            break;
+                        case "Изсерии":
+                        case "Входитвсписки":
+                            foreach (var seriesAnchor in valueEl.QuerySelectorAll("a[href]"))
+                            {
+                                var path = CleanPath(seriesAnchor.GetAttribute("href"));
+                                if (path == null || !System.Text.RegularExpressions.Regex.IsMatch(
+                                    path, @"^(films|series|animation|cartoons|show)/(best|popular|year|genre|country|new)/[a-z0-9_-]+(?:/[a-z0-9_-]+)?$",
+                                    System.Text.RegularExpressions.RegexOptions.IgnoreCase)) continue;
+                                var title = Text(seriesAnchor);
+                                if (title.Length > 0 &&
+                                    !sourceSeries.Any(x => x.Id.Equals(path,
+                                        StringComparison.OrdinalIgnoreCase)))
+                                    sourceSeries.Add(new NamedLink(title, path));
+                            }
                             break;
                         case "Время":
                             duration = ToInt(Text(valueEl));
@@ -340,6 +453,9 @@ public static class Parsers
             AgeRestriction = ageRestriction,
             Countries = countries,
             Genres = genres,
+            FranchiseParts = franchise.Count > 0 ? franchise : null,
+            CollectionLinks = collectionLinks.Count > 0 ? collectionLinks : null,
+            SourceSeries = sourceSeries.Count > 0 ? sourceSeries : null,
             Producers = producers,
             Actors = actors,
             SiteRating = siteRating,
@@ -1099,6 +1215,97 @@ public static class Parsers
         return result;
     }
 
+    /// <summary>
+    /// Max page advertised by a collections pager (not the number of items).
+    /// Returns null when the site omits pagination controls.
+    /// </summary>
+    public static int? ParseCollectionsLastPage(string html)
+    {
+        var doc = ParseHtml(html);
+        var max = 1;
+        var found = false;
+        foreach (var a in doc.QuerySelectorAll("a[href]"))
+        {
+            var href = a.GetAttribute("href") ?? "";
+            var m = System.Text.RegularExpressions.Regex.Match(
+                href, @"(?:/collections/|^collections/)page/(\d+)/?",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success)
+                m = System.Text.RegularExpressions.Regex.Match(href,
+                    @"[?&]page=(\d+)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!m.Success || !int.TryParse(m.Groups[1].Value, out var page) ||
+                page < 1 || page > 1000) continue;
+            found = true;
+            max = Math.Max(max, page);
+        }
+        return found ? max : null;
+    }
+
+    private static IReadOnlyList<NamedLink> ParseDetailCollectionLinks(IDocument doc)
+    {
+        var result = new List<NamedLink>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // A collection badge must point to a genuine collections/slug URL,
+        // never to genre/year/best ranking pages or movie sidelist items.
+        foreach (var a in doc.QuerySelectorAll(
+            ".b-content__main a[href*='/collections/'], .b-post__info a[href*='/collections/']"))
+        {
+            var path = CleanPath(a.GetAttribute("href"));
+            if (path == null || !path.StartsWith("collections/", StringComparison.OrdinalIgnoreCase) ||
+                path.Split('/').Length != 2 || !seen.Add(path)) continue;
+            var label = Text(a);
+            if (string.IsNullOrWhiteSpace(label))
+                label = a.GetAttribute("title")?.Trim() ?? "";
+            if (label.Length == 0) continue;
+            result.Add(new NamedLink(label, path.Substring("collections/".Length)));
+        }
+        return result;
+    }
+
+    private static IReadOnlyList<NamedLink> ParseFranchiseParts(IDocument doc, string currentPath)
+    {
+        var result = new List<NamedLink>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // Distinguish a titled "All Bleach anime / All films of X" block from
+        // arbitrary recommendation lists. Only harvest links in that block.
+        foreach (var heading in doc.QuerySelectorAll("h2,h3,h4,.b-content__htitle,.b-post__series_title,.b-series__title"))
+        {
+            var title = Text(heading);
+            if (title.Length < 5 || title.Length > 180 ||
+                !System.Text.RegularExpressions.Regex.IsMatch(title,
+                    @"(?:^|\s)(?:все|всі|all)\s+(?:аниме|фильмы|фільми|части|частини|сериалы|серіали|movies|parts)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                continue;
+            var root = heading.ParentElement;
+            if (root == null) continue;
+            // A heading placed directly inside the main movie container must
+            // not accidentally turn unrelated movie links into a franchise.
+            var nodes = new List<IElement>();
+            if (heading.NextElementSibling is { } next)
+                nodes.Add(next);
+            else if (root.ClassList.Any(c =>
+                c.Contains("franchise", StringComparison.OrdinalIgnoreCase) ||
+                c.Contains("series", StringComparison.OrdinalIgnoreCase)))
+                nodes.Add(root);
+            foreach (var node in nodes)
+            foreach (var link in node.QuerySelectorAll("a[href]"))
+            {
+                var path = CleanPath(link.GetAttribute("href"));
+                if (path == null || !path.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
+                    !(path.StartsWith("films/") || path.StartsWith("series/") ||
+                      path.StartsWith("animation/") || path.StartsWith("cartoons/") ||
+                      path.StartsWith("show/")) ||
+                    !seen.Add(path)) continue;
+                var name = Text(link);
+                if (string.IsNullOrWhiteSpace(name)) name = link.GetAttribute("title") ?? "";
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                result.Add(new NamedLink(name.Trim(), path));
+            }
+        }
+        return result;
+    }
+
     // ---------- comments ----------
 
     public static IReadOnlyList<CommentItem> ParseCommentsResponse(string body)
@@ -1127,6 +1334,11 @@ public static class Parsers
             var text = textEl != null ? ElementToPlainText(textEl) : "";
 
             var like = el.QuerySelector(".b-comment__like_it");
+            // Site markup exposes owner-only edit actions and disables likes
+            // for the author's own comment. These work even when the user
+            // signed in with an email that differs from their visible nickname.
+            var isOwn = el.QuerySelector(".actions ul.edit a, ul.edit a") != null
+                || el.QuerySelector(".show-likes-comment.self-disabled, .b-comment__like_it.self-disabled") != null;
 
             result.Add(new CommentItem(
                 Id: el.GetAttribute("data-id") ?? "",
@@ -1137,7 +1349,8 @@ public static class Parsers
                 Replies: ParseCommentsLevel(el, depth + 1),
                 Likes: ToInt(like?.GetAttribute("data-likes_num")) ?? 0,
                 IsLiked: like != null && like.ClassList.Contains("disabled"),
-                IsAdmin: el.QuerySelector(".b-comment")?.ClassList.Contains("b-comment__admin") == true));
+                IsAdmin: el.QuerySelector(".b-comment")?.ClassList.Contains("b-comment__admin") == true,
+                IsOwn: isOwn));
         }
 
         return result;

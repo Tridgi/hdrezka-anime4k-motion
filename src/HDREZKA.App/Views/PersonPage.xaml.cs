@@ -3,6 +3,7 @@ using HDREZKA.Core.Api;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
+using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace HDREZKA.App.Views;
@@ -13,7 +14,7 @@ public sealed partial class PersonPage : Page
     private PersonDetailed? _details;
     private bool _mirrorRecovered;
 
-    private sealed record FilmRow(string Title, string? Details, string? Poster, MovieSimple Source);
+    private bool _narrowHero;
 
     public PersonPage()
     {
@@ -54,6 +55,7 @@ public sealed partial class PersonPage : Page
     {
         RetryButton.Content = Loc.Get("Common.Retry");
         MirrorButton.Content = Loc.Get("Settings.AutoMirror");
+        FilmographyHeader.Text = Loc.Get("Person.Filmography");
     }
 
     internal static string RoleName(string roleId) => roleId switch
@@ -117,11 +119,28 @@ public sealed partial class PersonPage : Page
         });
     }
 
+    private void PersonHeroGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var narrow = e.NewSize.Width < 560;
+        if (narrow == _narrowHero) return;
+        _narrowHero = narrow;
+        PersonPhotoColumn.Width = narrow
+            ? new GridLength(1, GridUnitType.Star) : new GridLength(200);
+        PersonInfoColumn.Width = narrow
+            ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+        Grid.SetColumn(PersonBioPanel, narrow ? 0 : 1);
+        Grid.SetRow(PersonBioPanel, narrow ? 1 : 0);
+        var portraitWidth = narrow ? 152 : 200;
+        PersonPhotoFrame.Width = PersonPoster.Width = portraitWidth;
+        PersonPhotoFrame.Height = PersonPoster.Height = portraitWidth * 1.5;
+    }
+
     private void Render(PersonDetailed details)
     {
         NameText.Text = details.Name;
         OrigText.Text = details.OriginalName ?? "";
         PosterCache.SetSource(PersonPoster, details.Photo);
+        FilmographyHeader.Text = Loc.Get("Person.Filmography");
 
         MetaPanel.Children.Clear();
         AddMetaRow(Loc.Get("Person.Career"), details.Career);
@@ -132,67 +151,93 @@ public sealed partial class PersonPage : Page
         AddMetaRow(Loc.Get("Person.Height"), details.Height);
 
         FilmographyPanel.Children.Clear();
-        if (details.Filmography != null)
-        {
-            var first = true;
-            foreach (var group in details.Filmography)
-            {
-                var list = new ListView
-                {
-                    SelectionMode = ListViewSelectionMode.None,
-                    IsItemClickEnabled = true,
-                    MaxHeight = 480,
-                };
-                list.ItemClick += (_, e) =>
-                {
-                    if (e.ClickedItem is FilmRow row)
-                    {
-                        Nav.Go<DetailsPage>(row.Source);
-                    }
-                };
-                list.ItemTemplate = (DataTemplate)Resources["PersonFilmTemplate"];
-                list.ItemsSource = group.Movies
-                    .Select(m => new FilmRow(m.Name ?? "", m.Details, m.Poster, m))
-                    .ToList();
+        var groups = details.Filmography?
+            .Where(g => g.Movies.Count > 0).ToArray() ?? [];
+        FilmographyCountText.Text = groups.Sum(g => g.Movies.Count) +
+            " " + Loc.Get("Person.Works");
 
-                var expander = new Expander
-                {
-                    Header = $"{RoleName(group.RoleId)} ({group.Movies.Count})",
-                    Content = list,
-                    IsExpanded = first,
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                };
-                first = false;
-                FilmographyPanel.Children.Add(expander);
-            }
+        var isFirst = true;
+        foreach (var group in groups)
+        {
+            var list = new GridView
+            {
+                ItemsPanel = (ItemsPanelTemplate)Resources["PersonFilmsPanel"],
+                ItemTemplate = (DataTemplate)Resources["PersonFilmTemplate"],
+                ItemContainerStyle = (Style)Resources["PersonFilmItemStyle"],
+                Style = (Style)Resources["PersonFilmsGridStyle"],
+                SelectionMode = ListViewSelectionMode.None,
+                IsItemClickEnabled = false,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                ItemsSource = group.Movies.ToList(),
+            };
+            var heading = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 10,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            heading.Children.Add(new TextBlock
+            {
+                Text = RoleName(group.RoleId),
+                FontSize = 16,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
+            });
+            heading.Children.Add(new Border
+            {
+                Padding = new Thickness(8, 4, 8, 4),
+                CornerRadius = new CornerRadius(8),
+                Background = new SolidColorBrush(ActualTheme == ElementTheme.Light
+                    ? Windows.UI.Color.FromArgb(255, 224, 229, 235)
+                    : Windows.UI.Color.FromArgb(255, 59, 64, 72)),
+                Child = new TextBlock { Text = group.Movies.Count.ToString(),
+                    FontSize = 12 }
+            });
+            var expander = new Expander
+            {
+                Header = heading,
+                Content = list,
+                IsExpanded = isFirst,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch
+            };
+            FilmographyPanel.Children.Add(expander);
+            isFirst = false;
         }
+        if (groups.Length == 0)
+            FilmographyPanel.Children.Add(new TextBlock
+            {
+                Text = Loc.Get("Common.Empty"),
+                Foreground = new SolidColorBrush(ActualTheme == ElementTheme.Light
+                    ? Windows.UI.Color.FromArgb(255, 84, 91, 101)
+                    : Windows.UI.Color.FromArgb(255, 187, 195, 205))
+            });
     }
 
     private void AddMetaRow(string label, string? value)
     {
-        if (string.IsNullOrEmpty(value)) return;
-        var grid = new Grid
+        if (string.IsNullOrWhiteSpace(value)) return;
+        var grid = new Grid { ColumnSpacing = 12, RowSpacing = 4 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(145) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition
+            { Width = new GridLength(1, GridUnitType.Star) });
+
+        var caption = new TextBlock
         {
-            ColumnDefinitions =
-            {
-                new ColumnDefinition { Width = new GridLength(160) },
-                new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) },
-            },
+            Text = label, FontSize = 12,
+            Foreground = (Brush)Application.Current.Resources[
+                "TextFillColorSecondaryBrush"],
+            VerticalAlignment = VerticalAlignment.Center
         };
-        grid.Children.Add(new TextBlock
+        var valueText = new TextBlock
         {
-            Text = label,
-            Style = Application.Current.Resources["DetailsLabel"] as Style,
-        });
-        var val = new TextBlock
-        {
-            Text = value,
-            TextWrapping = TextWrapping.Wrap,
-            Style = Application.Current.Resources["DetailsValue"] as Style,
+            Text = value, FontSize = 13, TextWrapping = TextWrapping.Wrap,
+            VerticalAlignment = VerticalAlignment.Center,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold
         };
-        Grid.SetColumn(val, 1);
-        grid.Children.Add(val);
+        Grid.SetColumn(valueText, 1);
+        grid.Children.Add(caption);
+        grid.Children.Add(valueText);
         MetaPanel.Children.Add(grid);
     }
 

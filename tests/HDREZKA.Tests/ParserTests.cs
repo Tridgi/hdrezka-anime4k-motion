@@ -68,6 +68,7 @@ public class ParserTests
           <table class="b-post__info">
             <tr><td class="l">Год:</td><td><a href="https://hdrzk.org/year/2024/">2024</a></td>
                 <td class="l">Страна:</td><td><a href="https://hdrzk.org/country/usa/">США</a></td></tr>
+            <tr><td class="l">Дата выхода:</td><td>13 сентября 2022 года</td></tr>
             <tr><td class="l">Жанр:</td><td><a href="https://hdrzk.org/genre/fantastic/">фантастика</a></td>
                 <td class="l">Время:</td><td>127 мин.</td></tr>
             <tr><td class="l">Режиссер:</td><td><div class="persons-list-holder"><div class="item"><a href="https://hdrzk.org/person/42-name.html">Режиссёр Один</a></div></div></td></tr>
@@ -91,6 +92,92 @@ public class ParserTests
         """;
 
     [Fact]
+    public void ParseGenreLinks_PrefersActiveSectionAndDeduplicates()
+    {
+        var html = """
+            <html><body><div id="wrapper">
+              <nav>
+                <a href="/films/genre/drama/">Драма</a>
+                <a href="https://mirror.example/films/genre/comedy/">Комедия</a>
+                <a href="/films/genre/drama/">Драма</a>
+                <a href="/series/genre/sitcom/">Ситком</a>
+                <a href="/genre/thriller/">Триллер</a>
+                <a href="https://another.example/films/123-film.html">Не жанр</a>
+              </nav>
+            </div></body></html>
+            """;
+
+        var films = Parsers.ParseGenreLinks(html, Section.Films);
+        Assert.Equal(2, films.Count);
+        Assert.Equal("films/genre/drama", films[0].Id);
+        Assert.Equal("films/genre/comedy", films[1].Id);
+
+        var series = Parsers.ParseGenreLinks(html, Section.Series);
+        Assert.Single(series);
+        Assert.Equal("series/genre/sitcom", series[0].Id);
+
+        var anime = Parsers.ParseGenreLinks(html, Section.Anime);
+        Assert.Single(anime);
+        Assert.Equal("genre/thriller", anime[0].Id);
+    }
+
+    [Fact]
+    public void ParseGenreLinks_ReadsOriginalHdrezkaNavbarWithoutGenreSegment()
+    {
+        var html = """
+            <html><body><div id="wrapper">
+              <ul id="topnav-menu">
+                <li class="b-topnav__item i1"><div><div><ul class="left">
+                  <li><a href="/films/drama/">Драмы</a></li>
+                  <li><a href="/films/melodrama/">Мелодрамы</a></li>
+                </ul></div></div></li>
+                <li class="b-topnav__item i2"><div><div><ul class="left">
+                  <li><a href="/series/melodrama/">Мелодрамы</a></li>
+                  <li><a href="/series/detective/">Детективы</a></li>
+                  <li><a href="/series/popular/">Топ сериалов</a></li>
+                </ul></div></div></li>
+                <li class="b-topnav__item i3"><div><div><ul class="left">
+                  <li><a href="/cartoons/comedy/">Комедии</a></li>
+                </ul></div></div></li>
+                <li class="b-topnav__item i5"><div><div><ul class="left">
+                  <li><a href="/animation/fantasy/">Фэнтези</a></li>
+                </ul></div></div></li>
+              </ul>
+            </div></body></html>
+            """;
+
+        Assert.Equal(
+            ["series/melodrama", "series/detective"],
+            Parsers.ParseGenreLinks(html, Section.Series).Select(x => x.Id));
+        Assert.Equal(
+            ["films/drama", "films/melodrama"],
+            Parsers.ParseGenreLinks(html, Section.Films).Select(x => x.Id));
+        Assert.Equal("cartoons/comedy",
+            Assert.Single(Parsers.ParseGenreLinks(html, Section.Cartoons)).Id);
+        Assert.Equal("animation/fantasy",
+            Assert.Single(Parsers.ParseGenreLinks(html, Section.Anime)).Id);
+    }
+
+    [Fact]
+    public void ParseGenreLinks_HandlesNumericGenreSelectOnOtherMirrors()
+    {
+        var html = """
+            <html><body><div id="wrapper">
+              <select name="genre">
+                <option value="0">Все жанры</option>
+                <option value="11">Комедия</option>
+                <option value="22">Фантастика</option>
+              </select>
+            </div></body></html>
+            """;
+
+        var genres = Parsers.ParseGenreLinks(html, Section.Films);
+        Assert.Equal(2, genres.Count);
+        Assert.Equal(new MovieGenre("Комедия", "id:11"), genres[0]);
+        Assert.Equal(new MovieGenre("Фантастика", "id:22"), genres[1]);
+    }
+
+    [Fact]
     public void ParseDetails_Works()
     {
         var details = Parsers.ParseDetails(DetailsHtml, "films/999-test-movie.html");
@@ -109,6 +196,7 @@ public class ParserTests
         Assert.True(details.VoiceActings[0].IsSelected);
         Assert.Equal("999", details.VoiceActings[0].VoiceId);
         Assert.Equal("2024", details.Year);
+        Assert.Equal("13 сентября 2022 года", details.ReleaseDate);
         Assert.NotNull(details.Countries);
         Assert.Equal("США", details.Countries![0].Name);
         Assert.NotNull(details.Genres);
@@ -489,6 +577,38 @@ public class ParserTests
     }
 
     [Fact]
+    public void ParseCommentsResponse_RecognizesOwnCommentFromSiteControls()
+    {
+        var html = """
+            <div class="comments-tree-item" data-id="23" data-indent="0">
+              <div class="b-comment">
+                <span class="name">Мой ник</span><span class="date">сегодня</span>
+                <div class="text">Текст</div>
+                <div class="actions"><ul class="edit">
+                  <li><a href="#">Редактировать</a></li></ul></div>
+              </div>
+            </div>
+            <div class="comments-tree-item" data-id="24" data-indent="0">
+              <div class="b-comment">
+                <span class="name">Чужой</span><div class="text">Текст</div>
+                <span class="show-likes-comment">Нравится</span>
+              </div>
+            </div>
+            <div class="comments-tree-item" data-id="25" data-indent="0">
+              <div class="b-comment"><span class="name">Я</span>
+                <span class="show-likes-comment self-disabled">Нравится</span>
+              </div>
+            </div>
+            """;
+        var json = System.Text.Json.JsonSerializer.Serialize(new { comments = html });
+        var parsed = Parsers.ParseCommentsResponse(json);
+        Assert.Equal(3, parsed.Count);
+        Assert.True(parsed[0].IsOwn);
+        Assert.False(parsed[1].IsOwn);
+        Assert.True(parsed[2].IsOwn);
+    }
+
+    [Fact]
     public void ParseBookmarksCategories_Works()
     {
         var html = """
@@ -658,4 +778,70 @@ public class ParserTests
         Assert.Equal("3836-anime-2025-goda", cols[2].Id);
         Assert.Equal("Аниме 2025 года", cols[2].Title);
     }
+    [Fact]
+    public void ParseCollectionsLastPage_ReadsFivePagePager()
+    {
+        var html = """
+            <html><body><div id="wrapper">
+              <div class="b-navigation">
+                <a href="/collections/">1</a>
+                <a href="/collections/page/2/">2</a>
+                <a href="/collections/page/3/">3</a>
+                <a href="/collections/page/4/">4</a>
+                <a href="/collections/page/5/">5</a>
+              </div>
+            </div></body></html>
+            """;
+        Assert.Equal(5, Parsers.ParseCollectionsLastPage(html));
+        Assert.Null(Parsers.ParseCollectionsLastPage(
+            "<html><body><div id='wrapper'>Без страниц</div></body></html>"));
+    }
+
+    [Fact]
+    public void ParseDetails_FindsRealCollectionLinksAndFranchiseParts()
+    {
+        var html = """
+            <html><body><div id="wrapper">
+            <div class="b-content__main">
+              <h1 class="b-post__title">Блич: Тысячелетняя кровавая война</h1>
+              <table class="b-post__info"><tr><td>Жанр:</td><td>
+                  <a href="https://hdrzk.org/genre/fentezi/">Фэнтези</a>
+                  <a href="https://hdrzk.org/genre/boeviki/">Боевики</a>
+              </td></tr>
+              <tr><td>Из серии:</td><td><a href="/animation/best/2022/">Аниме 2022 года</a></td></tr>
+              </table>
+              <div class="b-post__lists">
+                <a href="https://hdrzk.org/collections/4074-anime-2026-goda/">Аниме 2026 года</a>
+                <a href="/animation/best/2022/">Лучшие аниме 2022 года</a>
+              </div>
+              <h2>Все аниме "Блич":</h2>
+              <ul><li><a href="/animation/100-bleach.html">Блич [ТВ-1]</a></li>
+                  <li><a href="/animation/200-bleach-tybw.html">Блич [ТВ-2]</a></li></ul>
+            </div></div></body></html>
+            """;
+
+        var result = Parsers.ParseDetails(html, "animation/200-bleach-tybw.html");
+        Assert.NotNull(result.CollectionLinks);
+        Assert.Single(result.CollectionLinks!);
+        Assert.Equal("4074-anime-2026-goda", result.CollectionLinks![0].Id);
+        Assert.Equal("Аниме 2026 года", result.CollectionLinks[0].Name);
+        Assert.NotNull(result.FranchiseParts);
+        Assert.Equal(2, result.FranchiseParts!.Count);
+        Assert.Equal("animation/100-bleach.html", result.FranchiseParts[0].Id);
+        Assert.Equal("genre/fentezi", result.Genres![0].Id);
+        Assert.NotNull(result.SourceSeries);
+        Assert.Single(result.SourceSeries!);
+        Assert.Equal("animation/best/2022", result.SourceSeries[0].Id);
+        Assert.Equal("Аниме 2022 года", result.SourceSeries[0].Name);
+    }
+
+    [Fact]
+    public void ParseDetails_HidesOptionalBlocksWhenThereAreNoSourceLinks()
+    {
+        var result = Parsers.ParseDetails(DetailsHtml, "films/999-test-movie.html");
+        Assert.Null(result.FranchiseParts);
+        Assert.Null(result.CollectionLinks);
+        Assert.Null(result.SourceSeries);
+    }
+
 }

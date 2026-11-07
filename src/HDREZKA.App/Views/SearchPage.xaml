@@ -10,10 +10,10 @@
     mc:Ignorable="d">
 
     <Grid Padding="28,12,28,12">
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <ScrollViewer VerticalScrollBarVisibility="Hidden">
             <StackPanel Spacing="12">
                 <TextBlock x:Name="QueryText" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                <GridView x:Name="ItemsGrid" SelectionMode="None">
+                <GridView ScrollViewer.VerticalScrollBarVisibility="Hidden" x:Name="ItemsGrid" SelectionMode="None">
                     <GridView.ItemsPanel>
                         <ItemsPanelTemplate>
                             <ItemsWrapGrid Orientation="Horizontal"/>
@@ -22,10 +22,10 @@
                     <GridView.ItemContainerStyle>
                         <Style TargetType="GridViewItem">
                             <Setter Property="Padding" Value="0"/>
-                            <Setter Property="Margin" Value="0,0,12,16"/>
+                            <Setter Property="Margin" Value="12,18,12,22"/>
                             <Setter Property="MinWidth" Value="0"/>
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                            <Setter Property="VerticalContentAlignment" Value="Top"/>
                             <Setter Property="IsTabStop" Value="False"/>
                         </Style>
                     </GridView.ItemContainerStyle>

@@ -17,6 +17,74 @@ public class RezkaClientTests
         </div></body></html>
         """;
 
+    [Theory]
+    [InlineData("series/melodrama", "/series/melodrama/?filter=last")]
+    [InlineData("films/drama", "/films/drama/?filter=last")]
+    [InlineData("series/genre/melodrama", "/series/genre/melodrama/?filter=last")]
+    [InlineData("genre/fantastic", "/genre/fantastic/?filter=last")]
+    public async Task GetGenreList_UsesExactValidSiteRoute(
+        string genrePath, string expectedRequest)
+    {
+        var paths = new List<string>();
+        using var client = CreateClient((request, _) =>
+        {
+            paths.Add(request.RequestUri!.PathAndQuery);
+            return Html("""
+                <html><body><div id="wrapper">
+                  <div class="b-content__inline_item"
+                       data-url="/series/1234-love.html">
+                    <div class="b-content__inline_item-cover">
+                      <a><img src="https://cdn.example/1.jpg"></a>
+                    </div>
+                    <div class="b-content__inline_item-link"><a>Любовь</a></div>
+                  </div>
+                </div></body></html>
+                """);
+        });
+
+        var (_, items) = await client.GetGenreListAsync(genrePath, filter: ListFilter.Latest);
+
+        Assert.Equal(expectedRequest, Assert.Single(paths));
+        Assert.Equal("Любовь", Assert.Single(items).Name);
+    }
+
+    [Fact]
+    public async Task GetGenreOptions_UsesCorrectMediaNavbarFromActiveMirror()
+    {
+        var paths = new List<string>();
+        using var client = CreateClient((request, _) =>
+        {
+            paths.Add(request.RequestUri!.AbsolutePath);
+            return Html("""
+                <html><body><div id="wrapper"><ul>
+                  <li class="b-topnav__item i1"><ul class="left">
+                    <li><a href="/films/melodrama/">Мелодрамы</a></li>
+                  </ul></li>
+                  <li class="b-topnav__item i2"><ul class="left">
+                    <li><a href="/series/melodrama/">Мелодрамы</a></li>
+                  </ul></li>
+                </ul></div></body></html>
+                """);
+        });
+
+        var series = await client.GetGenreOptionsAsync(Section.Series);
+
+        Assert.Equal("/series/", Assert.Single(paths));
+        Assert.Equal("series/melodrama", Assert.Single(series).Id);
+    }
+
+    [Theory]
+    [InlineData("https://evil.example/series/melodrama")]
+    [InlineData("series/../../secret")]
+    [InlineData("series/melodrama?other=1")]
+    [InlineData("series/popular/page/2")]
+    public async Task GetGenreList_RejectsNonGenreOrUnsafePaths(string path)
+    {
+        using var client = CreateClient((_, _) => Html(DetailsHtml));
+        await Assert.ThrowsAsync<ArgumentException>(
+            async () => await client.GetGenreListAsync(path));
+    }
+
     [Fact]
     public async Task Get_403_FlipsHeaderVariant_AndRetriesOnce()
     {
@@ -141,6 +209,92 @@ public class RezkaClientTests
         using var client = CreateClient((_, _) => Json("""{"success":true}"""));
 
         await client.SignInAsync("user", "pass");
+    }
+
+    [Theory]
+    [InlineData("""{"success":true,"comment":"ok"}""")]
+    [InlineData("""{"success":1,"comment":"ok"}""")]
+    [InlineData("""{"success":"1","comment":"ok"}""")]
+    public async Task CommentPost_AcceptsExplicitSiteAcknowledgement(string response)
+    {
+        using var client = CreateClient((_, _) => Json(response));
+        Assert.Equal("ok", await client.SendCommentAsync("123", "Test comment"));
+    }
+
+    [Theory]
+    [InlineData("""{"success":false,"message":"Captcha required"}""", "Captcha required")]
+    [InlineData("""{"success":0,"message":"Session expired"}""", "Session expired")]
+    [InlineData("""{"success":"0","error":"Try again"}""", "Try again")]
+    [InlineData("""{"message":"No success flag"}""", "No success flag")]
+    [InlineData("<html>login</html>", "не JSON")]
+    public async Task CommentPost_PreservesServerRejectionReason(string response, string expected)
+    {
+        using var client = CreateClient((_, _) => Json(response));
+        var ex = await Assert.ThrowsAsync<RezkaException>(
+            () => client.SendCommentAsync("123", "Unsent draft"));
+        Assert.Equal(RezkaError.Site, ex.Kind);
+        Assert.Contains(expected, ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("""{"success":false,"message":["Нельзя отправить комментарий","Проверьте вход"]}""",
+        "Нельзя отправить комментарий Проверьте вход")]
+    [InlineData("""{"success":false,"message":["Комментарий слишком короткий"]}""",
+        "Комментарий слишком короткий")]
+    public async Task CommentPost_ShowsReadableMessageArray(string response, string expected)
+    {
+        using var client = CreateClient((_, _) => Json(response));
+        var error = await Assert.ThrowsAsync<RezkaException>(
+            () => client.SendCommentAsync("100", "Сохранённый черновик"));
+        Assert.Equal(RezkaError.Site, error.Kind);
+        Assert.Contains(expected, error.Message);
+    }
+
+    [Fact]
+    public async Task CommentPost_DecodesNestedJsonAndUnicode()
+    {
+        var nested = System.Text.Json.JsonSerializer.Serialize(
+            new[] { "Не удалось отправить", "Проверьте авторизацию" });
+        var response = System.Text.Json.JsonSerializer.Serialize(
+            new { success = false, message = nested });
+        using var client = CreateClient((_, _) => Json(response));
+        var error = await Assert.ThrowsAsync<RezkaException>(
+            () => client.SendCommentAsync("100", "Черновик"));
+        Assert.Equal("Не удалось отправить Проверьте авторизацию", error.Message);
+        Assert.DoesNotContain(@"\u041", error.Message);
+    }
+
+    [Fact]
+    public async Task CommentPost_AcknowledgesModeration()
+    {
+        using var client = CreateClient((_, _) =>
+            Json("""{"success":true,"on_moderation":true,"message":["Комментарий на модерации"]}"""));
+        Assert.Contains("модерации",
+            await client.SendCommentAsync("100", "Мой комментарий"));
+    }
+
+    [Fact]
+    public async Task CommentPost_PreservesOriginAndMovieReferer()
+    {
+        string? body = null;
+        string? origin = null, referer = null, requestedWith = null;
+        using var client = CreateClient((request, _) =>
+        {
+            body = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+            origin = request.Headers.GetValues("Origin").Single();
+            referer = request.Headers.Referrer?.AbsoluteUri;
+            requestedWith = request.Headers.GetValues("X-Requested-With").Single();
+            return Json("""{"success":true}""");
+        });
+
+        await client.SendCommentAsync("54321", "Проверка", sourcePath: "films/54321-film.html");
+
+        Assert.Contains("post_id=54321", body);
+        Assert.Contains("comments=", body);
+        Assert.Contains("has_adb=2", body);
+        Assert.Equal("https://mirror.example", origin);
+        Assert.Equal("https://mirror.example/films/54321-film.html", referer);
+        Assert.Equal("XMLHttpRequest", requestedWith);
     }
 
     private static RezkaClient CreateClient(Func<HttpRequestMessage, int, HttpResponseMessage> responder) =>

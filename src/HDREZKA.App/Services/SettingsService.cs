@@ -3,7 +3,10 @@ using HDREZKA.Core.Api;
 
 namespace HDREZKA.App.Services;
 
-public enum AppTheme { System, Light, Dark }
+public enum AppTheme { System, Light, Dark, Manual }
+
+/// <summary>Independent palette for details-page labels, not light/dark appearance.</summary>
+public enum DetailsPalette { Neutral, Colorful }
 
 public enum AppLanguage { Ru, En, Uk }
 
@@ -40,6 +43,10 @@ public sealed class SettingsService
     public DateTime LastMirrorCheckUtc { get; set; }
     public AppLanguage Language { get; set; } = AppLanguage.Ru;
     public AppTheme Theme { get; set; } = AppTheme.System;
+    public bool ManualThemeDark { get; set; } = true;
+    public string ManualAccentHex { get; set; } = "#377DFF";
+    public string ManualCompanionHex { get; set; } = "#5AD6CF";
+    public DetailsPalette DetailPalette { get; set; } = DetailsPalette.Neutral;
     public string DefaultQuality { get; set; } = "1080p";
     public bool UseAndroidHeaders { get; set; } = true;
     public int Volume { get; set; } = 100;
@@ -97,6 +104,25 @@ public sealed class SettingsService
     ];
 
     public event Action? PosterSizeChanged;
+    public event Action? DetailPaletteChanged;
+
+    public void SetManualAccent(string mainHex, string companionHex)
+    {
+        if (!ThemeHelper.TryParseHex(mainHex, out _) ||
+            !ThemeHelper.TryParseHex(companionHex, out _)) return;
+        ManualAccentHex = mainHex.ToUpperInvariant();
+        ManualCompanionHex = companionHex.ToUpperInvariant();
+        Save();
+        ThemeHelper.Apply(Theme);
+    }
+
+    public void SetDetailPalette(DetailsPalette palette)
+    {
+        if (!Enum.IsDefined(palette) || DetailPalette == palette) return;
+        DetailPalette = palette;
+        Save();
+        DetailPaletteChanged?.Invoke();
+    }
 
     public void SetPosterSize(int width)
     {
@@ -180,7 +206,14 @@ public sealed class SettingsService
             MirrorAutoPicked = loaded.MirrorAutoPicked;
             LastMirrorCheckUtc = loaded.LastMirrorCheckUtc;
             Language = loaded.Language;
-            Theme = loaded.Theme;
+            Theme = Enum.IsDefined(loaded.Theme) ? loaded.Theme : AppTheme.System;
+            ManualThemeDark = loaded.ManualThemeDark;
+            ManualAccentHex = ThemeHelper.TryParseHex(loaded.ManualAccentHex, out _)
+                ? loaded.ManualAccentHex : "#377DFF";
+            ManualCompanionHex = ThemeHelper.TryParseHex(loaded.ManualCompanionHex, out _)
+                ? loaded.ManualCompanionHex : "#5AD6CF";
+            DetailPalette = Enum.IsDefined(loaded.DetailPalette)
+                ? loaded.DetailPalette : DetailsPalette.Neutral;
             DefaultQuality = loaded.DefaultQuality;
             UseAndroidHeaders = loaded.UseAndroidHeaders;
             Volume = loaded.Volume;

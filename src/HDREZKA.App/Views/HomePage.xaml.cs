@@ -21,11 +21,33 @@ public sealed partial class HomePage : Page
     private bool _mirrorRecovered;
     private readonly List<MovieSimple> _heroItems = new();
     private int _heroIndex;
-    private readonly DispatcherTimer _heroTimer = new() { Interval = TimeSpan.FromSeconds(6) };
+    private readonly DispatcherTimer _heroTimer = new() { Interval = TimeSpan.FromSeconds(14) };
+    private bool _heroHovered;
+    private readonly Dictionary<string, string> _heroDescriptions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _heroBackdrops = new(StringComparer.OrdinalIgnoreCase);
+    private CancellationTokenSource? _heroDescriptionCts;
+    private CancellationTokenSource? _homeHoverCts;
+    private MovieCard? _hoverCard;
+    private string? _hoverMovieId;
+    private readonly Dictionary<string, MovieDetailed> _hoverCache =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public HomePage()
     {
         InitializeComponent();
+
+        // Pause auto-advance while the viewer reads the synopsis or uses
+        // the carousel. It resumes only after the pointer leaves the banner.
+        HeroCard.PointerEntered += (_, _) =>
+        {
+            _heroHovered = true;
+            _heroTimer.Stop();
+        };
+        HeroCard.PointerExited += (_, _) =>
+        {
+            _heroHovered = false;
+            RestartHeroTimer();
+        };
 
         // Страница кэшируется: возврат с деталей не пересоздаёт главную.
         NavigationCacheMode = NavigationCacheMode.Required;
@@ -38,6 +60,25 @@ public sealed partial class HomePage : Page
         PopularAllButton.Tag = new CatalogLaunch(Section.Films, ListFilter.Popular);
         WatchingAllButton.Tag = new CatalogLaunch(Section.Films, ListFilter.WatchingNow);
         SoonAllButton.Tag = new CatalogLaunch(Section.Films, ListFilter.Soon);
+        // Both the header and the final "See all" tile open the same listing.
+        FilmsEndButton.Tag = FilmsAllButton.Tag;
+        SeriesEndButton.Tag = SeriesAllButton.Tag;
+        CartoonsEndButton.Tag = CartoonsAllButton.Tag;
+        PopularEndButton.Tag = PopularAllButton.Tag;
+        WatchingEndButton.Tag = WatchingAllButton.Tag;
+        SoonEndButton.Tag = SoonAllButton.Tag;
+        HomePreviewHeader.Text = Loc.Get("Details.AboutMovie");
+        SettingsService.Instance.PosterSizeChanged += UpdateRailEndTileSizes;
+        // Extents become nonzero after layout. Keep arrow enabled states in
+        // sync when a resized window exposes more/less of a horizontal row.
+        foreach (var scroll in new[]
+        {
+            FilmsScroll, SeriesScroll, CartoonsScroll,
+            PopularScroll, WatchingScroll, SoonScroll
+        })
+            scroll.SizeChanged += (_, _) => DispatcherQueue.TryEnqueue(UpdateRailButtons);
+
+
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -57,6 +98,8 @@ public sealed partial class HomePage : Page
         }
 
         ApplyHeroMetrics();
+        UpdateRailEndTileSizes();
+        SettingsService.Instance.DetailPaletteChanged += OnHomePaletteChanged;
         SettingsService.Instance.PosterSizeChanged += OnPosterSizeChanged;
         TrackedSeriesService.UpdatesChanged += OnTrackedUpdatesChanged;
         RenderContinue();
@@ -67,6 +110,9 @@ public sealed partial class HomePage : Page
     {
         base.OnNavigatedFrom(e);
         _heroTimer.Stop();
+        HideHomePreview();
+        try { _heroDescriptionCts?.Cancel(); } catch { }
+        SettingsService.Instance.DetailPaletteChanged -= OnHomePaletteChanged;
         try { _loadCts?.Cancel(); } catch { }
         SettingsService.Instance.PosterSizeChanged -= OnPosterSizeChanged;
         TrackedSeriesService.UpdatesChanged -= OnTrackedUpdatesChanged;
@@ -85,6 +131,9 @@ public sealed partial class HomePage : Page
         HeroCard.Height = PosterMetrics.HeroCardHeight;
         HeroPosterBorder.Width = PosterMetrics.HeroWidth;
         HeroPosterBorder.Height = PosterMetrics.HeroHeight;
+        HeroArtwork.Width = PosterMetrics.HeroWidth + 108;
+        HeroArtwork.Height = Math.Max(PosterMetrics.HeroHeight + 14, 275);
+        HeroRankNumber.FontSize = Math.Min(253, PosterMetrics.HeroHeight * .83);
         HeroPosterClip.Rect = new Windows.Foundation.Rect(0, 0, PosterMetrics.HeroWidth, PosterMetrics.HeroHeight);
     }
 
@@ -104,6 +153,21 @@ public sealed partial class HomePage : Page
         RetryButton.Content = Loc.Get("Common.Retry");
         MirrorButton.Content = Loc.Get("Settings.AutoMirror");
         HeroWatchButton.Content = Loc.Get("Common.Watch");
+        HomePreviewHeader.Text = Loc.Get("Details.AboutMovie");
+        var endLabel = Loc.Get("Home.MoreTitles");
+        FilmsEndText.Text = endLabel;
+        SeriesEndText.Text = endLabel;
+        CartoonsEndText.Text = endLabel;
+        PopularEndText.Text = endLabel;
+        WatchingEndText.Text = endLabel;
+        SoonEndText.Text = endLabel;
+        var hint = Loc.Get("Home.OpenCatalog");
+        FilmsEndHint.Text = hint;
+        SeriesEndHint.Text = hint;
+        CartoonsEndHint.Text = hint;
+        PopularEndHint.Text = hint;
+        WatchingEndHint.Text = hint;
+        SoonEndHint.Text = hint;
         ContinueHeader.Text = Loc.Get("Continue.Home");
         TrackedHeader.Text = Loc.Get("Home.Tracked");
         FilmsHeader.Text = Loc.Get("Section.Films") + " — " + Loc.Get("Filter.Latest");
@@ -208,8 +272,8 @@ public sealed partial class HomePage : Page
         {
             var dot = new Microsoft.UI.Xaml.Shapes.Ellipse
             {
-                Width = 8,
-                Height = 8,
+                Width = 9,
+                Height = 9,
                 Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Gray),
                 Tag = i,
             };
@@ -254,15 +318,18 @@ public sealed partial class HomePage : Page
     private void ApplyHeroContent()
     {
         var movie = _heroItems[_heroIndex];
-        HeroKicker.Text = $"{Loc.Get("Filter.Hot")} · #{_heroIndex + 1}";
+        HeroRankNumber.Text = (_heroIndex + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
         HeroTitle.Text = movie.Name ?? "";
         HeroDetails.Text = movie.Details ?? "";
+        HeroDescription.Text = _heroDescriptions.GetValueOrDefault(movie.Id) ?? "";
+        _ = LoadHeroDescriptionAsync(movie);
+
 
         if (!string.IsNullOrEmpty(movie.Poster))
         {
             // Через общий кэш: раньше герой каждый раз качал постер заново.
             PosterCache.SetSource(HeroPoster, movie.Poster);
-            PosterCache.SetSource(HeroBackdrop, movie.Poster);
+            PosterCache.SetSource(HeroBackdrop, _heroBackdrops.GetValueOrDefault(movie.Id) ?? movie.Poster);
         }
         else
         {
@@ -273,7 +340,9 @@ public sealed partial class HomePage : Page
         if (movie.Rating is { } rating)
         {
             HeroRatingBadge.Visibility = Visibility.Visible;
-            HeroRatingText.Text = rating.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+            HeroRatingText.Text = "R  " + rating.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture);
+            HeroRatingBadge.Background = RezkaScoreColors.Gradient(rating);
+            HeroRatingText.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
         }
         else
         {
@@ -284,9 +353,15 @@ public sealed partial class HomePage : Page
         {
             if (HeroDots.Children[i] is Microsoft.UI.Xaml.Shapes.Ellipse dot)
             {
-                dot.Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-                    i == _heroIndex ? Microsoft.UI.Colors.White : Windows.UI.Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
-                dot.Width = i == _heroIndex ? 20 : 8;
+                // All indicators are circles; active state is conveyed by
+                // accent, a gentle outline and opacity, not an oval.
+                dot.Fill = i == _heroIndex
+                    ? ThemeHelper.AccentTextBrush
+                    : new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                        Windows.UI.Color.FromArgb(110, 255, 255, 255));
+                dot.Width = 9;
+                dot.Height = 9;
+                dot.Opacity = i == _heroIndex ? 1 : .72;
             }
         }
     }
@@ -323,18 +398,376 @@ public sealed partial class HomePage : Page
 
     private void RestartHeroTimer()
     {
-        if (_heroItems.Count <= 1) return;
         _heroTimer.Stop();
-        _heroTimer.Start();
+        if (_heroItems.Count > 1 && !_heroHovered)
+            _heroTimer.Start();
     }
 
-    private void BindSection(string id, StackPanel section, GridView grid, IReadOnlyList<MovieSimple> items)
+    private async Task LoadHeroDescriptionAsync(MovieSimple movie)
+    {
+        if (_heroDescriptions.TryGetValue(movie.Id, out var existing))
+        {
+            HeroDescription.Text = existing;
+            return;
+        }
+        try { _heroDescriptionCts?.Cancel(); } catch { }
+        var cts = new CancellationTokenSource();
+        _heroDescriptionCts = cts;
+        try
+        {
+            var details = await RezkaService.Instance.Client.GetDetailsAsync(movie.Id, cts.Token);
+            if (cts.IsCancellationRequested) return;
+            var synopsis = details.Description?.Trim() ?? "";
+            _heroDescriptions[movie.Id] = synopsis;
+            if (!string.IsNullOrWhiteSpace(details.BigPoster))
+                _heroBackdrops[movie.Id] = details.BigPoster;
+            if (_heroItems.Count > _heroIndex &&
+                _heroItems[_heroIndex].Id == movie.Id)
+            {
+                HeroDescription.Text = synopsis;
+                if (_heroBackdrops.TryGetValue(movie.Id, out var backdrop))
+                    PosterCache.SetSource(HeroBackdrop, backdrop);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            // Description enriches the banner, but must never block navigation.
+            Log.Info("[Home] Hero description unavailable: " + ex.Message);
+        }
+        finally
+        {
+            if (ReferenceEquals(_heroDescriptionCts, cts))
+                _heroDescriptionCts = null;
+            cts.Dispose();
+        }
+    }
+
+    private void UpdateRailEndTileSizes()
+    {
+        foreach (var button in new[]
+        {
+            FilmsEndButton, SeriesEndButton, CartoonsEndButton,
+            PopularEndButton, WatchingEndButton, SoonEndButton
+        })
+        {
+            button.Width = Math.Round(PosterMetrics.CardWidth * 1.30);
+            button.Height = PosterMetrics.CardHeight;
+            // Subtle two-accent gradient, reused for all six catalog links.
+            var primary = ThemeHelper.AccentBrush.Color;
+            var companion = ThemeHelper.CompanionBrush.Color;
+            var dark = ActualTheme != ElementTheme.Light;
+            byte Tone(byte value) => (byte)Math.Clamp(
+                Math.Round(value * (dark ? .58 : .77)), 0, 255);
+            var gradient = new Microsoft.UI.Xaml.Media.LinearGradientBrush
+            {
+                StartPoint = new Windows.Foundation.Point(0, 0),
+                EndPoint = new Windows.Foundation.Point(1, 1)
+            };
+            gradient.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop
+            {
+                Offset = 0,
+                Color = Windows.UI.Color.FromArgb(255,
+                    Tone(primary.R), Tone(primary.G), Tone(primary.B))
+            });
+            gradient.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop
+            {
+                Offset = 1,
+                Color = Windows.UI.Color.FromArgb(255,
+                    Tone(companion.R), Tone(companion.G), Tone(companion.B))
+            });
+            button.Background = gradient;
+        }
+        DispatcherQueue.TryEnqueue(UpdateRailButtons);
+    }
+
+    private (ScrollViewer Scroll, Button Previous, Button Next)? GetRail(string name) =>
+        name switch
+        {
+            "Films" => (FilmsScroll, FilmsPrev, FilmsNext),
+            "Series" => (SeriesScroll, SeriesPrev, SeriesNext),
+            "Cartoons" => (CartoonsScroll, CartoonsPrev, CartoonsNext),
+            "Popular" => (PopularScroll, PopularPrev, PopularNext),
+            "Watching" => (WatchingScroll, WatchingPrev, WatchingNext),
+            "Soon" => (SoonScroll, SoonPrev, SoonNext),
+            _ => null
+        };
+
+    private void HomeRailNav_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string name } button ||
+            GetRail(name) is not { } rail) return;
+        var direction = ReferenceEquals(button, rail.Next) ? 1 : -1;
+        var step = Math.Max(PosterMetrics.CardWidth + 16,
+            rail.Scroll.ViewportWidth * .82);
+        var target = Math.Clamp(rail.Scroll.HorizontalOffset + direction * step,
+            0, Math.Max(0, rail.Scroll.ScrollableWidth));
+        rail.Scroll.ChangeView(target, null, null, false);
+    }
+
+    private void HomeRail_PointerWheelChanged(object sender,
+        Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        if (sender is not StackPanel { Tag: string name } ||
+            GetRail(name) is not { } rail)
+            return;
+
+        var delta = e.GetCurrentPoint(rail.Scroll).Properties.MouseWheelDelta;
+        if (delta == 0) return;
+        var keyState = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(
+            Windows.System.VirtualKey.Shift);
+        var shiftHeld = (keyState & Windows.UI.Core.CoreVirtualKeyStates.Down) != 0;
+
+        if (shiftHeld)
+        {
+            // Shift + wheel deliberately navigates the horizontal row.
+            // The viewer stays Hidden, NOT Disabled, so ChangeView works.
+            var target = Math.Clamp(rail.Scroll.HorizontalOffset - delta,
+                0, Math.Max(0, rail.Scroll.ScrollableWidth));
+            rail.Scroll.ChangeView(target, null, null, false);
+        }
+        else
+        {
+            // Ordinary wheel always scrolls the page vertically, even when
+            // hovering a poster or the end-of-rail navigation tile.
+            var target = Math.Clamp(HomeVerticalScroll.VerticalOffset - delta,
+                0, Math.Max(0, HomeVerticalScroll.ScrollableHeight));
+            HomeVerticalScroll.ChangeView(null, target, null, false);
+        }
+        e.Handled = true;
+    }
+
+    private void HomeRail_ViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
+    {
+        HideHomePreview();
+        UpdateRailButtons();
+    }
+
+    private void HomeVerticalScroll_ViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
+        => HideHomePreview();
+
+    private void UpdateRailButtons()
+    {
+        foreach (var name in new[]
+                 { "Films", "Series", "Cartoons", "Popular", "Watching", "Soon" })
+        {
+            if (GetRail(name) is not { } rail) continue;
+            rail.Previous.IsEnabled = rail.Scroll.HorizontalOffset > 2;
+            rail.Next.IsEnabled = rail.Scroll.HorizontalOffset <
+                rail.Scroll.ScrollableWidth - 2;
+        }
+    }
+
+    private void OnHomePaletteChanged() => DispatcherQueue.TryEnqueue(() =>
+    {
+        if (_hoverMovieId != null &&
+            _hoverCache.TryGetValue(_hoverMovieId, out var details))
+            FillHomePreview(details);
+        StyleHomePreviewBadges();
+    });
+
+    private void HomeMovie_HoverChanged(object sender, RecommendationHoverEventArgs e)
+    {
+        if (sender is not MovieCard card) return;
+        if (!e.IsEntering)
+        {
+            if (ReferenceEquals(card, _hoverCard))
+                HideHomePreview();
+            return;
+        }
+        if (e.Movie == null) return;
+        HideHomePreview();
+        _hoverCard = card;
+        _hoverMovieId = e.Movie.Id;
+        _homeHoverCts = new CancellationTokenSource();
+        _ = ShowHomePreviewAsync(card, e.Movie, _homeHoverCts.Token);
+    }
+
+    private void HideHomePreview()
+    {
+        try { _homeHoverCts?.Cancel(); } catch { }
+        _homeHoverCts = null;
+        _hoverCard = null;
+        _hoverMovieId = null;
+        HomePreviewCard.Visibility = Visibility.Collapsed;
+    }
+
+    private bool HomeHoverCurrent(MovieCard card, MovieSimple movie, CancellationToken ct) =>
+        !ct.IsCancellationRequested &&
+        ReferenceEquals(_hoverCard, card) &&
+        _hoverMovieId == movie.Id && card.Movie?.Id == movie.Id;
+
+    private void PositionHomePreview(MovieCard card)
+    {
+        var width = HomePreviewLayer.ActualWidth;
+        var height = HomePreviewLayer.ActualHeight;
+        if (width < 215 || height < 235)
+        {
+            HomePreviewCard.Visibility = Visibility.Collapsed;
+            return;
+        }
+        var overlay = HomePreviewCard;
+        overlay.Width = Math.Min(330, width - 28);
+        overlay.MaxHeight = height - 24;
+        HomePreviewDescription.MaxLines = height < 580 ? 3 : 5;
+        HomePreviewActors.MaxLines = height < 580 ? 1 : 3;
+        var origin = card.TransformToVisual(HomePreviewLayer)
+            .TransformPoint(new Windows.Foundation.Point(0, 0));
+        overlay.Measure(new Windows.Foundation.Size(overlay.Width, overlay.MaxHeight));
+        var measuredHeight = Math.Min(overlay.DesiredSize.Height, overlay.MaxHeight);
+        const double space = 14;
+        var right = origin.X + card.ActualWidth + space;
+        var left = origin.X - overlay.Width - space;
+        var x = right + overlay.Width < width - 12
+            ? right : left >= 12 ? left
+            : Math.Max(12, (width - overlay.Width) / 2);
+        var y = Math.Clamp(origin.Y, 12, Math.Max(12, height - measuredHeight - 12));
+        Canvas.SetLeft(overlay, x);
+        Canvas.SetTop(overlay, y);
+    }
+
+    private void StyleHomePreviewBadges()
+    {
+        var dark = ActualTheme != ElementTheme.Light;
+        var colorful = SettingsService.Instance.DetailPalette == DetailsPalette.Colorful;
+        var muted = dark ? Windows.UI.Color.FromArgb(255, 54, 57, 63)
+                         : Windows.UI.Color.FromArgb(255, 231, 234, 237);
+        Windows.UI.Color Tone(byte r, byte g, byte b) =>
+            Windows.UI.Color.FromArgb(255, r, g, b);
+        var tones = new[]
+        {
+            colorful ? (dark ? Tone(42, 69, 66) : Tone(210, 238, 232)) : muted,
+            colorful ? (dark ? Tone(91, 75, 28) : Tone(252, 242, 194)) : muted,
+            colorful ? (dark ? Tone(94, 58, 37) : Tone(250, 222, 202)) : muted,
+        };
+        var badges = new[] { HomePreviewRezka, HomePreviewImdb, HomePreviewKp };
+        var values = new[] { HomePreviewRezkaText, HomePreviewImdbText, HomePreviewKpText };
+        for (var i = 0; i < badges.Length; i++)
+        {
+            badges[i].Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(tones[i]);
+            values[i].Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(dark
+                ? Tone(241, 243, 246) : Tone(35, 39, 45));
+        }
+    }
+
+    private void RenderHomePreviewGenres(IReadOnlyList<MovieGenre>? genres)
+    {
+        HomePreviewGenreRows.Children.Clear();
+        if (genres is not { Count: > 0 }) return;
+        var palette = GenreColors.Palette(
+            genres.Select(g => g.Name).ToArray(),
+            ActualTheme == ElementTheme.Light,
+            SettingsService.Instance.DetailPalette == DetailsPalette.Colorful);
+        StackPanel? row = null;
+        for (var i = 0; i < Math.Min(4, genres.Count); i++)
+        {
+            if (i % 2 == 0)
+            {
+                row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10 };
+                HomePreviewGenreRows.Children.Add(row);
+            }
+            row!.Children.Add(new TextBlock
+            {
+                Text = genres[i].Name, FontSize = 12,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                Foreground = palette[i].Fg,
+                MaxWidth = 144, TextTrimming = TextTrimming.CharacterEllipsis
+            });
+        }
+    }
+
+    private void FillHomePreview(MovieDetailed details)
+    {
+        HomePreviewTitle.Text = details.Name;
+        HomePreviewSubtitle.Text = details.OriginalName ?? "";
+        var r = details.SiteRating?.Value;
+        var imdb = details.ImdbRating?.Value;
+        var kp = details.KpRating?.Value;
+        HomePreviewRezka.Visibility = r != null ? Visibility.Visible : Visibility.Collapsed;
+        HomePreviewImdb.Visibility = imdb != null ? Visibility.Visible : Visibility.Collapsed;
+        HomePreviewKp.Visibility = kp != null ? Visibility.Visible : Visibility.Collapsed;
+        HomePreviewRezkaText.Text = r?.ToString("0.0") ?? "";
+        HomePreviewImdbText.Text = imdb?.ToString("0.0") ?? "";
+        HomePreviewKpText.Text = kp?.ToString("0.0") ?? "";
+        HomePreviewDescription.Text = details.Description ?? "";
+        RenderHomePreviewGenres(details.Genres);
+        HomePreviewDirector.Text = details.Producers is { Count: > 0 }
+            ? Loc.Get("Details.Director") + ": " +
+              string.Join(", ", details.Producers.Take(3).Select(x => x.Name)) : "";
+        HomePreviewActors.Text = details.Actors is { Count: > 0 }
+            ? Loc.Get("Details.Actors") + ": " +
+              string.Join(", ", details.Actors.Take(4).Select(x => x.Name)) : "";
+        StyleHomePreviewBadges();
+        if (r is { } score)
+        {
+            HomePreviewRezka.Background = RezkaScoreColors.Gradient(score);
+            HomePreviewRezkaText.Foreground =
+                new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
+        }
+    }
+
+    private async Task ShowHomePreviewAsync(MovieCard card, MovieSimple movie, CancellationToken ct)
+    {
+        try
+        {
+            // Fast local frame before waiting for slow website detail requests.
+            await Task.Delay(160, ct);
+            if (!HomeHoverCurrent(card, movie, ct)) return;
+            HomePreviewHeader.Text = Loc.Get("Details.AboutMovie");
+            HomePreviewTitle.Text = movie.Name ?? "";
+            HomePreviewSubtitle.Text = movie.Details ?? "";
+            HomePreviewRezka.Visibility = movie.Rating.HasValue
+                ? Visibility.Visible : Visibility.Collapsed;
+            HomePreviewImdb.Visibility = Visibility.Collapsed;
+            HomePreviewKp.Visibility = Visibility.Collapsed;
+            HomePreviewRezkaText.Text = movie.Rating?.ToString("0.0") ?? "";
+            HomePreviewDescription.Text = "";
+            HomePreviewDirector.Text = "";
+            HomePreviewActors.Text = "";
+            HomePreviewGenreRows.Children.Clear();
+            StyleHomePreviewBadges();
+            if (movie.Rating is { } score)
+            {
+                HomePreviewRezka.Background = RezkaScoreColors.Gradient(score);
+                HomePreviewRezkaText.Foreground =
+                    new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.White);
+            }
+            HomePreviewCard.Visibility = Visibility.Visible;
+            PositionHomePreview(card);
+
+            if (_hoverCache.TryGetValue(movie.Id, out var cached))
+            {
+                FillHomePreview(cached);
+
+                PositionHomePreview(card);
+                return;
+            }
+            await Task.Delay(220, ct);
+            if (!HomeHoverCurrent(card, movie, ct)) return;
+            var details = await RezkaService.Instance.Client.GetDetailsAsync(movie.Id, ct);
+            if (!HomeHoverCurrent(card, movie, ct)) return;
+            if (_hoverCache.Count >= 24)
+                _hoverCache.Remove(_hoverCache.Keys.First());
+            _hoverCache[movie.Id] = details;
+            FillHomePreview(details);
+
+            PositionHomePreview(card);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Log.Info("[Home] Hover preview unavailable: " + ex.Message);
+        }
+    }
+
+    private void BindSection(string id, StackPanel section, ItemsControl grid, IReadOnlyList<MovieSimple> items)
     {
         var preview = items.Take(SectionPreviewCount).ToList();
         grid.ItemsSource = preview;
         var show = preview.Count > 0;
         _sectionHasContent[id] = show;
         section.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        DispatcherQueue.TryEnqueue(UpdateRailButtons);
     }
 
     /// <summary>
@@ -586,6 +1019,12 @@ public sealed partial class HomePage : Page
     private void HeroCard_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         HeroClipRect.Rect = new Windows.Foundation.Rect(0, 0, Math.Max(0, e.NewSize.Width), Math.Max(0, e.NewSize.Height));
+        var narrow = e.NewSize.Width < 700;
+        HeroArtwork.Visibility = narrow ? Visibility.Collapsed : Visibility.Visible;
+        HeroInnerGrid.Padding = narrow ? new Thickness(60, 18, 60, 30)
+            : new Thickness(70, 20, 70, 34);
+        HeroTitle.FontSize = e.NewSize.Width < 530 ? 22 : narrow ? 27 : 31;
+        HeroDescription.MaxLines = narrow ? 3 : 4;
     }
 
     private void ShowAll_Click(object sender, RoutedEventArgs e)

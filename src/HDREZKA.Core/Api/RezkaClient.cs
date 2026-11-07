@@ -401,7 +401,8 @@ public sealed class RezkaClient : IDisposable
         }
     }
 
-    private async Task<string> PostFormAsync(string pathAndQuery, IReadOnlyDictionary<string, string?> form, CancellationToken ct)
+    private async Task<string> PostFormAsync(string pathAndQuery, IReadOnlyDictionary<string, string?> form,
+        CancellationToken ct, string? refererPath = null)
     {
         await _requestGate.WaitAsync(ct).ConfigureAwait(false);
         try
@@ -412,10 +413,22 @@ public sealed class RezkaClient : IDisposable
                 try
                 {
                     using var resp = await SendWithRedirectsAsync(
-                        () => new HttpRequestMessage(HttpMethod.Post, pathAndQuery)
+                        () =>
                         {
-                            Content = new FormUrlEncodedContent(form.Where(kv => kv.Value != null)
-                                .Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value!))),
+                            var request = new HttpRequestMessage(HttpMethod.Post, pathAndQuery)
+                            {
+                                Content = new FormUrlEncodedContent(form.Where(kv => kv.Value != null)
+                                    .Select(kv => new KeyValuePair<string, string>(kv.Key, kv.Value!))),
+                            };
+                            if (refererPath != null)
+                            {
+                                var origin = new Uri(Options.Mirror);
+                                request.Headers.Referrer = new Uri(origin, refererPath.TrimStart('/'));
+                                request.Headers.TryAddWithoutValidation("Origin",
+                                    origin.GetLeftPart(UriPartial.Authority));
+                                request.Headers.TryAddWithoutValidation("X-Requested-With", "XMLHttpRequest");
+                            }
+                            return request;
                         }, isPost: true, ct: ct, allowInsecureDowngrade: false).ConfigureAwait(false);
                     if (resp.StatusCode == HttpStatusCode.Forbidden)
                     {
@@ -510,8 +523,95 @@ public sealed class RezkaClient : IDisposable
 
     public async Task<IReadOnlyList<CollectionSimple>> GetAllCollectionsAsync(CancellationToken ct = default)
     {
-        var html = await GetStringAsync("collections/", ct).ConfigureAwait(false);
-        return Parsers.ParseCollectionsList(html);
+        // HDRezka collections use /collections/page/N/, not a single index.
+        // A conservative cap plus duplicate-page detection protects against a
+        // mirror that ignores /page/N/ and returns the first page repeatedly.
+        const int hardPageLimit = 25;
+        var result = new List<CollectionSimple>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        for (var page = 1; page <= hardPageLimit; page++)
+        {
+            ct.ThrowIfCancellationRequested();
+            string html;
+            try
+            {
+                html = await GetStringAsync(PageUrl("collections/", page), ct)
+                    .ConfigureAwait(false);
+            }
+            catch (RezkaException ex) when (page > 1 &&
+                ex.Kind == RezkaError.NotFound)
+            {
+                break; // end of pagination on mirrors returning a 404
+            }
+            var items = Parsers.ParseCollectionsList(html);
+            if (items.Count == 0) break;
+            var fresh = 0;
+            foreach (var item in items)
+                if (seen.Add(item.Id))
+                {
+                    result.Add(item);
+                    fresh++;
+                }
+            if (fresh == 0) break; // mirror repeated a page (or looped)
+            // If the website exposes pagination, stop at its last page. When
+            // absent, probe the next page, stopping on empty/duplicate/404.
+            var lastPage = Parsers.ParseCollectionsLastPage(html);
+            if (lastPage is { } last && page >= last) break;
+        }
+
+        return result;
+    }
+
+    public Task<(string Title, IReadOnlyList<MovieSimple> Items)> GetSourceSeriesListAsync(
+        string sourcePath, int page = 1, CancellationToken ct = default)
+    {
+        // A source "Из серии" entry can be a category/year/best list rather
+        // than a real /collections/ folder. Only permit local browse paths.
+        var path = sourcePath.Trim('/');
+        if (!System.Text.RegularExpressions.Regex.IsMatch(path,
+            @"^(films|series|animation|cartoons|show)/(best|popular|year|genre|country|new)/[a-z0-9_-]+(?:/[a-z0-9_-]+)?$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+            throw new ArgumentException("Unsupported source list path", nameof(sourcePath));
+        return GetListAsync(PageUrl(path + "/", page), ct);
+    }
+
+    public async Task<IReadOnlyList<MovieGenre>> GetGenreOptionsAsync(
+        Section section, CancellationToken ct = default)
+    {
+        // Read the current mirror's real genre URLs / option IDs. Do not keep
+        // a hardcoded catalog: different mirrors can publish different routes.
+        var html = await GetStringAsync(section.ToPath() + "/", ct).ConfigureAwait(false);
+        var genres = Parsers.ParseGenreLinks(html, section);
+        if (genres.Count > 0) return genres;
+
+        // On layouts where menus exist only on the home page, retry there.
+        html = await GetStringAsync("", ct).ConfigureAwait(false);
+        return Parsers.ParseGenreLinks(html, section);
+    }
+
+    public Task<(string Title, IReadOnlyList<MovieSimple> Items)> GetGenreListAsync(
+        string genrePath, int page = 1, CancellationToken ct = default,
+        ListFilter? filter = null)
+    {
+        // Accept the URLs really emitted by the site's navigation:
+        // /series/melodrama/ and /films/drama/ are valid genre pages.
+        // Also support alternate /series/genre/melodrama/ and /genre/drama/.
+        // Reject arbitrary URLs, traversal, query strings or other site routes.
+        var normalized = genrePath.Trim().Trim('/');
+        if (!System.Text.RegularExpressions.Regex.IsMatch(
+            normalized,
+            @"^(?:genre/[a-z0-9_%-]+|(?:films|series|animation|cartoons|show)/(?:genre/)?[a-z0-9_%-]+)$",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase) ||
+            normalized.Contains("..", StringComparison.Ordinal) ||
+            normalized.Contains("://", StringComparison.Ordinal) ||
+            normalized.Contains('\\') ||
+            normalized.Contains('?') ||
+            normalized.Contains('#'))
+            throw new ArgumentException("Invalid same-site genre route", nameof(genrePath));
+        var query = filter is null ? null :
+            new Dictionary<string, string?> { ["filter"] = filter.Value.ToQuery() };
+        return GetListAsync(PageUrl(normalized + "/", page, query), ct);
     }
 
     public async Task<IReadOnlyList<MovieSimple>> GetHotMoviesAsync(int genre = 0, CancellationToken ct = default)
@@ -738,31 +838,137 @@ public sealed class RezkaClient : IDisposable
         return Parsers.ParseCommentsResponse(body);
     }
 
-    public async Task<string> SendCommentAsync(string postId, string text, string? parentId = null, string? adb = null, CancellationToken ct = default)
+    public async Task<string> SendCommentAsync(string postId, string text,
+        string? parentId = null, string? adb = null, CancellationToken ct = default,
+        string? sourcePath = null)
     {
-        var body = await PostFormAsync(
-            "ajax/add_comment/",
+        // HDRezka's own page script marks comment posting as available via
+        // this cookie. It is not sent by the API's read-only movie requests.
+        // Preserve login cookies; only add the site's expected flag.
+        var mirrorUri = new Uri(Options.Mirror);
+        _cookies.Add(mirrorUri, new Cookie("allowed_comments", "1", "/"));
+
+        var postPage = sourcePath is { Length: > 0 } path &&
+            !path.Contains("..", StringComparison.Ordinal) &&
+            !path.Contains("://", StringComparison.Ordinal) &&
+            !path.Contains('?') && !path.Contains('#')
+            ? path : "";
+
+        var body = await PostFormAsync("ajax/add_comment/",
             new Dictionary<string, string?>
             {
                 ["parent"] = parentId ?? "0",
-                ["replyto_id"] = parentId,
+                ["replyto_id"] = parentId ?? "0",
                 ["post_id"] = postId,
-                ["name"] = null,
+                ["name"] = "",
+                ["mail"] = "",
                 ["comments"] = text,
                 ["type"] = "0",
-                ["has_adb"] = adb ?? "1",
-                ["g_recaptcha_response"] = "",
-            },
-            ct).ConfigureAwait(false);
+                ["has_adb"] = adb ?? "2",
+                ["sec_code"] = "",
+                ["question_answer"] = "",
+                ["is_admin"] = "",
+                ["g_recaptcha_response"] = ""
+            }, ct, refererPath: postPage).ConfigureAwait(false);
 
-        using var json = JsonDocument.Parse(body);
-        var root = json.RootElement;
-        if (root.TryGetProperty("success", out var s) && s.ValueKind == JsonValueKind.False)
+        return ValidatePostedComment(body);
+    }
+
+    /// <summary>
+    /// Handle actual site responses, including an array of localized messages,
+    /// double-encoded JSON strings and moderation acknowledgements.
+    /// Never report a failed post as successful or erase an unsent draft.
+    /// </summary>
+    public static string ValidatePostedComment(string body)
+    {
+        JsonDocument json;
+        try { json = JsonDocument.Parse(body); }
+        catch (JsonException)
         {
-            throw RezkaException.Site(root.TryGetProperty("message", out var m) ? m.GetString() ?? "Error" : "Error");
+            throw RezkaException.Site(
+                "Сайт вернул не JSON, а страницу ошибки или авторизации. " +
+                "Проверьте зеркало и войдите в аккаунт повторно.");
         }
 
-        return root.TryGetProperty("comment", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() ?? "" : "";
+        using (json)
+        {
+            var root = json.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                throw RezkaException.Site(
+                    CleanCommentMessage(root) ?? "Некорректный ответ сайта на комментарий.");
+
+            var moderation = root.TryGetProperty("on_moderation", out var moderationEl)
+                && IsTruthy(moderationEl);
+            var message = ExtractCommentError(root);
+            if (root.TryGetProperty("success", out var value) && IsTruthy(value))
+                return moderation
+                    ? (message ?? "Комментарий отправлен на модерацию.")
+                    : (root.TryGetProperty("comment", out var posted) &&
+                        posted.ValueKind == JsonValueKind.String
+                        ? posted.GetString() ?? "" : "");
+
+            if (moderation)
+                return message ?? "Комментарий отправлен на модерацию.";
+
+            throw RezkaException.Site(message ??
+                "Сайт не подтвердил отправку комментария. Возможно, требуется CAPTCHA или повторная авторизация.");
+        }
+    }
+
+    private static bool IsTruthy(JsonElement value) => value.ValueKind switch
+    {
+        JsonValueKind.True => true,
+        JsonValueKind.Number => value.TryGetInt32(out var n) && n > 0,
+        JsonValueKind.String => value.GetString()?.Trim().ToLowerInvariant()
+            is "1" or "true" or "ok" or "success",
+        _ => false
+    };
+
+    private static string? ExtractCommentError(JsonElement root)
+    {
+        foreach (var key in new[] { "message", "msg", "error", "reason" })
+            if (root.TryGetProperty(key, out var value))
+            {
+                var message = CleanCommentMessage(value);
+                if (!string.IsNullOrWhiteSpace(message)) return message;
+            }
+        return null;
+    }
+
+    private static string? CleanCommentMessage(JsonElement value, int depth = 0)
+    {
+        if (depth > 3) return null;
+        string? result = value.ValueKind switch
+        {
+            JsonValueKind.Array => string.Join(" ", value.EnumerateArray()
+                .Select(x => CleanCommentMessage(x, depth + 1))
+                .Where(x => !string.IsNullOrWhiteSpace(x))),
+            JsonValueKind.Object => ExtractCommentError(value),
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Null or JsonValueKind.Undefined => null,
+            _ => value.ToString()
+        };
+        if (string.IsNullOrWhiteSpace(result)) return null;
+
+        // Some mirrors return message as the serialized text '["\\u041f..."]'.
+        // Deserialize once more instead of printing raw JSON/escape codes.
+        var trimmed = result.Trim();
+        if (depth < 3 && (trimmed.StartsWith("[") || trimmed.StartsWith("{") ||
+            (trimmed.StartsWith('"') && trimmed.EndsWith('"'))))
+        {
+            try
+            {
+                using var nested = JsonDocument.Parse(trimmed);
+                var decoded = CleanCommentMessage(nested.RootElement, depth + 1);
+                if (!string.IsNullOrWhiteSpace(decoded)) result = decoded;
+            }
+            catch (JsonException) { }
+        }
+
+        result = System.Net.WebUtility.HtmlDecode(
+            System.Text.RegularExpressions.Regex.Replace(result, "<[^>]*>", " "));
+        result = System.Text.RegularExpressions.Regex.Replace(result, @"\s+", " ").Trim();
+        return result.Length > 350 ? result[..350] : result;
     }
 
     public async Task<bool> ToggleCommentLikeAsync(string commentId, CancellationToken ct = default)

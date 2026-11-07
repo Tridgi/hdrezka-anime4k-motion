@@ -3,6 +3,7 @@ using HDREZKA.App.Views;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace HDREZKA.App;
@@ -25,6 +26,11 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        // NavigationView may open/close the pane automatically at responsive
+        // breakpoints, not only when the custom toggle button is clicked.
+        NavView.PaneOpened += (_, _) => UpdatePaneGlyph();
+        NavView.PaneClosed += (_, _) => UpdatePaneGlyph();
+        UpdatePaneGlyph();
 
         Title = "HDREZKA Anime4K Motion v2";
         ExtendsContentIntoTitleBar = true;
@@ -57,6 +63,7 @@ public sealed partial class MainWindow : Window
         RootGrid.SizeChanged += (_, _) =>
         {
             DispatcherQueue.TryEnqueue(DispatcherQueuePriority.Normal, RefreshTitleBarLayout);
+            UpdateCenteredModalLayout();
         };
         CustomTitleBar.Loaded += (_, _) => RefreshTitleBarLayout();
         CustomTitleBar.SizeChanged += (_, _) =>
@@ -70,6 +77,10 @@ public sealed partial class MainWindow : Window
         };
         RefreshTitleBarLayout();
         RefreshCaptionButtons();
+        // Catch mouse Back/Forward side buttons even when a nested control
+        // marks PointerPressed as handled. This follows Frame's history.
+        RootGrid.AddHandler(UIElement.PointerPressedEvent,
+            new PointerEventHandler(RootGrid_PointerPressed), true);
         Nav.SetFrame(ContentFrame);
         ContentFrame.Navigated += ContentFrame_Navigated;
         LocalizationService.Instance.LanguageChanged += ApplyLocalization;
@@ -83,6 +94,75 @@ public sealed partial class MainWindow : Window
 
         ContentFrame.Navigate(typeof(HomePage));
         NavView.SelectedItem = NavHome;
+        UpdatePaneGlyph();
+    }
+
+    private TaskCompletionSource<bool>? _centeredModalCompletion;
+
+    /// <summary>
+    /// A modal overlay hosted in RootGrid, which spans the complete application
+    /// window. The overlay remains centred even with the navigation pane open.
+    /// Avoid ContentDialog.Popup here: it does not control the popup's geometry.
+    /// </summary>
+    private double _centeredModalPreferredWidth = 560;
+
+    public Task ShowCenteredModalAsync(string title, FrameworkElement body, double preferredWidth = 560)
+    {
+        if (_centeredModalCompletion is not null)
+            return Task.CompletedTask;
+
+        var completion = new TaskCompletionSource<bool>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        _centeredModalCompletion = completion;
+        CenteredModalTitle.Text = title;
+        _centeredModalPreferredWidth = Math.Clamp(preferredWidth, 360, 850);
+        CenteredModalBody.Content = body;
+        UpdateCenteredModalLayout();
+
+        // Keep keyboard navigation and clicks within the modal.
+        NavView.IsEnabled = false;
+        TitleBarActions.IsHitTestVisible = false;
+        DownloadsFab.IsEnabled = false;
+        CenteredModalLayer.Visibility = Visibility.Visible;
+        DispatcherQueue.TryEnqueue(() =>
+            CenteredModalCloseButton.Focus(FocusState.Programmatic));
+        return completion.Task;
+    }
+
+    private void UpdateCenteredModalLayout()
+    {
+        if (_centeredModalCompletion is null) return;
+        var width = RootGrid.ActualWidth;
+        var height = RootGrid.ActualHeight;
+        if (width <= 0 || height <= 0) return;
+
+        CenteredModalCard.Width = Math.Max(240, Math.Min(_centeredModalPreferredWidth, width - 40));
+        CenteredModalCard.MaxHeight = Math.Max(180, height - 36);
+        if (CenteredModalBody.Content is ScrollViewer scroll)
+            scroll.MaxHeight = Math.Max(100, height - 190);
+    }
+
+    private void CloseCenteredModal()
+    {
+        var completion = _centeredModalCompletion;
+        if (completion is null) return;
+        _centeredModalCompletion = null;
+        CenteredModalLayer.Visibility = Visibility.Collapsed;
+        CenteredModalBody.Content = null;
+        NavView.IsEnabled = true;
+        TitleBarActions.IsHitTestVisible = true;
+        DownloadsFab.IsEnabled = true;
+        completion.TrySetResult(true);
+    }
+
+    private void CenteredModalCloseButton_Click(object sender, RoutedEventArgs e)
+        => CloseCenteredModal();
+
+    private void CenteredModalLayer_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+    {
+        if (e.Key != Windows.System.VirtualKey.Escape) return;
+        e.Handled = true;
+        CloseCenteredModal();
     }
 
     public bool IsTheaterMode { get; private set; }
@@ -232,6 +312,8 @@ public sealed partial class MainWindow : Window
                 NavBookmarks.Content = Loc.Get("Nav.Bookmarks");
                 NavContinue.Content = Loc.Get("Nav.Continue");
                 NavCollections.Content = Loc.Get("Nav.Collections");
+                NavAppearance.Content = Loc.Get("Nav.Appearance");
+                NavSupport.Content = Loc.Get("Nav.Support");
                 NavUpdates.Content = Loc.Get("Nav.Updates");
                 NavAccount.Content = Loc.Get("Nav.Account");
                 NavSettings.Content = Loc.Get("Nav.Settings");
@@ -295,6 +377,8 @@ private void ContentFrame_Navigated(object sender, NavigationEventArgs e)
                 var t when t == typeof(CatalogPage) => "Catalog",
                 var t when t == typeof(BookmarksPage) => "Bookmarks",
                 var t when t == typeof(SettingsPage) => "Settings",
+                var t when t == typeof(AppearancePage) => "Appearance",
+                var t when t == typeof(SupportPage) => "Support",
                 var t when t == typeof(ContinueWatchingPage) => "Continue",
                 var t when t == typeof(CollectionsPage) => "Collections",
                 var t when t == typeof(UpdatesPage) => "Updates",
@@ -314,6 +398,8 @@ else
                     "Catalog" => NavCatalog,
                     "Bookmarks" => NavBookmarks,
                     "Settings" => NavSettings,
+                    "Appearance" => NavAppearance,
+                    "Support" => NavSupport,
                     "Continue" => NavContinue,
                     "Collections" => NavCollections,
                     "Updates" => NavUpdates,
@@ -356,6 +442,12 @@ else
             case "Settings":
                 if (ContentFrame.Content is not SettingsPage) ContentFrame.Navigate(typeof(SettingsPage));
                 break;
+            case "Appearance":
+                if (ContentFrame.Content is not AppearancePage) ContentFrame.Navigate(typeof(AppearancePage));
+                break;
+            case "Support":
+                if (ContentFrame.Content is not SupportPage) ContentFrame.Navigate(typeof(SupportPage));
+                break;
             case "Collections":
                 if (ContentFrame.Content is not CollectionsPage) ContentFrame.Navigate(typeof(CollectionsPage));
                 break;
@@ -387,15 +479,51 @@ else
 
     private void GoBack()
     {
+        // Collection cards swap their content inside the same Page; Frame.GoBack
+        // alone would skip their landing grid and jump to an unrelated screen.
+        if (ContentFrame.Content is CollectionsPage collections &&
+            collections.TryReturnToBrowse()) return;
         if (ContentFrame.CanGoBack) ContentFrame.GoBack();
     }
 
+    private void GoForward()
+    {
+        if (ContentFrame.CanGoForward) ContentFrame.GoForward();
+    }
+
+    private void RootGrid_PointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        // XButton1/XButton2 are the two side buttons found on most mice.
+        // The modal owns input while displayed.
+        if (CenteredModalLayer.Visibility == Visibility.Visible) return;
+        var properties = e.GetCurrentPoint(RootGrid).Properties;
+        if (properties.IsXButton1Pressed &&
+            (ContentFrame.CanGoBack || ContentFrame.Content is CollectionsPage { IsDetailOpen: true }))
+        {
+            GoBack();
+            e.Handled = true;
+        }
+        else if (properties.IsXButton2Pressed && ContentFrame.CanGoForward)
+        {
+            GoForward();
+            e.Handled = true;
+        }
+    }
+
     private void AppBackButton_Click(object sender, RoutedEventArgs e) => GoBack();
+
+    private void UpdatePaneGlyph()
+    {
+        var expanded = NavView.IsPaneOpen;
+        AppPaneOpenGlyph.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+        AppPaneClosedGlyph.Visibility = expanded ? Visibility.Collapsed : Visibility.Visible;
+    }
 
     private void AppPaneButton_Click(object sender, RoutedEventArgs e)
     {
         if (IsTheaterMode) return;
         NavView.IsPaneOpen = !NavView.IsPaneOpen;
+        UpdatePaneGlyph();
     }
 
     private void NavView_BackRequested(NavigationView sender, NavigationViewBackRequestedEventArgs args)
@@ -403,7 +531,8 @@ else
 
     private void NavView_DisplayModeChanged(NavigationView sender, NavigationViewDisplayModeChangedEventArgs args)
     {
-        // reserved for adaptive tweaks
+        UpdatePaneGlyph();
+        // Keep state icon current after breakpoint changes.
     }
 
     private void SearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)

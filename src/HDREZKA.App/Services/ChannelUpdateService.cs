@@ -63,19 +63,164 @@ public static class ChannelUpdateService
         }
     }
 
-    /// <summary>One request feeds both update lookup and the version history dialog.</summary>
-    public static async Task<string> FetchReleasesAsync(CancellationToken ct = default)
+    /// <summary>
+    /// Shared release metadata cache. Repeated history checks do not consume
+    /// GitHub's low anonymous REST API quota. Stale data can be shown in history
+    /// on an outage, but is never reported as a successful fresh update check.
+    /// </summary>
+    public sealed record ReleasesLookup(string Json, bool FromCache, bool IsStale, DateTimeOffset FetchedAt);
+    private sealed record ReleaseCacheFile(DateTimeOffset FetchedAt, string Json);
+
+    private static readonly SemaphoreSlim ReleasesGate = new(1, 1);
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromMinutes(20);
+    private static readonly TimeSpan ManualCheckThrottle = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan MaximumStaleAge = TimeSpan.FromDays(7);
+    private const int MaxReleasesJsonLength = 4_000_000;
+    private static ReleaseCacheFile? _releasesCache;
+    private static DateTimeOffset _lastFetchAttempt;
+    private static bool _lastRefreshFailed;
+    private static readonly string ReleasesCachePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "HDREZKA-Anime4K-Motion", "releases-cache.json");
+
+    public static async Task<ReleasesLookup> FetchReleasesWithStatusAsync(
+        bool forceRefresh = false, CancellationToken ct = default)
     {
-        using var response = await Api.GetAsync(ReleaseCatalog.ApiUrl, ct).ConfigureAwait(false);
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        await ReleasesGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var cache = LoadReleaseCache();
+            if (cache != null)
+            {
+                var age = now - cache.FetchedAt;
+                if (age >= TimeSpan.Zero && age < CacheTtl &&
+                    (!forceRefresh || now - _lastFetchAttempt < ManualCheckThrottle))
+                    return new ReleasesLookup(cache.Json, true, _lastRefreshFailed, cache.FetchedAt);
+
+                // Do not hammer GitHub after an unsuccessful request.
+                if (now - _lastFetchAttempt < ManualCheckThrottle && age < MaximumStaleAge)
+                    return new ReleasesLookup(cache.Json, true, true, cache.FetchedAt);
+            }
+
+            _lastFetchAttempt = now;
+            try
+            {
+                using var response = await Api.GetAsync(ReleaseCatalog.ApiUrl, ct).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                {
+                    if (response.StatusCode is System.Net.HttpStatusCode.Forbidden or
+                        System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        var until = "";
+                        if (response.Headers.TryGetValues("X-RateLimit-Reset", out var resets) &&
+                            long.TryParse(resets.FirstOrDefault(), out var epoch))
+                        {
+                            try
+                            {
+                                until = " Сброс лимита примерно в " +
+                                    DateTimeOffset.FromUnixTimeSeconds(epoch).ToLocalTime().ToString("HH:mm") + ".";
+                            }
+                            catch (ArgumentOutOfRangeException) { }
+                        }
+                        throw new InvalidOperationException(
+                            "GitHub временно ограничил запросы к релизам." + until + " Попробуйте позже.");
+                    }
+                    response.EnsureSuccessStatusCode();
+                }
+
+                var json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                if (json.Length > MaxReleasesJsonLength || !IsReleaseListJson(json))
+                    throw new InvalidDataException("GitHub вернул некорректный список релизов.");
+
+                var fresh = new ReleaseCacheFile(DateTimeOffset.UtcNow, json);
+                _releasesCache = fresh;
+                _lastRefreshFailed = false;
+                SaveReleaseCache(fresh);
+                return new ReleasesLookup(json, false, false, fresh.FetchedAt);
+            }
+            catch (Exception ex) when (
+                !ct.IsCancellationRequested &&
+                ex is HttpRequestException or InvalidOperationException or TaskCanceledException)
+            {
+                _lastRefreshFailed = true;
+                if (cache == null) throw;
+                Log.Info("[Updater] Cached releases used after GitHub failure: " + ex.Message);
+                return new ReleasesLookup(cache.Json, true, true, cache.FetchedAt);
+            }
+        }
+        finally
+        {
+            ReleasesGate.Release();
+        }
+    }
+
+    public static async Task<string> FetchReleasesAsync(CancellationToken ct = default)
+        => (await FetchReleasesWithStatusAsync(ct: ct).ConfigureAwait(false)).Json;
+
+    public static async Task<(ChannelRelease? Release, ReleasesLookup Lookup)> LatestWithStatusAsync(
+        UpdateChannel channel, bool forceRefresh = false, CancellationToken ct = default)
+    {
+        var lookup = await FetchReleasesWithStatusAsync(forceRefresh, ct).ConfigureAwait(false);
+        return (ReleaseCatalog.Latest(lookup.Json, channel), lookup);
     }
 
     public static async Task<ChannelRelease?> LatestAsync(UpdateChannel channel, CancellationToken ct = default)
-        => ReleaseCatalog.Latest(await FetchReleasesAsync(ct).ConfigureAwait(false), channel);
+        => (await LatestWithStatusAsync(channel, ct: ct).ConfigureAwait(false)).Release;
 
     public static bool IsInstalled(ChannelRelease release)
         => ReleaseCatalog.IsSameBuild(release, InstalledTag, InstalledCommit);
+
+    private static bool IsReleaseListJson(string json)
+    {
+        try
+        {
+            using var parsed = JsonDocument.Parse(json);
+            return parsed.RootElement.ValueKind == JsonValueKind.Array;
+        }
+        catch (JsonException) { return false; }
+    }
+
+    private static ReleaseCacheFile? LoadReleaseCache()
+    {
+        if (_releasesCache != null) return _releasesCache;
+        try
+        {
+            var file = new FileInfo(ReleasesCachePath);
+            if (!file.Exists || file.Length > MaxReleasesJsonLength + 2048) return null;
+            var cache = JsonSerializer.Deserialize<ReleaseCacheFile>(File.ReadAllText(ReleasesCachePath));
+            if (cache == null || cache.Json.Length > MaxReleasesJsonLength ||
+                !IsReleaseListJson(cache.Json)) return null;
+            var age = DateTimeOffset.UtcNow - cache.FetchedAt;
+            if (age < TimeSpan.Zero || age >= MaximumStaleAge) return null;
+            return _releasesCache = cache;
+        }
+        catch { return null; }
+    }
+
+    private static void SaveReleaseCache(ReleaseCacheFile cache)
+    {
+        string? temporary = null;
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(ReleasesCachePath)!);
+            temporary = ReleasesCachePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            File.WriteAllText(temporary, JsonSerializer.Serialize(cache));
+            File.Move(temporary, ReleasesCachePath, true);
+        }
+        catch (Exception ex)
+        {
+            Log.Info("[Updater] Could not persist release cache: " + ex.Message);
+        }
+        finally
+        {
+            if (temporary != null)
+            {
+                try { if (File.Exists(temporary)) File.Delete(temporary); }
+                catch { }
+            }
+        }
+    }
 
     /// <summary>Require a trustworthy SHA-256 before allowing installation.</summary>
     public static async Task<string> RequireSha256Async(ChannelRelease release, CancellationToken ct = default)

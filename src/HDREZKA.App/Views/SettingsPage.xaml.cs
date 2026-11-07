@@ -12,8 +12,6 @@ public sealed partial class SettingsPage : Page
     private ChannelRelease? _pendingUpdate;
     private CancellationTokenSource? _downloadCancellation;
 
-    private static readonly Uri BoostyUrl = new("https://boosty.to/tridgi");
-
     public SettingsPage()
     {
         InitializeComponent();
@@ -41,12 +39,6 @@ public sealed partial class SettingsPage : Page
         LanguageBox.Items.Add(new ComboBoxItem { Content = "Українська", Tag = AppLanguage.Uk });
         LanguageBox.SelectedIndex = (int)settings.Language;
 
-        ThemeBox.Items.Clear();
-        ThemeBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.ThemeSystem"), Tag = AppTheme.System });
-        ThemeBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.ThemeLight"), Tag = AppTheme.Light });
-        ThemeBox.Items.Add(new ComboBoxItem { Content = Loc.Get("Settings.ThemeDark"), Tag = AppTheme.Dark });
-        ThemeBox.SelectedIndex = (int)settings.Theme;
-
         QualityBox.Items.Clear();
         foreach (var quality in new[] { "360p", "480p", "720p", "1080p", "1440p", "2160p" })
         {
@@ -56,35 +48,14 @@ public sealed partial class SettingsPage : Page
         var qualityIndex = QualityBox.Items.IndexOf(QualityBox.Items.OfType<ComboBoxItem>().FirstOrDefault(q => (string?)q.Tag == settings.DefaultQuality));
         QualityBox.SelectedIndex = qualityIndex >= 0 ? qualityIndex : 3;
 
-        PosterSizeBox.Items.Clear();
-        foreach (var (label, width) in new[] { ("S", 104), ("M", 132), ("L", 164), ("XL", 196) })
-        {
-            PosterSizeBox.Items.Add(new ComboBoxItem { Content = $"{label} · {width}px", Tag = width });
-        }
-
-        var posterIndex = PosterSizeBox.Items.IndexOf(PosterSizeBox.Items.OfType<ComboBoxItem>().FirstOrDefault(q => (int?)q.Tag == settings.PosterSize));
-        PosterSizeBox.SelectedIndex = posterIndex >= 0 ? posterIndex : 1;
-
         HeadersToggle.IsOn = settings.UseAndroidHeaders;
         ShowPlaybackStatsCheck.IsChecked = settings.ShowPlaybackStats;
         DirectPlayCheck.IsChecked = settings.PlayFromHomeDirectly;
-        DonorBox.Text = settings.DonorCode;
-        SeriesToggle.IsOn = settings.SeriesUpdatesEnabled;
         VersionText.Text = $"HDREZKA Anime4K Motion · {ChannelUpdateService.CurrentDescription}";
         UpdateChannelBox.SelectedIndex = settings.PreferredUpdateChannel == UpdateChannel.Testing ? 1 : 0;
         InstalledBuildText.Text = "Установлено: " + ChannelUpdateService.CurrentDescription;
         UpdateStatusText.Text = "Выбери канал и проверь доступные сборки.";
 
-        try
-        {
-            BoostyQrImage.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
-                new Uri(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "boosty-qr.png")));
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(ex);
-            BoostyQrImage.Visibility = Visibility.Collapsed;
-        }
 
         _initialized = true;
     }
@@ -116,38 +87,23 @@ public sealed partial class SettingsPage : Page
         MirrorHeader.Text = Loc.Get("Settings.Mirror");
         MirrorHint.Text = Loc.Get("Settings.MirrorHint");
         LanguageHeader.Text = Loc.Get("Settings.Language");
-        ThemeHeader.Text = Loc.Get("Settings.Theme");
+        OpenAppearanceText.Text = Loc.Get("Nav.Appearance");
+        AppearanceMovedHint.Text = Loc.Get("Settings.AppearanceMoved");
         QualityHeader.Text = Loc.Get("Settings.Quality");
         DirectPlayCheck.Content = Loc.Get("Settings.PlayFromHome");
-        PosterSizeHeader.Text = Loc.Get("Settings.PosterSize");
         HomeHeader.Text = Loc.Get("Settings.HomeSections");
         HomeHint.Text = Loc.Get("Settings.HomeSectionsHint");
         BuildHomeSectionsList();
         HeadersHeader.Text = Loc.Get("Settings.Headers");
         HeadersHint.Text = Loc.Get("Settings.HeadersHint");
         AutoMirrorButton.Content = Loc.Get("Settings.AutoMirror");
-        DonateHeader.Text = Loc.Get("Settings.Donate");
-        DonateHint.Text = Loc.Get("Settings.DonateHint");
-        BoostyButton.Content = Loc.Get("Settings.DonateBoosty");
-        DonorHeader.Text = Loc.Get("Settings.DonorCode");
-        DonorHint.Text = Loc.Get("Settings.DonorHint");
-        UpdateDonorStatus();
         UpdateHeader.Text = Loc.Get("Settings.Updates");
         CheckUpdatesButton.Content = Loc.Get("Settings.CheckUpdates");
-        SeriesHeader.Text = Loc.Get("Settings.SeriesUpdates");
-        SeriesHint.Text = Loc.Get("Settings.SeriesUpdatesHint");
-        CheckSeriesButton.Content = Loc.Get("Settings.CheckNow");
         AboutHeader.Text = Loc.Get("Settings.About");
         DisclaimerText.Text = Loc.Get("Settings.Disclaimer");
         LogoutButton.Content = Loc.Get("Common.Logout");
         LogoutButton.Visibility = RezkaService.Instance.IsLoggedIn ? Visibility.Visible : Visibility.Collapsed;
 
-        if (ThemeBox.Items.Count == 3)
-        {
-            ((ComboBoxItem)ThemeBox.Items[0]).Content = Loc.Get("Settings.ThemeSystem");
-            ((ComboBoxItem)ThemeBox.Items[1]).Content = Loc.Get("Settings.ThemeLight");
-            ((ComboBoxItem)ThemeBox.Items[2]).Content = Loc.Get("Settings.ThemeDark");
-        }
     }
 
     private async void MirrorBox_LostFocus(object sender, RoutedEventArgs e)
@@ -188,6 +144,9 @@ public sealed partial class SettingsPage : Page
         MirrorStatusText.Text = "";
     }
 
+    private void OpenAppearanceButton_Click(object sender, RoutedEventArgs e)
+        => Nav.Go<AppearancePage>();
+
     private void LanguageBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_initialized) return;
@@ -199,17 +158,6 @@ public sealed partial class SettingsPage : Page
         }
     }
 
-    private void ThemeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_initialized) return;
-        if (ThemeBox.SelectedItem is ComboBoxItem { Tag: AppTheme theme })
-        {
-            SettingsService.Instance.Theme = theme;
-            SettingsService.Instance.Save();
-            ThemeHelper.Apply(theme);
-        }
-    }
-
     private void QualityBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_initialized) return;
@@ -217,15 +165,6 @@ public sealed partial class SettingsPage : Page
         {
             SettingsService.Instance.DefaultQuality = quality;
             SettingsService.Instance.Save();
-        }
-    }
-
-    private void PosterSizeBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!_initialized) return;
-        if (PosterSizeBox.SelectedItem is ComboBoxItem { Tag: int width })
-        {
-            SettingsService.Instance.SetPosterSize(width);
         }
     }
 
@@ -350,44 +289,6 @@ public sealed partial class SettingsPage : Page
         SettingsService.Instance.Save();
     }
 
-    private void SeriesToggle_Toggled(object sender, RoutedEventArgs e)
-    {
-        if (!_initialized) return;
-        SettingsService.Instance.SeriesUpdatesEnabled = SeriesToggle.IsOn;
-        SettingsService.Instance.Save();
-    }
-
-    private async void CheckSeriesButton_Click(object sender, RoutedEventArgs e)
-    {
-        CheckSeriesButton.IsEnabled = false;
-        SeriesStatusText.Text = Loc.Get("Settings.SeriesChecking");
-        try
-        {
-            TrackedSeriesService.SeedFromHistory();
-            using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-            var updates = await TrackedSeriesService.CheckForUpdatesAsync(cts.Token);
-            if (updates.Count == 0)
-            {
-                SeriesStatusText.Text = Loc.Get("Settings.SeriesUpToDate");
-            }
-            else
-            {
-                var first = updates.Take(3).Select(u => $"{u.Title}: {u.Text}");
-                SeriesStatusText.Text = Loc.Get("Settings.SeriesFound", updates.Count)
-                    + "\n" + string.Join("\n", first);
-                TrackedSeriesService.NotifyUpdates(updates);
-            }
-        }
-        catch
-        {
-            SeriesStatusText.Text = Loc.Get("Error.Network");
-        }
-        finally
-        {
-            CheckSeriesButton.IsEnabled = true;
-        }
-    }
-
     private async void AutoMirrorButton_Click(object sender, RoutedEventArgs e)
     {
         AutoMirrorButton.IsEnabled = false;
@@ -417,64 +318,6 @@ public sealed partial class SettingsPage : Page
         {
             AutoMirrorButton.IsEnabled = true;
         }
-    }
-
-    private void BoostyQrImage_ImageFailed(object sender, ExceptionRoutedEventArgs e)
-    {
-        BoostyQrImage.Visibility = Visibility.Collapsed;
-    }
-
-    private async void BoostyButton_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            await Windows.System.Launcher.LaunchUriAsync(BoostyUrl);
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(ex);
-        }
-    }
-
-    private void DonorBox_LostFocus(object sender, RoutedEventArgs e)
-    {
-        var was = DonorUnlock.IsUnlocked;
-        SettingsService.Instance.DonorCode = DonorBox.Text.Trim();
-        SettingsService.Instance.Save();
-        UpdateDonorStatus();
-        if (!was && DonorUnlock.IsUnlocked)
-        {
-            _ = ShowDonorThanksAsync();
-        }
-    }
-
-    private async Task ShowDonorThanksAsync()
-    {
-        try
-        {
-            var dialog = new ContentDialog
-            {
-                Title = Loc.Get("Settings.DonorThanksTitle"),
-                Content = Loc.Get("Settings.DonorThanksText"),
-                CloseButtonText = "OK",
-                XamlRoot = Content.XamlRoot,
-            };
-            await dialog.ShowAsync();
-        }
-        catch (Exception ex)
-        {
-            App.TryLog(ex);
-        }
-    }
-
-    private void UpdateDonorStatus()
-    {
-        var ok = HDREZKA.Core.Api.DonorCode.Validate(SettingsService.Instance.DonorCode);
-        DonorStatusText.Text = string.IsNullOrWhiteSpace(SettingsService.Instance.DonorCode)
-            ? ""
-            : Loc.Get(ok ? "Settings.DonorUnlocked" : "Settings.DonorInvalid");
-        DonorPerksText.Text = ok ? Loc.Get("Settings.DonorPerks") : "";
-        DonorPerksText.Visibility = ok ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void CopyBuildButton_Click(object sender, RoutedEventArgs e)
@@ -514,9 +357,14 @@ public sealed partial class SettingsPage : Page
         try
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
-            var json = await ChannelUpdateService.FetchReleasesAsync(cts.Token);
-            var dialog = VersionHistoryDialog.Create(json, Content.XamlRoot);
+            var lookup = await ChannelUpdateService.FetchReleasesWithStatusAsync(ct: cts.Token);
+            var dialog = VersionHistoryDialog.Create(
+                lookup.Json, Content.XamlRoot, SettingsService.Instance.PreferredUpdateChannel);
             await dialog.ShowAsync();
+            if (lookup.IsStale)
+                UpdateStatusText.Text = "История показана из кэша (" +
+                    lookup.FetchedAt.LocalDateTime.ToString("dd.MM HH:mm") +
+                    "). GitHub сейчас недоступен или ограничил запросы.";
         }
         catch (Exception ex)
         {
@@ -552,7 +400,14 @@ public sealed partial class SettingsPage : Page
         try
         {
             var channel = SettingsService.Instance.PreferredUpdateChannel;
-            var release = await ChannelUpdateService.LatestAsync(channel);
+            var (release, lookup) = await ChannelUpdateService.LatestWithStatusAsync(channel, forceRefresh: true);
+            if (lookup.IsStale)
+            {
+                UpdateStatusText.Text = "Новая проверка GitHub пока недоступна. Последние сведения о релизах сохранены от " +
+                    lookup.FetchedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm") +
+                    ". Попробуйте позже; установленная версия не изменена.";
+                return;
+            }
             if (release == null)
             {
                 UpdateStatusText.Text = "В выбранном канале пока нет опубликованных сборок.";
