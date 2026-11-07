@@ -355,7 +355,7 @@
                               SelectionMode="None" IsItemClickEnabled="False"
                               ScrollViewer.HorizontalScrollMode="Disabled"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                              ScrollViewer.VerticalScrollBarVisibility="Auto" Padding="0">
+                              ScrollViewer.VerticalScrollBarVisibility="Hidden" Padding="0">
                         <GridView.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <ItemsWrapGrid Orientation="Horizontal"/>
