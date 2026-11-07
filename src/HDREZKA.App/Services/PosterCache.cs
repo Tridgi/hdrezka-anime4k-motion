@@ -102,7 +102,7 @@ public static class PosterCache
                         decoded.ImageFailed += (_, e) =>
                         {
                             Log.Warn("[PosterCache] Image decoding failed (" + GetHost(key) + "): " + e.ErrorMessage);
-                            Memory.TryRemove(key, out _);
+                            Memory.TryRemove(key, out var ignored);
                             try { File.Delete(path); } catch { }
                         };
                         decoded.UriSource = new Uri(path);
