@@ -125,6 +125,10 @@ public sealed partial class PlayerPage : Page
             UIElement.PointerPressedEvent,
             new PointerEventHandler((_, e) => _seeking = true),
             handledEventsToo: true);
+        SeekSlider.AddHandler(
+            UIElement.PointerMovedEvent,
+            new PointerEventHandler(SeekSlider_PointerMoved),
+            handledEventsToo: true);
 
     }
 
@@ -1846,6 +1850,7 @@ public sealed partial class PlayerPage : Page
 
     private void ShowStatus(string message, bool showMirrorButton = false)
     {
+        _loadingEpisode = false;
         LoadingPanel.Visibility = Visibility.Visible;
         LoadingRing.Visibility = Visibility.Collapsed;
         StatusText.Text = message;
