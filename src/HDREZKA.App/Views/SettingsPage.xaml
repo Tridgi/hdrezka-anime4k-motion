@@ -89,6 +89,27 @@
                                     Статистику также можно переключать кнопкой ⓘ в плеере."
                                FontSize="12" TextWrapping="Wrap" MaxWidth="640"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock Text="Управление плеером" FontWeight="SemiBold" Margin="0,16,0,4"/>
+                    <TextBlock Text="Шаг перемотки стрелками клавиатуры (← и →) задаётся отдельно."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <NumberBox x:Name="SeekBackBox" Header="Назад, сек." Width="158"
+                                   Minimum="1" Maximum="120" SmallChange="5" SpinButtonPlacementMode="Inline"
+                                   ValueChanged="SeekBackBox_ValueChanged"/>
+                        <NumberBox x:Name="SeekForwardBox" Header="Вперёд, сек." Width="158"
+                                   Minimum="1" Maximum="120" SmallChange="5" SpinButtonPlacementMode="Inline"
+                                   ValueChanged="SeekForwardBox_ValueChanged"/>
+                    </StackPanel>
+                    <TextBlock Text="Скорость воспроизведения" FontWeight="SemiBold" Margin="0,12,0,0"/>
+                    <NumberBox x:Name="DefaultSpeedBox" Header="По умолчанию, ×" Width="178"
+                               Minimum="0.5" Maximum="3" SmallChange="0.25" LargeChange="0.5"
+                               SpinButtonPlacementMode="Inline" ValueChanged="DefaultSpeedBox_ValueChanged"/>
+                    <CheckBox x:Name="RememberSpeedCheck" Content="Запоминать скорость, выбранную в плеере"
+                              Checked="RememberSpeedCheck_Changed" Unchecked="RememberSpeedCheck_Changed"/>
+                    <TextBlock Text="Если выключено, каждый новый запуск плеера использует скорость по умолчанию."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBlock Text="Пропуск опенинга" FontWeight="SemiBold" Margin="0,12,0,0"/>
                     <NumberBox x:Name="OpeningSkipBox" Header="Перемотка вперёд, секунд" Minimum="1" Maximum="600"
                                SmallChange="5" LargeChange="30" SpinButtonPlacementMode="Inline"
