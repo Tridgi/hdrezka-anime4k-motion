@@ -101,7 +101,7 @@ public static class PosterCache
                         var decoded = new BitmapImage { DecodePixelWidth = DecodeWidth };
                         decoded.ImageFailed += (_, e) =>
                         {
-                            Log.Warn("[PosterCache] Image decoding failed (" + GetHost(key) + "): " + e.Message);
+                            Log.Warn("[PosterCache] Image decoding failed (" + GetHost(key) + "): " + e.ErrorMessage);
                             Memory.TryRemove(key, out _);
                             try { File.Delete(path); } catch { }
                         };
