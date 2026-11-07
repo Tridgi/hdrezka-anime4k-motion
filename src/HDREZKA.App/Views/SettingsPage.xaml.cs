@@ -35,6 +35,7 @@ public sealed partial class SettingsPage : Page
         SeekForwardBox.Value = settings.SeekForwardSeconds;
         DefaultSpeedBox.Value = settings.DefaultSpeed;
         RememberSpeedCheck.IsChecked = settings.RememberPlayerSpeed;
+        SeekThumbnailsCheck.IsChecked = settings.EnableSeekThumbnails;
         MirrorBox.Text = settings.Mirror;
 
         LanguageBox.Items.Clear();
