@@ -17,32 +17,32 @@
 
         <StackPanel Spacing="10">
             <TextBlock x:Name="TitleText" FontSize="28" FontWeight="Bold"/>
-            <!-- A single toolbar; on smaller windows the user can scroll
-                 horizontally instead of losing access to a filter. -->
-            <ScrollViewer HorizontalScrollMode="Auto"
-                          HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollMode="Disabled"
-                          VerticalScrollBarVisibility="Disabled">
-                <StackPanel Orientation="Horizontal" Spacing="10"
-                            VerticalAlignment="Center">
-                    <ComboBox x:Name="FilterBox" Width="190"
-                              MinWidth="175" VerticalAlignment="Center"
+            <!-- The toolbar reflows into real rows as the window shrinks.
+                 No horizontal scrollbars and no clipped category controls. -->
+            <StackPanel x:Name="CatalogFiltersHost" Spacing="8"
+                        SizeChanged="CatalogFiltersHost_SizeChanged">
+                <StackPanel x:Name="CatalogMainFilterRow"
+                            Orientation="Horizontal" Spacing="10">
+                    <ComboBox x:Name="FilterBox" Width="185"
+                              MinWidth="160" VerticalAlignment="Center"
                               SelectionChanged="FilterBox_SelectionChanged"/>
-                    <Border Width="1" Height="25" VerticalAlignment="Center"
-                            Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
-                    <StackPanel x:Name="SectionPanel" Orientation="Horizontal"
-                                Spacing="6" VerticalAlignment="Center"/>
-                    <Border Width="1" Height="25" VerticalAlignment="Center"
-                            Background="{ThemeResource CardStrokeColorDefaultBrush}"/>
-                    <ComboBox x:Name="GenreBox" Width="215" MinWidth="180"
+                    <StackPanel x:Name="SectionPanel"
+                                Orientation="Vertical" Spacing="6"
+                                VerticalAlignment="Center"/>
+                    <ComboBox x:Name="GenreBox" Width="210" MinWidth="175"
                               VerticalAlignment="Center"
                               SelectionChanged="GenreBox_SelectionChanged"/>
                     <Button x:Name="ClearGenreButton" Click="ClearGenreButton_Click"
-                            Visibility="Collapsed"
-                            Padding="12,6" MinWidth="0"
+                            Visibility="Collapsed" Padding="12,6" MinWidth="0"
                             CornerRadius="8" VerticalAlignment="Center"/>
                 </StackPanel>
-            </ScrollViewer>
+                <StackPanel x:Name="CatalogSecondaryFilterRow"
+                            Orientation="Horizontal" Spacing="10"
+                            Visibility="Collapsed"/>
+                <StackPanel x:Name="CatalogTertiaryFilterRow"
+                            Orientation="Horizontal" Spacing="10"
+                            Visibility="Collapsed"/>
+            </StackPanel>
         </StackPanel>
 
         <ScrollViewer x:Name="ItemsScroll" Grid.Row="1" VerticalScrollBarVisibility="Hidden" ViewChanged="ItemsScroll_ViewChanged">
