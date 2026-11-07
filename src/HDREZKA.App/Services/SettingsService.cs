@@ -51,6 +51,13 @@ public sealed class SettingsService
     public bool UseAndroidHeaders { get; set; } = true;
     public int Volume { get; set; } = 100;
     public double Speed { get; set; } = 1.0;
+    // 2.2: independent seek intervals and playback-speed policy.
+    public int SeekBackSeconds { get; set; } = 10;
+    public int SeekForwardSeconds { get; set; } = 10;
+    public double DefaultSpeed { get; set; } = 1.0;
+    public bool RememberPlayerSpeed { get; set; }
+
+    public double GetStartupSpeed() => RememberPlayerSpeed ? Speed : DefaultSpeed;
     public string Anime4KMode { get; set; } = "Off";
     public int OpeningSkipSeconds { get; set; } = 85;
     public bool ShowPlaybackStats { get; set; }
@@ -225,6 +232,18 @@ public sealed class SettingsService
             PreferredUpdateChannel = Enum.IsDefined(loaded.PreferredUpdateChannel)
                 ? loaded.PreferredUpdateChannel : UpdateChannel.Stable;
             Speed = loaded.Speed is > 0 and <= 4 ? loaded.Speed : 1.0;
+            SeekBackSeconds = loaded.SeekBackSeconds is >= 1 and <= 120 ? loaded.SeekBackSeconds : 10;
+            SeekForwardSeconds = loaded.SeekForwardSeconds is >= 1 and <= 120 ? loaded.SeekForwardSeconds : 10;
+            // Preserve the existing user speed while migrating settings from 2.1.
+            using (var document = JsonDocument.Parse(json))
+            {
+                DefaultSpeed = document.RootElement.TryGetProperty(nameof(DefaultSpeed), out _)
+                    ? Math.Clamp(loaded.DefaultSpeed, 0.5, 3.0)
+                    : Speed;
+                RememberPlayerSpeed = document.RootElement.TryGetProperty(nameof(RememberPlayerSpeed), out _)
+                    ? loaded.RememberPlayerSpeed
+                    : true;
+            }
             PosterSize = loaded.PosterSize is >= 80 and <= 256 ? loaded.PosterSize : 132;
             AccountLogin = loaded.AccountLogin ?? "";
             LastNotifiedVersion = loaded.LastNotifiedVersion ?? "";
