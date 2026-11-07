@@ -161,6 +161,7 @@ public sealed partial class PlayerPage : Page
     private void TeardownPlayback()
     {
         _tearingDown = true;
+        ResetSeekPreview();
         UpdateDisplayRequest(false);
         UninstallCursorHandler();
         ClearPlaybackMarker();
@@ -258,7 +259,11 @@ public sealed partial class PlayerPage : Page
         }
     }
 
-    private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyHeaderLayout();
+    private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        ApplyHeaderLayout();
+        EpisodeDrawerCard.Width = Math.Min(350, Math.Max(225, e.NewSize.Width - 16));
+    }
 
     // The episode chip never disappears when the viewport narrows.
     // Shorten the title and constrain the chip to keep right-side window controls available.
@@ -491,12 +496,14 @@ public sealed partial class PlayerPage : Page
                 }
             }
 
+            _loadingEpisode = false;
             ShowStatus(RezkaService.Instance.ErrorText(ex),
                 ex.Kind is RezkaError.Network or RezkaError.AccessDenied or RezkaError.MirrorBanned);
         }
         catch (Exception ex)
         {
             App.TryLog(ex);
+            _loadingEpisode = false;
             ShowStatus(Loc.Get("Error.Network"), showMirrorButton: true);
         }
         finally
@@ -581,6 +588,7 @@ public sealed partial class PlayerPage : Page
             var source = url;
             if (_tearingDown || _player == null) return;
 
+            if (_currentSource != source) ResetSeekPreview();
             _currentSource = source;
             _mediaOpened = false;
             _quality = quality;
@@ -630,6 +638,7 @@ public sealed partial class PlayerPage : Page
         _pendingSeekMs = seekToSaved ? GetSavedPositionMs() : 0;
 
         var source = path;
+        if (_currentSource != source) ResetSeekPreview();
         _currentSource = source;
         _mediaOpened = false;
         var gen = ++_loadGen;
@@ -1181,6 +1190,7 @@ public sealed partial class PlayerPage : Page
             if (TryNextCandidate()) return;
             _pendingSeekMs = 0;
             var local = !string.IsNullOrEmpty(_launch?.LocalFile);
+            _loadingEpisode = false;
             ShowStatus(Loc.Get("Player.StreamFailed"), showMirrorButton: !local);
         });
     }
