@@ -39,16 +39,34 @@ public static class PosterCache
         _ = Task.Run(CleanupAsync);
     }
 
+    // Support protocol-relative and relative URLs returned by lazy-loaded
+    // hot-slider images. Never accept non-HTTP schemes or embedded data URLs.
+    internal static string? NormalizePosterUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        url = url.Trim();
+        if (url.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) return null;
+        if (url.StartsWith("//")) url = "https:" + url;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            if (!Uri.TryCreate(SettingsService.Instance.Mirror, UriKind.Absolute, out var basis))
+                return null;
+            if (!Uri.TryCreate(basis, url, out uri)) return null;
+        }
+        return uri.Scheme is "http" or "https" ? uri.AbsoluteUri : null;
+    }
+
     public static void SetSource(Image image, string? url)
     {
-        if (string.IsNullOrEmpty(url) || !Uri.TryCreate(url, UriKind.Absolute, out _))
+        var normalizedUrl = NormalizePosterUrl(url);
+        if (normalizedUrl == null)
         {
             image.Source = null;
             image.Tag = null;
             return;
         }
 
-        var key = url;
+        var key = normalizedUrl;
         image.Tag = key;
         if (Memory.TryGetValue(key, out var cached))
         {
@@ -64,8 +82,9 @@ public static class PosterCache
             {
                 path = await GetFileForUrlAsync(key).ConfigureAwait(false);
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Warn("[PosterCache] Download failed (" + GetHost(key) + "): " + ex.Message);
                 return;
             }
 
@@ -80,6 +99,12 @@ public static class PosterCache
                         // оригинал: постеры на сайте бывают 500+ px, и 300 таких
                         // в памяти — это сотни мегабайт.
                         var decoded = new BitmapImage { DecodePixelWidth = DecodeWidth };
+                        decoded.ImageFailed += (_, e) =>
+                        {
+                            Log.Warn("[PosterCache] Image decoding failed (" + GetHost(key) + "): " + e.Message);
+                            Memory.TryRemove(key, out _);
+                            try { File.Delete(path); } catch { }
+                        };
                         decoded.UriSource = new Uri(path);
                         return decoded;
                     });
@@ -97,6 +122,11 @@ public static class PosterCache
                 }
             });
         });
+    }
+
+    private static string GetHost(string url)
+    {
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : "unknown";
     }
 
     private static Task<string> GetFileForUrlAsync(string url) =>
@@ -130,8 +160,14 @@ public static class PosterCache
             // Пока ждали слот, файл мог скачать соседний поток.
             if (IsFresh(path)) return path;
 
-            using var resp = await Http.GetAsync(url).ConfigureAwait(false);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (Uri.TryCreate(SettingsService.Instance.Mirror, UriKind.Absolute, out var mirror))
+                request.Headers.Referrer = mirror;
+            using var resp = await Http.SendAsync(request).ConfigureAwait(false);
             resp.EnsureSuccessStatusCode();
+            var mime = resp.Content.Headers.ContentType?.MediaType;
+            if (mime is not null && !mime.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Poster response is not an image: " + mime);
             using var net = await resp.Content.ReadAsStreamAsync().ConfigureAwait(false);
 
             // Уникальный временный файл: два потока с одним ".tmp" ломали
