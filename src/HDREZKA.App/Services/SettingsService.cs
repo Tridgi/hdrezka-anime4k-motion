@@ -245,6 +245,7 @@ public sealed class SettingsService
                     ? loaded.RememberPlayerSpeed
                     : true;
             }
+            EnableSeekThumbnails = loaded.EnableSeekThumbnails;
             PosterSize = loaded.PosterSize is >= 80 and <= 256 ? loaded.PosterSize : 132;
             AccountLogin = loaded.AccountLogin ?? "";
             LastNotifiedVersion = loaded.LastNotifiedVersion ?? "";
