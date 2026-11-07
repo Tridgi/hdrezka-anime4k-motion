@@ -104,7 +104,7 @@ public sealed partial class PlayerPage
                     ? Color.FromArgb(255, 71, 118, 212)
                     : watched ? Color.FromArgb(255, 49, 67, 62)
                     : Color.FromArgb(255, 57, 59, 65)),
-                Foreground = new SolidColorBrush(Colors.White),
+                Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
                 BorderThickness = new Thickness(current ? 2 : 0),
                 BorderBrush = new SolidColorBrush(Color.FromArgb(255, 164, 197, 255)),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
