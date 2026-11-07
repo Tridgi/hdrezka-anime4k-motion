@@ -25,6 +25,9 @@ public sealed partial class CatalogPage : Page
     ];
 
     private readonly List<MovieSimple> _items = new();
+    private readonly List<ToggleButton> _sectionButtons = [];
+    private int _toolbarLayout = -1;
+    private bool _arrangingToolbar;
     private Section _section = Section.Films;
     private ListFilter _filter = ListFilter.Latest;
     private int _page = 1;
@@ -81,7 +84,7 @@ public sealed partial class CatalogPage : Page
             ItemsGrid.ItemsSource = null;
         }
 
-        if (SectionPanel.Children.Count == 0)
+        if (_sectionButtons.Count == 0)
         {
             foreach (var section in Sections)
             {
@@ -91,9 +94,10 @@ public sealed partial class CatalogPage : Page
                     Content = Loc.Get("Section." + tag),
                     Tag = tag,
                     MinWidth = 40,
+                    Padding = new Thickness(12, 7, 12, 7),
                 };
                 button.Click += SectionButton_Click;
-                SectionPanel.Children.Add(button);
+                _sectionButtons.Add(button);
             }
         }
 
@@ -102,6 +106,7 @@ public sealed partial class CatalogPage : Page
         UpdateGenreFilter();
         RebuildGenreBox();
         _ = LoadGenresAsync();
+        ReflowToolbar(CatalogFiltersHost.ActualWidth);
         if (_items.Count == 0)
         {
             Reload();
@@ -123,6 +128,7 @@ public sealed partial class CatalogPage : Page
             BuildFilters();
             MarkSection(_section);
             RebuildGenreBox();
+            ReflowToolbar(CatalogFiltersHost.ActualWidth);
         });
     }
 
@@ -137,31 +143,14 @@ public sealed partial class CatalogPage : Page
         RetryButton.Content = Loc.Get("Common.Retry");
         StateText.Text = Loc.Get("Common.Loading");
 
-        var i = 0;
-        foreach (var section in Sections)
-        {
-            if (i < SectionPanel.Children.Count &&
-                SectionPanel.Children[i] is ToggleButton button)
-            {
-                button.Content = Loc.Get("Section." + section);
-            }
-
-            i++;
-        }
+        for (var i = 0; i < Sections.Length && i < _sectionButtons.Count; i++)
+            _sectionButtons[i].Content = Loc.Get("Section." + Sections[i]);
     }
 
     private void MarkSection(Section section)
     {
-        var i = 0;
-        foreach (var s in Sections)
-        {
-            if (SectionPanel.Children[i] is ToggleButton button)
-            {
-                button.IsChecked = s == section;
-            }
-
-            i++;
-        }
+        for (var i = 0; i < Sections.Length && i < _sectionButtons.Count; i++)
+            _sectionButtons[i].IsChecked = Sections[i] == section;
     }
 
     private void BuildFilters()
@@ -246,6 +235,113 @@ public sealed partial class CatalogPage : Page
         if (ClearGenreButton == null) return;
         ClearGenreButton.Visibility = string.IsNullOrWhiteSpace(_genrePath)
             ? Visibility.Collapsed : Visibility.Visible;
+        ReflowToolbar(CatalogFiltersHost?.ActualWidth ?? 0);
+    }
+
+    private void CatalogFiltersHost_SizeChanged(object sender, SizeChangedEventArgs e)
+        => ReflowToolbar(e.NewSize.Width);
+
+    private void ReflowToolbar(double availableWidth)
+    {
+        if (_arrangingToolbar || availableWidth <= 0 || _sectionButtons.Count == 0)
+            return;
+
+        _arrangingToolbar = true;
+        try
+        {
+            // Measure the localized category labels instead of guessing their
+            // widths. This works with different UI scales and languages.
+            var totalButtonsWidth = 0.0;
+            foreach (var button in _sectionButtons)
+            {
+                button.Measure(new Windows.Foundation.Size(double.PositiveInfinity,
+                    double.PositiveInfinity));
+                totalButtonsWidth += Math.Max(40, button.DesiredSize.Width);
+            }
+            totalButtonsWidth += Math.Max(0, _sectionButtons.Count - 1) * 6;
+
+            var clearWidth = ClearGenreButton.Visibility == Visibility.Visible ? 115 : 0;
+            var fullWidth = 185 + totalButtonsWidth + 210 + clearWidth
+                + (clearWidth > 0 ? 30 : 20);
+            var filterAndGenreWidth = 185 + 210 + clearWidth
+                + (clearWidth > 0 ? 20 : 10);
+
+            // Wide: all in one row.
+            // Medium: sorting + genre above the category row.
+            // Compact: sorting, wrapping categories, and genre each get room.
+            var layout = availableWidth >= fullWidth ? 0
+                : availableWidth >= filterAndGenreWidth ? 1 : 2;
+
+            if (_toolbarLayout != layout)
+            {
+                _toolbarLayout = layout;
+                CatalogMainFilterRow.Children.Clear();
+                CatalogSecondaryFilterRow.Children.Clear();
+                CatalogTertiaryFilterRow.Children.Clear();
+
+                CatalogMainFilterRow.Children.Add(FilterBox);
+                if (layout == 0)
+                {
+                    CatalogMainFilterRow.Children.Add(SectionPanel);
+                    CatalogMainFilterRow.Children.Add(GenreBox);
+                    CatalogMainFilterRow.Children.Add(ClearGenreButton);
+                }
+                else if (layout == 1)
+                {
+                    CatalogMainFilterRow.Children.Add(GenreBox);
+                    CatalogMainFilterRow.Children.Add(ClearGenreButton);
+                    CatalogSecondaryFilterRow.Children.Add(SectionPanel);
+                }
+                else
+                {
+                    CatalogSecondaryFilterRow.Children.Add(SectionPanel);
+                    CatalogTertiaryFilterRow.Children.Add(GenreBox);
+                    CatalogTertiaryFilterRow.Children.Add(ClearGenreButton);
+                }
+                CatalogSecondaryFilterRow.Visibility = layout == 0
+                    ? Visibility.Collapsed : Visibility.Visible;
+                CatalogTertiaryFilterRow.Visibility = layout == 2
+                    ? Visibility.Visible : Visibility.Collapsed;
+            }
+
+            var categorySpace = layout == 0
+                ? totalButtonsWidth : availableWidth;
+            ReflowSectionButtons(Math.Max(130, categorySpace));
+        }
+        finally
+        {
+            _arrangingToolbar = false;
+        }
+    }
+
+    private void ReflowSectionButtons(double availableWidth)
+    {
+        // Real rows, not a nested ScrollViewer. Category buttons wrap as
+        // complete buttons, preserving their labels and hit targets.
+        foreach (var row in SectionPanel.Children.OfType<StackPanel>().ToArray())
+            row.Children.Clear();
+        SectionPanel.Children.Clear();
+
+        StackPanel? currentRow = null;
+        var used = 0.0;
+        foreach (var button in _sectionButtons)
+        {
+            button.Measure(new Windows.Foundation.Size(double.PositiveInfinity,
+                double.PositiveInfinity));
+            var buttonWidth = Math.Max(40, button.DesiredSize.Width);
+            if (currentRow == null || (used > 0 && used + 6 + buttonWidth > availableWidth))
+            {
+                currentRow = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Spacing = 6
+                };
+                SectionPanel.Children.Add(currentRow);
+                used = 0;
+            }
+            currentRow.Children.Add(button);
+            used += (used > 0 ? 6 : 0) + buttonWidth;
+        }
     }
 
     private void ClearGenreButton_Click(object sender, RoutedEventArgs e)
