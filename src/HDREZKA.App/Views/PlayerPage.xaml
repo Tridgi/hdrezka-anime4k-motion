@@ -223,7 +223,6 @@
                             PointerReleased="SeekSlider_PointerReleased"
                             PointerCanceled="SeekSlider_PointerCanceled"
                             PointerCaptureLost="SeekSlider_PointerCaptureLost"
-                            PointerMoved="SeekSlider_PointerMoved"
                             PointerExited="SeekSlider_PointerExited"/>
                     <TextBlock x:Name="TotalTimeText" Text="0:00" Foreground="White" FontSize="12"
                                VerticalAlignment="Center" MinWidth="44" Grid.Column="2"/>
