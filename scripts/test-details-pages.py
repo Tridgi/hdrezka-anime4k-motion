@@ -467,6 +467,41 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertNotIn("card.SetRatingFromDetails(", details)
         self.assertIn("var score = Movie?.Rating", card)
 
+    def test_preview_player_controls_and_history_are_wired(self):
+        xaml = contents("PlayerPage.xaml")
+        player = contents("PlayerPage.xaml.cs")
+        cursor = contents("PlayerPage.Cursor.cs")
+        drawer = contents("PlayerPage.EpisodeDrawer.cs")
+        preview = contents("PlayerPage.Preview.cs")
+        settings = contents("SettingsPage.xaml")
+        settings_code = contents("SettingsPage.xaml.cs")
+        history = contents("../Services/PositionService.cs")
+        home = contents("HomePage.xaml.cs")
+        continue_page = contents("ContinueWatchingPage.xaml.cs")
+        self.assertNotIn('KeyDown="RootGrid_KeyDown"', xaml)
+        self.assertIn('Invoked="SeekBackInvoked"', xaml)
+        self.assertIn('Invoked="VolumeUpInvoked"', xaml)
+        self.assertIn('x:Name="EpisodeDrawerButton"', xaml)
+        self.assertIn('x:Name="EpisodeDrawerOverlay"', xaml)
+        self.assertIn('x:Name="SeekPreviewOverlay"', xaml)
+        self.assertIn('x:Name="ThumbnailVideoSurface"', xaml)
+        self.assertIn("UpdateEpisodeDrawerSelection()", player)
+        self.assertIn("PopulateEpisodeSeasons(", drawer)
+        self.assertIn("SetWindowSubclass(", cursor)
+        self.assertNotIn('EntryPoint = "ShowCursor"', player)
+        self.assertIn("GenerateThumbnailAsync(", preview)
+        self.assertIn("ResetSeekPreview()", player)
+        for name in ("SeekBackBox", "SeekForwardBox", "DefaultSpeedBox",
+                     "RememberSpeedCheck", "SeekThumbnailsCheck"):
+            self.assertIn('x:Name="' + name + '"', settings)
+            self.assertIn(name, settings_code)
+        self.assertIn("GetContinueTitles()", history)
+        self.assertIn("GetContinueTitles()", home)
+        self.assertIn("GetContinueTitles()", continue_page)
+        self.assertIn("active-playback.json", history)
+        self.assertIn("SetActive(", player)
+        self.assertIn("WriteAtomically(", history)
+
     def test_sidebar_button_has_one_xaml_content_element(self):
         root = ET.fromstring(contents("../MainWindow.xaml"))
         for element in root.iter():
