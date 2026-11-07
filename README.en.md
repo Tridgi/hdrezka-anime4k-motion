@@ -1,26 +1,69 @@
-# HDREZKA Anime4K Motion v2
+# HDREZKA Anime4K Motion 2.1
 
-Unofficial Windows HDREZKA client with **Anime4K upscaling and independent 60 / 120 / experimental 165 FPS motion interpolation** in the existing separate player window.
+**An unofficial Windows HDRezka client with integrated Anime4K enhancement, independent motion interpolation, and a redesigned browsing experience.**
 
-Based on [eddinwork/HDREZKA](https://github.com/eddinwork/HDREZKA), commit `a4676233114dbc0af1221826ae8440d9293226bb`. Original authorship and license notices are retained. This is an independent derivative, not an official release.
+**[Download the stable v2.1.0 release](https://github.com/Tridgi/hdrezka-anime4k-motion/releases/tag/v2.1.0)** · [🇷🇺 Русский](README.md) · [Complete changes](CHANGELOG.md) · [Build](docs/BUILD.md) · [Third-party notices](THIRD_PARTY.md)
 
-[Русский](README.md) · [Downloads](https://github.com/Tridgi/hdrezka-anime4k-motion/releases) · [Build](docs/BUILD.md) · [Third-party notices](THIRD_PARTY.md)
+> Independent derivative of [eddinwork/HDREZKA](https://github.com/eddinwork/HDREZKA), upstream commit `a4676233114dbc0af1221826ae8440d9293226bb`. Not an official HDRezka release. No copyrighted media, credentials or user profiles are included.
 
-## Features
+## What's new in 2.1
 
-- Anime4K Off / A / soft B / denoising C / Light, rendered with libmpv's Direct3D 11 API into the WinUI player.
-- Independent Off / 60 / 120 / 165 FPS interpolation using open-svpflow, VapourSynth and OpenCL. No external player process.
-- Configurable opening skip: 85 seconds by default, range 1–600 seconds.
-- Cursor and controls hide after three seconds of playback inactivity; movement or pause restores them.
-- Existing subtitles, quality, playback speed, volume, episode controls and playback position.
-- Russian and English resources; no bundled user accounts, cookies or watch history.
+| Area | Improvements |
+| --- | --- |
+| **Catalog and genres** | Genre choices discovered from the current mirror, media categories, sorting, and responsive controls that reflow instead of being hidden behind a horizontal scrollbar |
+| **Collections** | Searchable responsive cover grid, complete artwork, pagination, and correct in-collection Back navigation |
+| **Movie details** | Redesigned HDRezka / IMDb / Kinopoisk rating badges, clickable actors, directors, genres and franchise references, season and voiceover selectors |
+| **Comments** | Richer nested threads, replies, reactions, sorting, editor with emoji, readable site errors, own-comment highlighting |
+| **Appearance** | System/light/dark/manual themes, accent-pair presets, custom hex colors, colored or neutral chips, poster-size preview |
+| **Home screen** | Redesigned Top 5 spotlight, poster carousels, hover previews, visual fixes and ratings |
+| **Updates** | Stable/test channels, release history, SHA-256 verification, update backup and rollback |
+| **Boosty** | Dedicated support screen with direct link and QR code |
 
-## Install and requirements
+See the [full v2.1 notes](docs/RELEASE_2.1.md) and [CHANGELOG](CHANGELOG.md) for details.
 
-Extract the complete Windows x64 portable ZIP from Releases and run `HDREZKA.App.exe`. Keep `runtime`, `motion` and `shaders`. The self-contained release includes .NET and Windows App SDK. Windows 10 build 19041+ / Windows 11, Direct3D 11; interpolation additionally needs a compatible OpenCL driver.
+## Playback features
 
-Tested hardware: NVIDIA P106-100 6 GB, Intel Core i5-6500, 2560×1440 165 Hz display. Other GPU configurations need testing. Start with Light + 120 FPS, or A + 60 FPS. A/B/C are processing variants, not increasing quality levels.
+- **Anime4K:** Off, A, B (softer), C (denoising), Light. Applied inside the separate player window through libmpv/Direct3D 11; no additional external video player is needed.
+- **Frame interpolation:** independent Off, 60, 120, or experimental 165 FPS target with SVPflow/VapourSynth and an OpenCL-capable device.
+- **Opening skip:** 85 seconds by default, adjustable from 1 to 600 seconds.
+- Existing quality, language, subtitle, volume, speed, season and episode controls; saved playback position and automatic player-control hiding.
+- Fixes for FPS reconfiguration across sources and low-resolution 426×240 / 854×480 inputs.
 
-165 FPS is a target, not a guaranteed result: the short local 1080p24 test delivered about 140–144 rendered frames/s at that target with drops. Light + 120 and A + 60 had no drops during their short measured intervals. Results depend on content, hardware and network. This is not DLSS or RIFE; interpolation can introduce motion artifacts and Anime4K can alter fine textures. Fixed known source frame rates are the intended input.
+**Hardware limitations:** experimental 165 FPS is not guaranteed. Anime4K is not DLSS or RIFE; the filters do not restore missing details and interpolation can introduce motion artifacts. Tested local reference hardware includes NVIDIA P106-100 6 GB, Intel i5-6500, 2560×1440 / 165 Hz. Results will vary by GPU, video and network.
 
-Settings and login state are stored separately in `%APPDATA%\HDREZKA-Anime4K-Motion`; previous accounts are not imported. The update button opens this project's Releases and does not install upstream builds. Source code retains MIT notices; combined distribution with GPL libmpv components is subject to GPL terms. See THIRD_PARTY.md for dependency sources and licenses.
+## Requirements and installation
+
+| Requirement | Details |
+| --- | --- |
+| OS | Windows 10 2004 (build 19041)+ or Windows 11 |
+| Architecture | **x64** portable distribution |
+| GPU | Direct3D 11 for rendering; compatible OpenCL device/driver for interpolation |
+| Dependencies | .NET 8 and Windows App SDK packaged in the self-contained archive |
+| Connectivity | Working HDRezka mirror for catalog and playback; GitHub for update checks |
+
+1. Open [v2.1.0 on GitHub](https://github.com/Tridgi/hdrezka-anime4k-motion/releases/tag/v2.1.0).
+2. Download `HDREZKA-Anime4K-Motion-2.1.0-win-x64.zip`; optionally verify with `SHA256SUMS.txt`.
+3. **Extract the entire ZIP** to a writable directory, for example `D:\Apps\HDREZKA`, then run `HDREZKA.App.exe`. Do not remove `runtime`, `motion`, `shaders`, or the update helper.
+4. Select an accessible HTTPS mirror and sign in to use account-dependent actions.
+
+**Updating from a testing build:** select **Settings → Updates → Stable → Check for updates**. If the in-app updater is unavailable, extract the stable ZIP to a separate folder. Close the application before replacing files. Do not delete `%APPDATA%\HDREZKA-Anime4K-Motion` — settings, login state, and watch history are stored separately from the portable application.
+
+## Notes on catalog, comments and privacy
+
+Genres are based on URLs actually exposed by the selected mirror; external site changes, access restrictions or CAPTCHA challenges may still affect them. Comment posting is subject to the site's authentication, moderation and CAPTCHA policies. On a rejected post, the draft remains intact and readable error information is shown when provided by the website. Own-comment styling relies on author-specific controls in source markup, or matching an authenticated username where reliable.
+
+Official GitHub Releases provide the stable `vX.Y.Z` and test `test-<commit>` channels. Downloads require valid SHA-256 verification; the updater keeps a backup and attempts rollback on errors. Cached release information may lag temporarily under GitHub API rate limits.
+
+The portable archive contains no user account, cookies, media library, private logs or test videos. The application communicates with your configured HDRezka mirror, video CDN and GitHub.
+
+## Further reading
+
+- [Russian user guide](docs/USER_GUIDE.md) — navigation, settings and troubleshooting
+- [Detailed 2.1 release notes](docs/RELEASE_2.1.md)
+- [Release workflow](docs/RELEASES.md) · [Updater design](docs/UPDATER.md)
+- [Building from source](docs/BUILD.md)
+- [Licenses and third-party code](THIRD_PARTY.md) · [LICENSE](LICENSE.md)
+
+**Support development:** [Boosty — boosty.to/tridgi](https://boosty.to/tridgi).
+
+This repository is an unofficial derivative; original attribution to voidboost and eddinwork is retained. The client includes MIT notices; combined distribution with libmpv components is subject to relevant GPL and other third-party terms listed in THIRD_PARTY.md.
