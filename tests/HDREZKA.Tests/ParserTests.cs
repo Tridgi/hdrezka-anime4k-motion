@@ -5,6 +5,43 @@ namespace HDREZKA.Tests;
 
 public class ParserTests
 {
+    [Fact]
+    public void ParseHotMovies_PrefersLazyPosterInsteadOfPlaceholder()
+    {
+        const string html = """
+            <div class="b-content__inline_item" data-url="/animation/123-anime.html">
+              <div class="b-content__inline_item-cover">
+                <a href="/animation/123-anime.html">
+                  <img src="data:image/gif;base64,AAAA"
+                       data-src="https://cdn.example.org/anime/poster.jpg">
+                </a>
+              </div>
+              <div class="b-content__inline_item-link"><a href="/animation/123-anime.html">Anime</a></div>
+            </div>
+            """;
+        var movies = Parsers.ParseHotMovies(html);
+        Assert.Single(movies);
+        Assert.Equal("https://cdn.example.org/anime/poster.jpg", movies[0].Poster);
+    }
+
+    [Fact]
+    public void ParseHotMovies_UsesDataOriginalForDelayedPosters()
+    {
+        const string html = """
+            <div class="b-content__inline_item" data-url="/films/234-film.html">
+              <div class="b-content__inline_item-cover">
+                <a href="/films/234-film.html">
+                  <img src="" data-original="//cdn.example.org/film.jpg">
+                </a>
+              </div>
+              <div class="b-content__inline_item-link"><a href="/films/234-film.html">Film</a></div>
+            </div>
+            """;
+        var movies = Parsers.ParseHotMovies(html);
+        Assert.Single(movies);
+        Assert.Equal("//cdn.example.org/film.jpg", movies[0].Poster);
+    }
+
     private const string CatalogHtml = """
         <html><body>
         <div id="wrapper">
