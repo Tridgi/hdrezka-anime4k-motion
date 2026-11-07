@@ -8,6 +8,7 @@ namespace HDREZKA.App.Views;
 public sealed partial class SupportPage : Page
 {
     private static readonly Uri BoostyUrl = new("https://boosty.to/tridgi");
+    private bool? _qrBelowContent;
 
     public SupportPage() => InitializeComponent();
 
@@ -16,6 +17,17 @@ public sealed partial class SupportPage : Page
         base.OnNavigatedTo(e);
         ApplyLocalization();
         LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
+        try
+        {
+            // Reuse the QR asset from the earlier support page.
+            BoostyQrImage.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(
+                new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "boosty-qr.png")));
+        }
+        catch (Exception ex)
+        {
+            App.TryLog(ex);
+            BoostyQrCard.Visibility = Visibility.Collapsed;
+        }
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -33,6 +45,22 @@ public sealed partial class SupportPage : Page
         BoostyTitleText.Text = "Boosty";
         BoostyDescriptionText.Text = Loc.Get("Support.BoostyDetails");
         BoostyButtonText.Text = Loc.Get("Settings.DonateBoosty");
+        BoostyQrCaption.Text = Loc.Get("Support.ScanQr");
+    }
+
+    private void BoostyContentLayout_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // Move the QR beneath the text/button before either column gets narrow.
+        var below = e.NewSize.Width < 540;
+        if (_qrBelowContent == below) return;
+        _qrBelowContent = below;
+        Grid.SetRow(BoostyQrCard, below ? 1 : 0);
+        Grid.SetColumn(BoostyQrCard, below ? 0 : 1);
+    }
+
+    private void BoostyQrImage_ImageFailed(object sender, ExceptionRoutedEventArgs e)
+    {
+        BoostyQrCard.Visibility = Visibility.Collapsed;
     }
 
     private async void BoostyButton_Click(object sender, RoutedEventArgs e)
