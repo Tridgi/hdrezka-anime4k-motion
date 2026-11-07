@@ -3,6 +3,12 @@ on:
   push:
     branches: [fix/player-swapchain-dpi-scaling, fix/ratings-updates-polish, feature/player-history-2.2-preview]
   workflow_dispatch:
+# Cancel obsolete builds on the same test branch; only the newest commit
+# should produce a prerelease.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 jobs:
