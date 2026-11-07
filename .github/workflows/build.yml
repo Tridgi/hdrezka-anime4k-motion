@@ -42,6 +42,6 @@ jobs:
         run: ./scripts/test-updater.ps1
       - uses: actions/upload-artifact@v4
         with:
-          name: HDREZKA-Anime4K-Motion-v2-win-x64
+          name: HDREZKA-Anime4K-Motion-2.1.0-win-x64
           path: artifacts/portable/
           if-no-files-found: error
