@@ -110,6 +110,12 @@
                     <TextBlock Text="Если выключено, каждый новый запуск плеера использует скорость по умолчанию."
                                FontSize="12" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <CheckBox x:Name="SeekThumbnailsCheck"
+                              Content="Предпросмотр кадров при наведении на шкалу времени (экспериментально)"
+                              Checked="SeekThumbnailsCheck_Changed" Unchecked="SeekThumbnailsCheck_Changed"/>
+                    <TextBlock Text="Использует второй низкоразрешённый декодер. Если поток не поддерживает быстрый поиск, показывается только время. Можно отключить на слабых ПК."
+                               FontSize="12" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBlock Text="Пропуск опенинга" FontWeight="SemiBold" Margin="0,12,0,0"/>
                     <NumberBox x:Name="OpeningSkipBox" Header="Перемотка вперёд, секунд" Minimum="1" Maximum="600"
                                SmallChange="5" LargeChange="30" SpinButtonPlacementMode="Inline"
