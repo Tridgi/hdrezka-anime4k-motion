@@ -6,16 +6,16 @@
       * exe/dll (AssemblyVersion / FileVersion / InformationalVersion),
       * User-Agent HTTP-запросов (HDREZKA.Core.Api.BuildInfo),
       * экран «Настройки» (UpdateService.CurrentVersion).
-    Вручную синхронизировать нужно ещё installer/installer.iss (MyAppVersion)
-    и README.md — они не умеют читать MSBuild-свойства.
+    Версия синхронизируется с README и CHANGELOG при подготовке релиза.
+    Portable-архивы создаются workflow; отдельного Inno Setup-инсталлятора нет.
   -->
   <PropertyGroup>
     <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
-    <Version>2.0.0</Version>
-    <FileVersion>2.0.0.0</FileVersion>
-    <AssemblyVersion>2.0.0.0</AssemblyVersion>
-    <InformationalVersion>2.0.0</InformationalVersion>
-    <Product>HDREZKA Anime4K Motion v2</Product>
+    <Version>2.1.0</Version>
+    <FileVersion>2.1.0.0</FileVersion>
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
+    <InformationalVersion>2.1.0</InformationalVersion>
+    <Product>HDREZKA Anime4K Motion 2.1</Product>
     <Company>HDREZKA Anime4K Motion contributors</Company>
     <Copyright>Copyright (c) 2026. Portions based on HDrezka for macOS, MIT License (c) 2025 voidboost.</Copyright>
   </PropertyGroup>
