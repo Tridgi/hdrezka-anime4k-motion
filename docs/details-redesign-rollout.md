@@ -1,5 +1,7 @@
 # Details page redesign — implementation and verification plan
 
+> **Архивный план редизайна (2026).** Этот документ фиксирует промежуточные решения тестовой разработки, а не гарантированную структуру версии 2.1. Актуальная пользовательская инструкция: [USER_GUIDE.md](USER_GUIDE.md). Финальная сводка изменений: [RELEASE_2.1.md](RELEASE_2.1.md). Описание старых порогов адаптивности ниже сохранено для истории тестирования; реализация могла измениться.
+
 ## Existing behavior and dependencies
 
 - `DetailsPage.xaml.cs` owns `MovieDetailed`, `MovieVoiceActing`, `MovieSeason` and `MovieEpisode` selection. The selected objects are passed unchanged through `PlayerLaunch` into a separate `PlayerWindow`.
