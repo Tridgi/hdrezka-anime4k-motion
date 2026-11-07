@@ -71,7 +71,13 @@ public sealed class PositionService
     {
         lock (_lock)
         {
-            return _positions.Values.Where(IsResumable)
+            // Show an intentionally opened episode even if the user closed
+            // the player before the usual 30-second resume threshold.
+            return _positions.Values.Where(p => IsResumable(p) ||
+                (p.DurationSeconds > 60 && p.PositionSeconds >= 0 &&
+                 p.PositionSeconds < p.DurationSeconds - 30 &&
+                 _activeEpisodeKeys.TryGetValue(p.MovieId, out var active) &&
+                 active == Key(p.MovieId, p.TranslatorId, p.SeasonId, p.EpisodeId)))
                 .GroupBy(p => p.MovieId, StringComparer.OrdinalIgnoreCase)
                 .Select(g =>
                 {
@@ -143,7 +149,11 @@ public sealed class PositionService
             }
 
             if (keys.Count > 0) Persist();
-            if (_activeEpisodeKeys.Remove(movieId)) PersistActive();
+            var staleActive = _activeEpisodeKeys
+                .Where(kv => kv.Key == movieId || keys.Contains(kv.Value))
+                .Select(kv => kv.Key).ToList();
+            foreach (var title in staleActive) _activeEpisodeKeys.Remove(title);
+            if (staleActive.Count > 0) PersistActive();
 
             // Drop manual "watched" checkmarks for the same title.
             var watchedKeys = _watched
