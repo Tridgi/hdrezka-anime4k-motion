@@ -56,6 +56,7 @@ public sealed class SettingsService
     public int SeekForwardSeconds { get; set; } = 10;
     public double DefaultSpeed { get; set; } = 1.0;
     public bool RememberPlayerSpeed { get; set; }
+    public bool EnableSeekThumbnails { get; set; } = true;
 
     public double GetStartupSpeed() => RememberPlayerSpeed ? Speed : DefaultSpeed;
     public string Anime4KMode { get; set; } = "Off";
