@@ -213,7 +213,16 @@ public static class Parsers
         var details = item.QuerySelector(".b-content__inline_item-link div");
 
         var cover = item.QuerySelector(".b-content__inline_item-cover a");
-        var poster = cover?.QuerySelector("img")?.GetAttribute("src");
+        var posterImage = cover?.QuerySelector("img") ?? item.QuerySelector("img");
+        var poster = new[] {
+            posterImage?.GetAttribute("data-src"),
+            posterImage?.GetAttribute("data-original"),
+            posterImage?.GetAttribute("data-lazy-src"),
+            posterImage?.GetAttribute("data-srcset")?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault(),
+            posterImage?.GetAttribute("src")
+        }.FirstOrDefault(u => !string.IsNullOrWhiteSpace(u) &&
+            !u.StartsWith("data:", StringComparison.OrdinalIgnoreCase) &&
+            !u.StartsWith("blob:", StringComparison.OrdinalIgnoreCase));
 
         MediaCat? cat = null;
         float? rating = null;
