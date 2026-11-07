@@ -44,7 +44,8 @@ public sealed partial class PlayerPage
 
     private void InstallCursorHandler()
     {
-        if (_cursorSubclassInstalled || Host == null) return;
+        // The player is hosted in its own Window; never subclass MainWindow.
+        if (_cursorSubclassInstalled || HostWindow == null) return;
         try
         {
             _cursorHwnd = WinRT.Interop.WindowNative.GetWindowHandle(Host);
