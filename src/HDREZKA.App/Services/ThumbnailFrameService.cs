@@ -18,6 +18,7 @@ internal sealed class ThumbnailFrameService : IDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly AutoResetEvent _requestEvent = new(false);
     private readonly ConcurrentDictionary<int, string> _frames = new();
+    private readonly ConcurrentQueue<int> _frameOrder = new();
     private readonly Queue<int> _warmBuckets;
     private readonly Task _worker;
     private int _requestedBucket = -1;
@@ -105,7 +106,7 @@ internal sealed class ThumbnailFrameService : IDisposable
                 return;
             }
 
-            while (!_stop.IsCancellationRequested && _frames.Count < MaxFrames)
+            while (!_stop.IsCancellationRequested)
             {
                 var target = Interlocked.Exchange(ref _requestedBucket, -1);
                 if (target < 0 && _warmBuckets.Count > 0)
@@ -145,8 +146,17 @@ internal sealed class ThumbnailFrameService : IDisposable
                     if (!File.Exists(filename) || new FileInfo(filename).Length < 128)
                         throw new InvalidDataException("No image produced by software screenshot output");
                     _frames[target] = filename;
+                    _frameOrder.Enqueue(target);
                     _frameReady(target, filename);
                     _failures = 0;
+                    // Maintain a small cache even for long scrub sessions.
+                    // Previously the worker terminated once 32 frames had
+                    // been produced and immediately deleted all thumbnails.
+                    while (_frames.Count > MaxFrames && _frameOrder.TryDequeue(out var oldest))
+                    {
+                        if (!_frames.TryRemove(oldest, out var obsolete)) continue;
+                        try { File.Delete(obsolete); } catch { }
+                    }
                 }
                 catch (Exception ex)
                 {
