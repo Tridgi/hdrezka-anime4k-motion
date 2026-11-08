@@ -308,11 +308,9 @@
                 </StackPanel>
             </Grid>
         </Grid>
-        <!-- Tiny invisible secondary render surface. It decodes one low-res
-             preview frame without altering the main playback position. -->
-        <SwapChainPanel x:Name="ThumbnailVideoSurface" Width="178" Height="100"
-                        HorizontalAlignment="Left" VerticalAlignment="Top"
-                        Opacity="0.01" IsHitTestVisible="False"/>
+        <!-- Thumbnail generation MUST NOT create another SwapChainPanel in this
+             visual tree. A transparent swapchain can still be composed above
+             video/controls by D3D and previously caused an upper-left rectangle. -->
         <!-- Timeline pointer tooltip; image remains optional on inaccessible streams. -->
         <Canvas x:Name="SeekPreviewOverlay" IsHitTestVisible="False" Visibility="Collapsed">
             <Border x:Name="SeekPreviewBubble" CornerRadius="10" Padding="7"
@@ -328,10 +326,10 @@
         </Canvas>
         <!-- Drawer overlays the existing video renderer without reinitializing it. -->
         <Grid x:Name="EpisodeDrawerOverlay" Visibility="Collapsed">
-            <Border Background="#66000000" Tapped="EpisodeDrawerBackdrop_Tapped"/>
+            <Border Background="#48000000" Tapped="EpisodeDrawerBackdrop_Tapped"/>
             <Border x:Name="EpisodeDrawerCard" HorizontalAlignment="Right"
                     VerticalAlignment="Stretch" Width="350"
-                    Background="#F5272A30" BorderBrush="#4DFFFFFF"
+                    Background="#E9101117" BorderBrush="#44FFFFFF"
                     BorderThickness="1,0,0,0" CornerRadius="14,0,0,14">
                 <Grid Padding="20,18,18,18" RowSpacing="16">
                     <Grid.RowDefinitions>
@@ -347,13 +345,16 @@
                         <TextBlock Text="Сезоны и серии" Foreground="White"
                                    FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
                         <Button Grid.Column="1" Click="EpisodeDrawerClose_Click"
-                                Background="#33FFFFFF" BorderThickness="0"
-                                CornerRadius="8" Width="34" Height="34">
+                                Background="#252F343D" BorderBrush="#28FFFFFF"
+                                BorderThickness="1" CornerRadius="8"
+                                Width="34" Height="34" ToolTipService.ToolTip="Закрыть меню серий">
                             <FontIcon Glyph="&#xE8BB;" Foreground="White" FontSize="13"/>
                         </Button>
                     </Grid>
                     <ComboBox Grid.Row="1" x:Name="EpisodeSeasonBox"
                               Header="Сезон" HorizontalAlignment="Stretch"
+                              Background="#262932" Foreground="White"
+                              BorderBrush="#4DFFFFFF" BorderThickness="1"
                               SelectionChanged="EpisodeSeasonBox_SelectionChanged"/>
                     <GridView x:Name="EpisodeDrawerGrid" Grid.Row="2"
                               SelectionMode="None" IsItemClickEnabled="False"
