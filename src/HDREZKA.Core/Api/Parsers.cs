@@ -218,11 +218,29 @@ public static class Parsers
             posterImage?.GetAttribute("data-src"),
             posterImage?.GetAttribute("data-original"),
             posterImage?.GetAttribute("data-lazy-src"),
+            posterImage?.GetAttribute("data-poster"),
+            posterImage?.GetAttribute("data-image"),
             posterImage?.GetAttribute("data-srcset")?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault(),
+            posterImage?.GetAttribute("srcset")?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault(),
+            cover?.GetAttribute("data-src"),
+            cover?.GetAttribute("data-poster"),
             posterImage?.GetAttribute("src")
         }.FirstOrDefault(u => !string.IsNullOrWhiteSpace(u) &&
             !u.StartsWith("data:", StringComparison.OrdinalIgnoreCase) &&
             !u.StartsWith("blob:", StringComparison.OrdinalIgnoreCase));
+        // Some mirror revisions paint the Top thumbnails as CSS backgrounds
+        // instead of regular img tags. Resolve a background-image URL as a
+        // final fallback (the cache will normalize relative URLs).
+        if (string.IsNullOrWhiteSpace(poster))
+        {
+            var style = posterImage?.GetAttribute("style") ??
+                        cover?.GetAttribute("style") ??
+                        item.QuerySelector(".b-content__inline_item-cover")?.GetAttribute("style");
+            var match = System.Text.RegularExpressions.Regex.Match(style ?? "",
+                @"url\s*\(\s*['""]?(?<url>[^'"")\s]+)",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (match.Success) poster = match.Groups["url"].Value;
+        }
 
         MediaCat? cat = null;
         float? rating = null;
