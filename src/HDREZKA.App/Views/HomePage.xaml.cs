@@ -427,7 +427,7 @@ public sealed partial class HomePage : Page
         Log.Warn("[HomeTop] Primary poster unavailable; trying details poster");
         if (_heroItems.Count <= _heroIndex || _heroItems[_heroIndex].Id != movieId) return;
         if (_heroDetailPosters.TryGetValue(movieId, out var fallback) &&
-            PosterCache.NormalizePosterUrl(fallback) != HeroPoster.Tag as string)
+            PosterCache.NormalizePosterUrl(fallback) != (HeroPoster.Tag as string))
             PosterCache.SetSource(HeroPoster, fallback);
     }
 
@@ -438,7 +438,7 @@ public sealed partial class HomePage : Page
         if (_heroItems.Count <= _heroIndex || _heroItems[_heroIndex].Id != movieId) return;
         var fallback = _heroDetailPosters.GetValueOrDefault(movieId) ??
                        _heroItems[_heroIndex].Poster;
-        if (PosterCache.NormalizePosterUrl(fallback) != HeroBackdrop.Tag as string)
+        if (PosterCache.NormalizePosterUrl(fallback) != (HeroBackdrop.Tag as string))
             PosterCache.SetSource(HeroBackdrop, fallback);
     }
 
