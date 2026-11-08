@@ -14,9 +14,16 @@ public sealed partial class PlayerPage
     private bool _episodeDrawerOpen;
     private bool _updatingEpisodeDrawer;
     private bool _changingEpisode;
+    private DateTime _lastDrawerToggleUtc = DateTime.MinValue;
 
     private void EpisodeDrawerButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_tearingDown) return;
+        // WinUI can raise two clicks from a double-click on the custom
+        // title bar. Ignore a duplicate instead of immediately reopening.
+        var now = DateTime.UtcNow;
+        if ((now - _lastDrawerToggleUtc).TotalMilliseconds < 320) return;
+        _lastDrawerToggleUtc = now;
         if (_episodeDrawerOpen) CloseEpisodeDrawer();
         else OpenEpisodeDrawer();
     }
@@ -25,6 +32,8 @@ public sealed partial class PlayerPage
     {
         if (_launch?.Seasons is not { Count: > 0 }) return;
         _episodeDrawerOpen = true;
+        _hideTimer.Stop();
+        ShowSystemCursor();
         EpisodeDrawerOverlay.Visibility = Visibility.Visible;
         EpisodeDrawerCard.Width = Math.Min(350, Math.Max(225, RootGrid.ActualWidth - 16));
         PopulateEpisodeSeasons();
@@ -35,7 +44,7 @@ public sealed partial class PlayerPage
     {
         _episodeDrawerOpen = false;
         EpisodeDrawerOverlay.Visibility = Visibility.Collapsed;
-        if (IsPlaying()) _hideTimer.Start();
+        if (!_tearingDown && IsPlaying()) _hideTimer.Start();
         ReturnFocus();
     }
 
@@ -101,12 +110,12 @@ public sealed partial class PlayerPage
                 Padding = new Thickness(4, 4, 4, 4),
                 CornerRadius = new CornerRadius(8),
                 Background = new SolidColorBrush(current
-                    ? Color.FromArgb(255, 71, 118, 212)
-                    : watched ? Color.FromArgb(255, 49, 67, 62)
-                    : Color.FromArgb(255, 57, 59, 65)),
+                    ? Color.FromArgb(210, 57, 110, 203)
+                    : watched ? Color.FromArgb(170, 37, 76, 68)
+                    : Color.FromArgb(140, 30, 35, 44)),
                 Foreground = new SolidColorBrush(Microsoft.UI.Colors.White),
                 BorderThickness = new Thickness(current ? 2 : 0),
-                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 164, 197, 255)),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(255, 140, 187, 255)),
                 HorizontalContentAlignment = HorizontalAlignment.Center,
             };
             ToolTipService.SetToolTip(button, watched ? episode.Name + " · просмотрено" : episode.Name);
@@ -119,7 +128,7 @@ public sealed partial class PlayerPage
     {
         if (sender is not Button { Tag: ValueTuple<MovieSeason, MovieEpisode> chosen })
             return;
-        if (_changingEpisode || _loadingEpisode) return;
+        if (_tearingDown || _changingEpisode || _loadingEpisode) return;
         if (_launch?.Season?.SeasonId == chosen.Item1.SeasonId &&
             _launch?.Episode?.EpisodeId == chosen.Item2.EpisodeId)
         {
