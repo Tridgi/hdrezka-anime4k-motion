@@ -501,6 +501,8 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         decoder = contents("../Services/ThumbnailFrameService.cs")
         self.assertIn('Configure(handle, "vo", "null")', decoder)
         self.assertIn("Task.Run(Worker)", decoder)
+        self.assertIn("while (_frames.Count > MaxFrames", decoder)
+        self.assertNotIn("while (!_stop.IsCancellationRequested && _frames.Count < MaxFrames)", decoder)
         self.assertNotIn("SwapChainPanel", preview.split("private void SeekSlider_PointerMoved")[0])
         self.assertIn("ResetSeekPreview()", player)
         for name in ("SeekBackBox", "SeekForwardBox", "DefaultSpeedBox",
