@@ -25,6 +25,9 @@ public sealed partial class HomePage : Page
     private bool _heroHovered;
     private readonly Dictionary<string, string> _heroDescriptions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _heroBackdrops = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _heroDetailPosters = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _heroPosterUnavailable = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _heroBackdropUnavailable = new(StringComparer.OrdinalIgnoreCase);
     private CancellationTokenSource? _heroDescriptionCts;
     private CancellationTokenSource? _homeHoverCts;
     private MovieCard? _hoverCard;
@@ -35,6 +38,20 @@ public sealed partial class HomePage : Page
     public HomePage()
     {
         InitializeComponent();
+
+        // HTTP failures and *asynchronous bitmap decoding* are two different
+        // failure points. Both must fall back to the poster from Details,
+        // otherwise the Top card remains blank even with valid metadata.
+        HeroPoster.ImageFailed += (_, _) =>
+        {
+            if (_heroItems.Count > _heroIndex)
+                OnHeroPosterFailed(_heroItems[_heroIndex].Id);
+        };
+        HeroBackdrop.ImageFailed += (_, _) =>
+        {
+            if (_heroItems.Count > _heroIndex)
+                OnHeroBackdropFailed(_heroItems[_heroIndex].Id);
+        };
 
         // Pause auto-advance while the viewer reads the synopsis or uses
         // the carousel. It resumes only after the pointer leaves the banner.
@@ -325,17 +342,18 @@ public sealed partial class HomePage : Page
         _ = LoadHeroDescriptionAsync(movie);
 
 
-        if (!string.IsNullOrEmpty(movie.Poster))
-        {
-            // Через общий кэш: раньше герой каждый раз качал постер заново.
-            PosterCache.SetSource(HeroPoster, movie.Poster);
-            PosterCache.SetSource(HeroBackdrop, _heroBackdrops.GetValueOrDefault(movie.Id) ?? movie.Poster);
-        }
-        else
-        {
-            PosterCache.SetSource(HeroPoster, null);
-            PosterCache.SetSource(HeroBackdrop, null);
-        }
+        // Broken/blocked CDN URLs must not mask the details-page fallback.
+        var poster = _heroPosterUnavailable.Contains(movie.Id)
+            ? _heroDetailPosters.GetValueOrDefault(movie.Id)
+            : movie.Poster ?? _heroDetailPosters.GetValueOrDefault(movie.Id);
+        PosterCache.SetSource(HeroPoster, poster,
+            () => OnHeroPosterFailed(movie.Id));
+
+        var backdrop = _heroBackdropUnavailable.Contains(movie.Id)
+            ? _heroDetailPosters.GetValueOrDefault(movie.Id)
+            : _heroBackdrops.GetValueOrDefault(movie.Id) ?? poster;
+        PosterCache.SetSource(HeroBackdrop, backdrop,
+            () => OnHeroBackdropFailed(movie.Id));
 
         if (movie.Rating is { } rating)
         {
@@ -403,6 +421,27 @@ public sealed partial class HomePage : Page
             _heroTimer.Start();
     }
 
+    private void OnHeroPosterFailed(string movieId)
+    {
+        _heroPosterUnavailable.Add(movieId);
+        Log.Warn("[HomeTop] Primary poster unavailable; trying details poster");
+        if (_heroItems.Count <= _heroIndex || _heroItems[_heroIndex].Id != movieId) return;
+        if (_heroDetailPosters.TryGetValue(movieId, out var fallback) &&
+            PosterCache.NormalizePosterUrl(fallback) != HeroPoster.Tag as string)
+            PosterCache.SetSource(HeroPoster, fallback);
+    }
+
+    private void OnHeroBackdropFailed(string movieId)
+    {
+        _heroBackdropUnavailable.Add(movieId);
+        Log.Warn("[HomeTop] Backdrop unavailable; trying details poster");
+        if (_heroItems.Count <= _heroIndex || _heroItems[_heroIndex].Id != movieId) return;
+        var fallback = _heroDetailPosters.GetValueOrDefault(movieId) ??
+                       _heroItems[_heroIndex].Poster;
+        if (PosterCache.NormalizePosterUrl(fallback) != HeroBackdrop.Tag as string)
+            PosterCache.SetSource(HeroBackdrop, fallback);
+    }
+
     private async Task LoadHeroDescriptionAsync(MovieSimple movie)
     {
         if (_heroDescriptions.TryGetValue(movie.Id, out var existing))
@@ -421,18 +460,24 @@ public sealed partial class HomePage : Page
             _heroDescriptions[movie.Id] = synopsis;
             if (!string.IsNullOrWhiteSpace(details.BigPoster))
                 _heroBackdrops[movie.Id] = details.BigPoster;
-            // The hot-slider endpoint may provide lazy/empty poster URLs.
-            // Fall back to the details-page poster rather than leaving a blank Top card.
-            if (string.IsNullOrWhiteSpace(movie.Poster) &&
-                !string.IsNullOrWhiteSpace(details.Poster) &&
-                _heroItems.Count > _heroIndex && _heroItems[_heroIndex].Id == movie.Id)
+            if (!string.IsNullOrWhiteSpace(details.Poster))
+                _heroDetailPosters[movie.Id] = details.Poster;
+
+            if ((_heroPosterUnavailable.Contains(movie.Id) ||
+                 string.IsNullOrWhiteSpace(movie.Poster)) &&
+                _heroItems.Count > _heroIndex && _heroItems[_heroIndex].Id == movie.Id &&
+                !string.IsNullOrWhiteSpace(details.Poster))
                 PosterCache.SetSource(HeroPoster, details.Poster);
             if (_heroItems.Count > _heroIndex &&
                 _heroItems[_heroIndex].Id == movie.Id)
             {
                 HeroDescription.Text = synopsis;
-                if (_heroBackdrops.TryGetValue(movie.Id, out var backdrop))
-                    PosterCache.SetSource(HeroBackdrop, backdrop);
+                var backdrop = _heroBackdropUnavailable.Contains(movie.Id)
+                    ? _heroDetailPosters.GetValueOrDefault(movie.Id)
+                    : _heroBackdrops.GetValueOrDefault(movie.Id);
+                if (!string.IsNullOrWhiteSpace(backdrop))
+                    PosterCache.SetSource(HeroBackdrop, backdrop,
+                        () => OnHeroBackdropFailed(movie.Id));
             }
         }
         catch (OperationCanceledException) { }
