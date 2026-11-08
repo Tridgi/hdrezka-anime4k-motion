@@ -237,7 +237,7 @@ public static class Parsers
                         cover?.GetAttribute("style") ??
                         item.QuerySelector(".b-content__inline_item-cover")?.GetAttribute("style");
             var match = System.Text.RegularExpressions.Regex.Match(style ?? "",
-                @"url\s*\(\s*['""]?(?<url>[^'"")\s]+)",
+                @"url\s*\(\s*['""]?(?<url>[^'""\)\s]+)",
                 System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             if (match.Success) poster = match.Groups["url"].Value;
         }
