@@ -307,25 +307,10 @@
                     <TextBlock x:Name="BufferingText" Text="Буферизация..." Foreground="#B3FFFFFF" FontSize="12" VerticalAlignment="Center"/>
                 </StackPanel>
             </Grid>
-        </Grid>
-        <!-- Thumbnail generation MUST NOT create another SwapChainPanel in this
-             visual tree. A transparent swapchain can still be composed above
-             video/controls by D3D and previously caused an upper-left rectangle. -->
-        <!-- Timeline pointer tooltip; image remains optional on inaccessible streams. -->
-        <Canvas x:Name="SeekPreviewOverlay" IsHitTestVisible="False" Visibility="Collapsed">
-            <Border x:Name="SeekPreviewBubble" CornerRadius="10" Padding="7"
-                    Background="#F3272B33" BorderBrush="#66FFFFFF" BorderThickness="1">
-                <StackPanel Spacing="5" Width="178">
-                    <Image x:Name="SeekPreviewImage" Width="178" Height="100"
-                           Stretch="UniformToFill" Visibility="Collapsed"/>
-                    <TextBlock x:Name="SeekPreviewTime" Text="00:00"
-                               HorizontalAlignment="Center" FontWeight="SemiBold"
-                               FontSize="12" Foreground="White"/>
-                </StackPanel>
-            </Border>
-        </Canvas>
+            <!-- The drawer is INSIDE OverlayGrid, below the top bar, so it
+                 never intercepts the real window Close/Pin/Minimize buttons. -->
         <!-- Drawer overlays the existing video renderer without reinitializing it. -->
-        <Grid x:Name="EpisodeDrawerOverlay" Visibility="Collapsed">
+        <Grid x:Name="EpisodeDrawerOverlay" Grid.Row="1" Grid.RowSpan="2" Visibility="Collapsed">
             <Border Background="#48000000" Tapped="EpisodeDrawerBackdrop_Tapped"/>
             <Border x:Name="EpisodeDrawerCard" HorizontalAlignment="Right"
                     VerticalAlignment="Stretch" Width="350"
@@ -369,6 +354,23 @@
                     </GridView>
                 </Grid>
             </Border>
-        </Grid>
+        </Grid>        </Grid>
+        <!-- Thumbnail generation MUST NOT create another SwapChainPanel in this
+             visual tree. A transparent swapchain can still be composed above
+             video/controls by D3D and previously caused an upper-left rectangle. -->
+        <!-- Timeline pointer tooltip; image remains optional on inaccessible streams. -->
+        <Canvas x:Name="SeekPreviewOverlay" IsHitTestVisible="False" Visibility="Collapsed">
+            <Border x:Name="SeekPreviewBubble" CornerRadius="10" Padding="7"
+                    Background="#F3272B33" BorderBrush="#66FFFFFF" BorderThickness="1">
+                <StackPanel Spacing="5" Width="178">
+                    <Image x:Name="SeekPreviewImage" Width="178" Height="100"
+                           Stretch="UniformToFill" Visibility="Collapsed"/>
+                    <TextBlock x:Name="SeekPreviewTime" Text="00:00"
+                               HorizontalAlignment="Center" FontWeight="SemiBold"
+                               FontSize="12" Foreground="White"/>
+                </StackPanel>
+            </Border>
+        </Canvas>
+
     </Grid>
 </Page>
