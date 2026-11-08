@@ -59,8 +59,11 @@ public sealed partial class PlayerWindow : Window
         Closed += OnClosed;
         Activated += (_, args) =>
         {
-            if (args.WindowActivationState == WindowActivationState.Deactivated && PlayerFrame.Content is PlayerPage page)
+            if (PlayerFrame.Content is not PlayerPage page) return;
+            if (args.WindowActivationState == WindowActivationState.Deactivated)
                 page.RestoreCursorOnDeactivate();
+            else
+                page.ResumeCursorOnActivate();
         };
         ApplyChromePolicy();
     }
