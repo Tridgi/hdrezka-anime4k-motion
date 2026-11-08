@@ -42,6 +42,24 @@ public class ParserTests
         Assert.Equal("//cdn.example.org/film.jpg", movies[0].Poster);
     }
 
+    [Fact]
+    public void ParseHotMovies_FindsCssBackgroundWhenImgIsAbsent()
+    {
+        const string html = """
+            <div class="b-content__inline_item" data-url="/films/345-top.html">
+              <div class="b-content__inline_item-cover">
+                <a href="/films/345-top.html" style="background-image: url('https://cdn.example.org/top-image.jpg')"></a>
+              </div>
+              <div class="b-content__inline_item-link">
+                <a href="/films/345-top.html">Top film</a>
+              </div>
+            </div>
+            """;
+        var movies = Parsers.ParseHotMovies(html);
+        Assert.Single(movies);
+        Assert.Equal("https://cdn.example.org/top-image.jpg", movies[0].Poster);
+    }
+
     private const string CatalogHtml = """
         <html><body>
         <div id="wrapper">
