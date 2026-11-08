@@ -36,6 +36,20 @@ public sealed partial class PlayerPage
     private static extern IntPtr DefSubclassProc(
         IntPtr hwnd, uint message, IntPtr wparam, IntPtr lparam);
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct CursorPoint { public int X; public int Y; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WindowRect { public int Left; public int Top; public int Right; public int Bottom; }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out CursorPoint point);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetWindowRect(IntPtr hwnd, out WindowRect rectangle);
+
     [DllImport("user32.dll")]
     private static extern IntPtr SetCursor(IntPtr cursor);
 
@@ -66,8 +80,9 @@ public sealed partial class PlayerPage
         IntPtr hwnd, uint message, IntPtr wparam, IntPtr lparam,
         UIntPtr subclassId, IntPtr referenceData)
     {
-        if (message == WmSetCursor && _cursorHidden && _pointerInsidePlayer &&
-            !_episodeDrawerOpen && ((long)lparam & 0xffff) == HtClient)
+        if (message == WmSetCursor && _cursorHidden &&
+            !_episodeDrawerOpen && ((long)lparam & 0xffff) == HtClient &&
+            IsPointerInsidePlayerWindow())
         {
             SetCursor(IntPtr.Zero);
             return (IntPtr)1;
@@ -87,13 +102,37 @@ public sealed partial class PlayerPage
         _cursorHwnd = IntPtr.Zero;
     }
 
+    // WinUI can fail to emit PointerEntered when the window regains focus
+    // with an already-stationary mouse. Use actual screen coordinates as a
+    // fallback instead of permanently keeping the cursor visible.
+    private bool IsPointerInsidePlayerWindow()
+    {
+        if (HostWindow == null) return false;
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(HostWindow);
+        if (hwnd == IntPtr.Zero || !GetCursorPos(out var p) ||
+            !GetWindowRect(hwnd, out var r)) return false;
+        return p.X >= r.Left && p.X < r.Right &&
+               p.Y >= r.Top && p.Y < r.Bottom;
+    }
+
+    internal void ResumeCursorOnActivate()
+    {
+        if (_tearingDown) return;
+        _pointerInsidePlayer = IsPointerInsidePlayerWindow();
+        if (_pointerInsidePlayer && IsPlaying() && !_episodeDrawerOpen)
+            _hideTimer.Start();
+    }
+
     private void HideSystemCursor()
     {
-        if (_cursorHidden || !_pointerInsidePlayer || _episodeDrawerOpen) return;
+        if (_cursorHidden || _episodeDrawerOpen || !IsPlaying()) return;
+        if (!_pointerInsidePlayer) _pointerInsidePlayer = IsPointerInsidePlayerWindow();
+        if (!_pointerInsidePlayer) return;
         InstallCursorHandler();
         if (!_cursorSubclassInstalled) return;
         _cursorHidden = true;
         SetCursor(IntPtr.Zero);
+        Log.Info("[PlayerCursor] Hidden after inactivity");
     }
 
     private void ShowSystemCursor()
