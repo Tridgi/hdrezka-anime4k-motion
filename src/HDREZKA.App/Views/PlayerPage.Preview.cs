@@ -39,7 +39,9 @@ public sealed partial class PlayerPage
         ResetSeekPreview();
         _previewSource = source;
         var generation = _previewGeneration;
-        var position = _player?.PlaybackSession.Position.TotalSeconds ?? 0;
+        var position = _pendingSeekMs > 0
+            ? _pendingSeekMs / 1000.0
+            : _player?.PlaybackSession.Position.TotalSeconds ?? 0;
         var duration = _player?.PlaybackSession.NaturalDuration.TotalSeconds ?? 0;
 
         _previewService = new ThumbnailFrameService(source, position, duration, (bucket, file) =>
