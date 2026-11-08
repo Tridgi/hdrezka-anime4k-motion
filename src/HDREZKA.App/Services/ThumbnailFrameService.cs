@@ -125,7 +125,7 @@ internal sealed class ThumbnailFrameService : IDisposable
                         "absolute+keyframes");
                     // Wait for a decoded frame, but prioritize subsequent mouse
                     // requests and do not hold the UI thread for this operation.
-                    var deadline = DateTime.UtcNow.AddMilliseconds(650);
+                    var deadline = DateTime.UtcNow.AddMilliseconds(450);
                     var frameReady = false;
                     while (!_stop.IsCancellationRequested && DateTime.UtcNow < deadline)
                     {
@@ -134,9 +134,12 @@ internal sealed class ThumbnailFrameService : IDisposable
                         if (ev.Id == 21) { frameReady = true; break; }
                     }
                     if (_stop.IsCancellationRequested) break;
-                    if (!frameReady && target != 0) continue;
+                    // Some streams do not emit PLAYBACK_RESTART while paused.
+                    // Try a software screenshot anyway; the file-existence
+                    // check below determines whether a real frame was decoded.
+                    if (!frameReady) Thread.Sleep(75);
                     MpvNative.Command(handle, "screenshot-to-file", filename, "video");
-                    var writeDeadline = DateTime.UtcNow.AddMilliseconds(280);
+                    var writeDeadline = DateTime.UtcNow.AddMilliseconds(650);
                     while (!File.Exists(filename) && DateTime.UtcNow < writeDeadline &&
                            !_stop.IsCancellationRequested) Thread.Sleep(25);
                     if (!File.Exists(filename) || new FileInfo(filename).Length < 128)
@@ -149,7 +152,7 @@ internal sealed class ThumbnailFrameService : IDisposable
                 {
                     _failures++;
                     Log.Warn("[Thumbnail] Frame unavailable (time-only fallback): " + ex.Message);
-                    if (_failures >= 3) return; // avoid persistent retry storms
+                    if (_failures >= 5) return; // avoid persistent retry storms
                 }
             }
         }
@@ -176,7 +179,9 @@ internal sealed class ThumbnailFrameService : IDisposable
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
-        _stop.Cancel();
+        // Worker may already have released its CTS after an unsupported
+        // video source; disposal of the UI owner must remain harmless.
+        try { _stop.Cancel(); } catch (ObjectDisposedException) { }
         try { _requestEvent.Set(); } catch (ObjectDisposedException) { }
         // Deliberately do NOT wait for libmpv here: network teardown can stall,
         // and it must never prevent the episode drawer or window from closing.
