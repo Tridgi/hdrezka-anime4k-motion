@@ -35,7 +35,11 @@ public static class PosterCache
 
     static PosterCache()
     {
-        Http.DefaultRequestHeaders.UserAgent.ParseAdd(BuildInfo.UserAgent);
+        // Poster CDNs commonly block non-browser user agents even when the
+        // HTML/API mirror itself accepts HDREZKA's custom client agent.
+        Http.DefaultRequestHeaders.UserAgent.ParseAdd(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36");
+        Http.DefaultRequestHeaders.Accept.ParseAdd("image/avif,image/webp,image/apng,image/*;q=0.9,*/*;q=0.8");
         _ = Task.Run(CleanupAsync);
     }
 
@@ -56,7 +60,7 @@ public static class PosterCache
         return uri.Scheme is "http" or "https" ? uri.AbsoluteUri : null;
     }
 
-    public static void SetSource(Image image, string? url)
+    public static void SetSource(Image image, string? url, Action? onFailure = null)
     {
         var normalizedUrl = NormalizePosterUrl(url);
         if (normalizedUrl == null)
@@ -85,6 +89,8 @@ public static class PosterCache
             catch (Exception ex)
             {
                 Log.Warn("[PosterCache] Download failed (" + GetHost(key) + "): " + ex.Message);
+                if (onFailure != null)
+                    queue.TryEnqueue(() => { if ((string?)image.Tag == key) onFailure(); });
                 return;
             }
 
@@ -104,6 +110,7 @@ public static class PosterCache
                             Log.Warn("[PosterCache] Image decoding failed (" + GetHost(key) + "): " + e.ErrorMessage);
                             Memory.TryRemove(key, out var ignored);
                             try { File.Delete(path); } catch { }
+                            if ((string?)image.Tag == key) onFailure?.Invoke();
                         };
                         decoded.UriSource = new Uri(path);
                         return decoded;
@@ -166,7 +173,8 @@ public static class PosterCache
             using var resp = await Http.SendAsync(request).ConfigureAwait(false);
             resp.EnsureSuccessStatusCode();
             var mime = resp.Content.Headers.ContentType?.MediaType;
-            if (mime is not null && !mime.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            if (mime != null && !mime.StartsWith("image/", StringComparison.OrdinalIgnoreCase) &&
+                mime != "application/octet-stream" && mime != "binary/octet-stream")
                 throw new InvalidDataException("Poster response is not an image: " + mime);
             using var net = await resp.Content.ReadAsStreamAsync().ConfigureAwait(false);
 
@@ -180,6 +188,8 @@ public static class PosterCache
                     await net.CopyToAsync(file).ConfigureAwait(false);
                 }
 
+                if (!IsImageFile(tmp))
+                    throw new InvalidDataException("Poster CDN returned content with no supported image signature");
                 File.Move(tmp, path, overwrite: true);
             }
             catch
@@ -199,7 +209,29 @@ public static class PosterCache
     private static bool IsFresh(string path)
     {
         var info = new FileInfo(path);
-        return info.Exists && info.Length > 0 && DateTime.UtcNow - info.LastWriteTimeUtc < MaxAge;
+        return info.Exists && info.Length > 0 && IsImageFile(path) &&
+               DateTime.UtcNow - info.LastWriteTimeUtc < MaxAge;
+    }
+
+    private static bool IsImageFile(string path)
+    {
+        try
+        {
+            using var fs = File.OpenRead(path);
+            Span<byte> b = stackalloc byte[16];
+            var n = fs.Read(b);
+            if (n < 12) return false;
+            return
+                (b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF) || // JPEG
+                (b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) || // PNG
+                (b[0] == 0x47 && b[1] == 0x49 && b[2] == 0x46) || // GIF
+                (b[0] == 0x42 && b[1] == 0x4D) || // BMP
+                (b[0] == 0x52 && b[1] == 0x49 && b[2] == 0x46 &&
+                 b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50) || // WebP
+                (b[4] == 0x66 && b[5] == 0x74 && b[6] == 0x79 && b[7] == 0x70 &&
+                 (b[8] == 0x61 && b[9] == 0x76 && b[10] == 0x69 && b[11] == 0x66)); // AVIF
+        }
+        catch { return false; }
     }
 
     private static async Task CleanupAsync()
