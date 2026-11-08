@@ -484,12 +484,24 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn('x:Name="EpisodeDrawerButton"', xaml)
         self.assertIn('x:Name="EpisodeDrawerOverlay"', xaml)
         self.assertIn('x:Name="SeekPreviewOverlay"', xaml)
-        self.assertIn('x:Name="ThumbnailVideoSurface"', xaml)
+        self.assertNotIn('x:Name="ThumbnailVideoSurface"', xaml,
+            "A second SwapChainPanel overlays the player chrome even at low opacity")
+        tree = ET.fromstring(xaml)
+        overlay = next(node for node in tree.iter()
+                       if node.attrib.get(XAML_NAME) == "OverlayGrid")
+        self.assertTrue(any(node.attrib.get(XAML_NAME) == "EpisodeDrawerOverlay"
+                            and node.attrib.get("Grid.Row") == "1"
+                            for node in overlay.iter()),
+                        "Episode drawer must be under TopBar so Close/Pin still work")
         self.assertIn("UpdateEpisodeDrawerSelection()", player)
         self.assertIn("PopulateEpisodeSeasons(", drawer)
         self.assertIn("SetWindowSubclass(", cursor)
         self.assertNotIn('EntryPoint = "ShowCursor"', player)
-        self.assertIn("GenerateThumbnailAsync(", preview)
+        self.assertIn("new ThumbnailFrameService(", preview)
+        decoder = contents("../Services/ThumbnailFrameService.cs")
+        self.assertIn('Configure(handle, "vo", "null")', decoder)
+        self.assertIn("Task.Run(Worker)", decoder)
+        self.assertNotIn("SwapChainPanel", preview.split("private void SeekSlider_PointerMoved")[0])
         self.assertIn("ResetSeekPreview()", player)
         for name in ("SeekBackBox", "SeekForwardBox", "DefaultSpeedBox",
                      "RememberSpeedCheck", "SeekThumbnailsCheck"):
@@ -501,6 +513,21 @@ class DetailsLayoutSmokeTests(unittest.TestCase):
         self.assertIn("active-playback.json", history)
         self.assertIn("SetActive(", player)
         self.assertIn("WriteAtomically(", history)
+        self.assertIn("Interlocked.Increment(ref _episodeRequestGeneration)", player)
+        self.assertIn("_episodeRequestCts?.Cancel()", player)
+        self.assertIn("ResumeCursorOnActivate()", cursor)
+        for handler in ("SeekBackDecrease_Click", "SeekBackIncrease_Click",
+                        "SeekForwardDecrease_Click", "SeekForwardIncrease_Click",
+                        "DefaultSpeedDecrease_Click", "DefaultSpeedIncrease_Click",
+                        "OpeningSkipDecrease_Click", "OpeningSkipIncrease_Click"):
+            self.assertIn('Click="' + handler + '"', settings)
+            self.assertIn(handler + "(", settings_code)
+        self.assertEqual(settings.count('SpinButtonPlacementMode="Hidden"'), 4)
+        poster = contents("../Services/PosterCache.cs")
+        self.assertIn("IsImageFile(", poster)
+        self.assertIn("onFailure", poster)
+        self.assertIn("OnHeroPosterFailed(", home)
+
 
     def test_sidebar_button_has_one_xaml_content_element(self):
         root = ET.fromstring(contents("../MainWindow.xaml"))
