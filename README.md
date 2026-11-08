@@ -6,7 +6,9 @@
 [![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4)](docs/BUILD.md)
 [![Лицензии](https://img.shields.io/badge/лицензии-MIT%20%2B%20GPL-informational)](THIRD_PARTY.md)
 
-> 🧪 **В разработке — HDREZKA 2.2 Preview:** отдельная тестовая ветка с исправлением перемотки, историей серий, боковым меню, настройками скорости и экспериментальными миниатюрами. Стабильная версия по-прежнему 2.1.0. [Список изменений и проверки тестовой сборки](docs/TESTING_2.2_PREVIEW.md).\n\n**[⬇ Скачать HDREZKA 2.1](https://github.com/Tridgi/hdrezka-anime4k-motion/releases/tag/v2.1.0)** · [🇬🇧 English](README.en.md) · [📖 Руководство](docs/USER_GUIDE.md) · [📝 История изменений](CHANGELOG.md) · [🛠 Сборка](docs/BUILD.md)
+> 🧪 **Тестовая 2.2.0 Preview 2:** исправлено перекрытие видеоповерхности, блокировка кнопки закрытия меню, зависание при переключении серий, поведение курсора и загрузка постеров Top. Предпросмотр кадров переработан: отдельный фоновый декодер выбирает минимальное доступное качество. Настройки управления выровнены; работают горизонтальные стрелки ←/→. Стабильная версия остаётся 2.1.0. [Изменения](CHANGELOG.md) · [Проверки Preview 2](docs/TESTING_2.2_PREVIEW.md).
+
+**[⬇ Скачать HDREZKA 2.1](https://github.com/Tridgi/hdrezka-anime4k-motion/releases/tag/v2.1.0)** · [🇬🇧 English](README.en.md) · [📖 Руководство](docs/USER_GUIDE.md) · [📝 История изменений](CHANGELOG.md) · [🛠 Сборка](docs/BUILD.md)
 
 > Это независимая модификация [HDREZKA for Windows от eddinwork](https://github.com/eddinwork/HDREZKA), не официальный клиент HDRezka. Приложение не включает фильмы, подписки, учётные записи и файлы с пользовательскими данными.
 
