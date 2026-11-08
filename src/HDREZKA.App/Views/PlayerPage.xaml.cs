@@ -189,7 +189,9 @@ public sealed partial class PlayerPage : Page
             if (_player != null)
             {
                 UnsubscribePlayerEvents();
-                _player.Source = null;
+                // Do not call a synchronous mpv "stop" on the UI thread while
+                // switching streams or closing. Dispose releases graphics on UI,
+                // then lets the background worker terminate network I/O.
                 _player.Dispose();
                 _player = null;
             }
