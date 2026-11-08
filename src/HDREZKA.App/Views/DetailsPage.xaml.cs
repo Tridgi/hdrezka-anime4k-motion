@@ -341,7 +341,10 @@ public sealed partial class DetailsPage : Page
             // HTML отдаёт сезоны только для озвучки по умолчанию: тихо сверяем
             // с get_episodes и восстанавливаем последнюю озвучку/сезон из истории
             // (у разных озвучек разный набор сезонов, например 1 или 2).
-            if (details.Seasons is { Count: > 0 } && _voice != null)
+            if (_voice != null && (details.Seasons is { Count: > 0 } ||
+                details.Schedule != null ||
+                PositionService.Instance.GetLatestFor(
+                    ExtractNumericId(details.Id) ?? details.Id, details.Id)?.SeasonId != null))
             {
                 _ = RestoreOrSyncSeasonsAsync();
             }

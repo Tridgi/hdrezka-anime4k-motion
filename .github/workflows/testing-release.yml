@@ -1,8 +1,14 @@
 name: Publish test prerelease
 on:
   push:
-    branches: [fix/player-swapchain-dpi-scaling, fix/ratings-updates-polish]
+    branches: [fix/player-swapchain-dpi-scaling, fix/ratings-updates-polish, feature/player-history-2.2-preview]
   workflow_dispatch:
+# Cancel obsolete builds on the same test branch; only the newest commit
+# should produce a prerelease.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 jobs:
@@ -37,7 +43,7 @@ jobs:
         shell: pwsh
         run: |
           ./scripts/package.ps1 -InputDirectory artifacts/app -OutputDirectory artifacts/portable
-          $asset = 'HDREZKA-Anime4K-Motion-2.1.0-win-x64.zip'
+          $asset = 'HDREZKA-Anime4K-Motion-2.2.0-preview.2-win-x64.zip'
           Compress-Archive -Path 'artifacts/portable/*' -DestinationPath "artifacts/$asset" -CompressionLevel Optimal
           $hash = (Get-FileHash "artifacts/$asset" -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  $asset" | Set-Content -Path artifacts/SHA256SUMS.txt -Encoding Ascii
@@ -55,4 +61,4 @@ jobs:
           $sha = '${{ github.sha }}'
           $short = $sha.Substring(0, 10)
           $tag = "test-$short"
-          gh release create $tag artifacts/HDREZKA-Anime4K-Motion-2.1.0-win-x64.zip artifacts/SHA256SUMS.txt --repo '${{ github.repository }}' --target $sha --title "Тестовая сборка $short" --notes-file artifacts/RELEASE_NOTES.md --prerelease
+          gh release create $tag artifacts/HDREZKA-Anime4K-Motion-2.2.0-preview.2-win-x64.zip artifacts/SHA256SUMS.txt --repo '${{ github.repository }}' --target $sha --title "HDREZKA 2.2 Preview 2 · $short" --notes-file artifacts/RELEASE_NOTES.md --prerelease

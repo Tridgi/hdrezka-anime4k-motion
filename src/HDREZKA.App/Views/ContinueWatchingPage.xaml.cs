@@ -77,7 +77,7 @@ public sealed partial class ContinueWatchingPage : Page
         _items.Clear();
         _accountIds.Clear();
 
-        foreach (var position in PositionService.Instance.GetAll())
+        foreach (var position in PositionService.Instance.GetContinueTitles())
         {
             _items.Add(FromLocal(position));
         }
@@ -127,7 +127,7 @@ public sealed partial class ContinueWatchingPage : Page
         try
         {
             var account = await client.GetContinueWatchingAsync();
-            var positions = PositionService.Instance.GetAll()
+            var positions = PositionService.Instance.GetContinueTitles()
                 .GroupBy(p => p.MovieId)
                 .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.UpdatedAt).First());
 
@@ -188,9 +188,17 @@ public sealed partial class ContinueWatchingPage : Page
     private void RenderList()
     {
         List.Items.Clear();
+        // Local and website rows may use different URLs for the same title.
+        // Merge by numeric movie ID, preserving the newest known episode.
+        var unique = _items
+            .GroupBy(i => i.MovieKey ?? ExtractNumericId(i.Id) ?? i.Id,
+                StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.OrderByDescending(i => i.UpdatedAt ?? DateTime.MinValue)
+                          .ThenByDescending(i => i.MovieKey != null).First())
+            .ToList();
         var ordered = SettingsService.Instance.ContinueOldestFirst
-            ? _items.OrderBy(i => i.UpdatedAt ?? DateTime.MinValue)
-            : _items.OrderByDescending(i => i.UpdatedAt ?? DateTime.MinValue);
+            ? unique.OrderBy(i => i.UpdatedAt ?? DateTime.MinValue)
+            : unique.OrderByDescending(i => i.UpdatedAt ?? DateTime.MinValue);
         foreach (var item in ordered)
         {
             List.Items.Add(BuildCard(item));

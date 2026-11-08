@@ -79,9 +79,15 @@ public sealed partial class PlayerPage : Page
     /// new episode's key and it "starts at the end".
     /// </summary>
     private bool _loadingEpisode;
+    private CancellationTokenSource? _episodeRequestCts;
+    private int _episodeRequestGeneration;
+    private Windows.Foundation.Point? _lastRealPointerPoint;
 
     /// <summary>Last known duration (for seek preview while dragging).</summary>
     private long _lastTotalMs;
+    private double _sessionSpeed = 1.0;
+    private long _seekRequestedMs;
+    private DateTime _seekRequestedUntilUtc = DateTime.MinValue;
     private long _pendingSeekMs;
     private DateTime _lastTimeChanged = DateTime.MinValue;
     private int _wasMuted;
@@ -109,6 +115,7 @@ public sealed partial class PlayerPage : Page
         {
             BuildSpeedMenu();
             ApplyHeaderLayout();
+            InstallCursorHandler();
             // Re-apply after activation: SetTitleBar may not stick
             // when called pre-activation from OnNavigatedTo.
             ApplyWindowChrome();
@@ -120,6 +127,10 @@ public sealed partial class PlayerPage : Page
         SeekSlider.AddHandler(
             UIElement.PointerPressedEvent,
             new PointerEventHandler((_, e) => _seeking = true),
+            handledEventsToo: true);
+        SeekSlider.AddHandler(
+            UIElement.PointerMovedEvent,
+            new PointerEventHandler(SeekSlider_PointerMoved),
             handledEventsToo: true);
 
     }
@@ -134,6 +145,7 @@ public sealed partial class PlayerPage : Page
         }
 
         _launch = launch;
+        _sessionSpeed = SettingsService.Instance.GetStartupSpeed();
         _quality = SettingsService.Instance.DefaultQuality;
         Log.Info($"[Player] OnNavigatedTo: id={launch.Details.Id} voice={launch.Voice.TranslatorId}");
 
@@ -155,9 +167,14 @@ public sealed partial class PlayerPage : Page
 
     private void TeardownPlayback()
     {
+        if (_tearingDown) return; // PlayerWindow.Closed and navigation can both call Shutdown.
         _tearingDown = true;
+        Interlocked.Increment(ref _episodeRequestGeneration);
+        _episodeRequestCts?.Cancel();
+        _episodeRequestCts = null;
+        ResetSeekPreview();
         UpdateDisplayRequest(false);
-        ShowSystemCursor();
+        UninstallCursorHandler();
         ClearPlaybackMarker();
         SavePosition();
         StopPlaybackStats();
@@ -172,7 +189,9 @@ public sealed partial class PlayerPage : Page
             if (_player != null)
             {
                 UnsubscribePlayerEvents();
-                _player.Source = null;
+                // Do not call a synchronous mpv "stop" on the UI thread while
+                // switching streams or closing. Dispose releases graphics on UI,
+                // then lets the background worker terminate network I/O.
                 _player.Dispose();
                 _player = null;
             }
@@ -253,7 +272,11 @@ public sealed partial class PlayerPage : Page
         }
     }
 
-    private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyHeaderLayout();
+    private void RootGrid_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        ApplyHeaderLayout();
+        EpisodeDrawerCard.Width = Math.Min(350, Math.Max(225, e.NewSize.Width - 16));
+    }
 
     // The episode chip never disappears when the viewport narrows.
     // Shorten the title and constrain the chip to keep right-side window controls available.
@@ -266,7 +289,7 @@ public sealed partial class PlayerPage : Page
         HeaderEffectsHost.Visibility = shortcuts ? Visibility.Visible : Visibility.Collapsed;
         EpisodeText.MaxWidth = width < 660 ? 90 : 170;
         var chipWidth = EpisodeChip.Visibility == Visibility.Visible ? EpisodeText.MaxWidth + 18 : 0;
-        var reserved = 211 + chipWidth + (shortcuts ? 338 : 0);
+        var reserved = 247 + chipWidth + (shortcuts ? 338 : 0);
         TitleText.MaxWidth = Math.Max(32, Math.Min(480, width - reserved));
     }
 
@@ -410,7 +433,7 @@ public sealed partial class PlayerPage : Page
         if (_player == null) return;
         try
         {
-            _player.PlaybackRate = SettingsService.Instance.Speed;
+            _player.PlaybackRate = _sessionSpeed;
         }
         catch
         {
@@ -420,7 +443,12 @@ public sealed partial class PlayerPage : Page
 
     private async Task LoadVideoAsync(bool seekToSaved, string? qualityOverride = null)
     {
-        if (_launch == null) return;
+        if (_launch == null || _tearingDown) return;
+        var launchSnapshot = _launch;
+        _episodeRequestCts?.Cancel();
+        var requestCts = new CancellationTokenSource();
+        _episodeRequestCts = requestCts;
+        var requestGeneration = Interlocked.Increment(ref _episodeRequestGeneration);
 
         try { SetupPlayer(); }
         catch (Exception ex) { App.TryLog(ex); ShowStatus("Не удалось запустить видеодвижок: " + ex.Message); return; }
@@ -435,14 +463,18 @@ public sealed partial class PlayerPage : Page
         try
         {
             // Offline file: no site requests at all.
-            if (!string.IsNullOrEmpty(_launch.LocalFile) && File.Exists(_launch.LocalFile))
+            if (!string.IsNullOrEmpty(launchSnapshot.LocalFile) && File.Exists(launchSnapshot.LocalFile))
             {
-                await LoadLocalFileAsync(_launch.LocalFile, seekToSaved);
+                await LoadLocalFileAsync(launchSnapshot.LocalFile, seekToSaved);
                 return;
             }
 
-            _video = await RezkaService.Instance.Client.GetMovieVideoAsync(
-                _launch.Voice, _launch.Season, _launch.Episode, _launch.Details.Favs);
+            var fetchedVideo = await RezkaService.Instance.Client.GetMovieVideoAsync(
+                launchSnapshot.Voice, launchSnapshot.Season, launchSnapshot.Episode,
+                launchSnapshot.Details.Favs, requestCts.Token);
+            if (_tearingDown || requestCts.IsCancellationRequested ||
+                requestGeneration != _episodeRequestGeneration) return;
+            _video = fetchedVideo;
 
             Log.Info($"[Player] Got video: tracks={_video.Videos.Count} subs={_video.Subtitles.Count}");
 
@@ -469,6 +501,10 @@ public sealed partial class PlayerPage : Page
             Log.Info($"[Player] Candidates={_candidates.Count} first={_candidates[0].Quality} {_candidates[0].Url}");
             await OpenCurrentCandidateAsync();
         }
+        catch (OperationCanceledException) when (requestCts.IsCancellationRequested || _tearingDown)
+        {
+            // Obsolete episode request; a newer one owns the UI.
+        }
         catch (RezkaException ex)
         {
             App.TryLog(ex);
@@ -486,17 +522,23 @@ public sealed partial class PlayerPage : Page
                 }
             }
 
+            _loadingEpisode = false;
             ShowStatus(RezkaService.Instance.ErrorText(ex),
                 ex.Kind is RezkaError.Network or RezkaError.AccessDenied or RezkaError.MirrorBanned);
         }
         catch (Exception ex)
         {
             App.TryLog(ex);
+            _loadingEpisode = false;
             ShowStatus(Loc.Get("Error.Network"), showMirrorButton: true);
         }
         finally
         {
-            _switching = false;
+            if (requestGeneration == _episodeRequestGeneration) _switching = false;
+            // Never leave a disposed CTS in the field: later episode clicks
+            // must be able to cancel/replace it without ObjectDisposedException.
+            if (ReferenceEquals(_episodeRequestCts, requestCts)) _episodeRequestCts = null;
+            requestCts.Dispose();
         }
     }
 
@@ -587,7 +629,7 @@ public sealed partial class PlayerPage : Page
             // Setting Source resets PlaybackRate to 1x: re-apply saved speed,
             // otherwise UI shows 2x while video plays at 1x.
             ApplySpeed();
-            Log.Info($"[Player] Source set q={quality} seek={_pendingSeekMs} url={url}");
+            Log.Info($"[Player] Source set q={quality} seek={_pendingSeekMs}");
             _ = WatchOpenTimeoutAsync(gen);
         }
         catch (Exception ex)
@@ -714,7 +756,7 @@ public sealed partial class PlayerPage : Page
             var item = new ToggleMenuFlyoutItem
             {
                 Text = speed.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "x",
-                IsChecked = Math.Abs(speed - SettingsService.Instance.Speed) < 0.001,
+                IsChecked = Math.Abs(speed - _sessionSpeed) < 0.001,
                 Tag = speed,
             };
             item.Click += (_, _) =>
@@ -725,8 +767,12 @@ public sealed partial class PlayerPage : Page
                 }
 
                 var rate = (double)item.Tag;
-                SettingsService.Instance.Speed = rate;
-                SettingsService.Instance.Save();
+                _sessionSpeed = rate;
+                if (SettingsService.Instance.RememberPlayerSpeed)
+                {
+                    SettingsService.Instance.Speed = rate;
+                    SettingsService.Instance.Save();
+                }
                 SpeedText.Text = rate.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "x";
                 ApplySpeed();
             };
@@ -734,7 +780,7 @@ public sealed partial class PlayerPage : Page
         }
 
         SpeedButton.Flyout = flyout;
-        SpeedText.Text = SettingsService.Instance.Speed.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "x";
+        SpeedText.Text = _sessionSpeed.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + "x";
     }
 
     private void SpeedButton_Click(object sender, RoutedEventArgs e)
@@ -831,6 +877,17 @@ public sealed partial class PlayerPage : Page
             }
 
             Log.Info($"[Player] MediaOpened duration={duration}");
+            // This is the first confirmed playback of the selected episode.
+            // Timer saves from older loads cannot become the active episode.
+            if (_launch != null && _launch.LocalFile == null)
+            {
+                var key = DetailsPage.ExtractNumericId(_launch.Details.Id) ?? _launch.Details.Id;
+                PositionService.Instance.SetActive(
+                    key, _launch.Voice.TranslatorId,
+                    _launch.Season?.SeasonId, _launch.Episode?.EpisodeId);
+            }
+            _loadingEpisode = false;
+            InitializeSeekPreview();
             if (_pendingSeekMs > 0)
             {
                 var seek = _pendingSeekMs;
@@ -961,10 +1018,14 @@ public sealed partial class PlayerPage : Page
                 if (_tearingDown) return;
                 TotalTimeText.Text = FormatTime(totalMs);
                 CurrentTimeText.Text = FormatTime(posMs);
+                // Do not repaint the old time after an asynchronous seek.
+                // mpv reports the old position until the new frame is decoded.
+                if (_seekRequestedUntilUtc > DateTime.UtcNow &&
+                    Math.Abs(posMs - _seekRequestedMs) > 1600)
+                    return;
+                _seekRequestedUntilUtc = DateTime.MinValue;
                 if (!_seeking && totalMs > 0)
-                {
                     SeekSlider.Value = posMs * 1000.0 / totalMs;
-                }
             }
             catch (Exception ex)
             {
@@ -1110,6 +1171,7 @@ public sealed partial class PlayerPage : Page
         _bufferStart = null;
         DispatcherQueue.TryEnqueue(async () =>
         {
+            if (_tearingDown || _loadingEpisode || !ReferenceEquals(sender, _player)) return;
             // Финальная позиция + отметка «просмотрено»: раньше из-за
             // приоритета && в SavePosition досмотренная серия не отмечалась.
             SavePosition(final: true);
@@ -1158,6 +1220,7 @@ public sealed partial class PlayerPage : Page
             if (TryNextCandidate()) return;
             _pendingSeekMs = 0;
             var local = !string.IsNullOrEmpty(_launch?.LocalFile);
+            _loadingEpisode = false;
             ShowStatus(Loc.Get("Player.StreamFailed"), showMirrorButton: !local);
         });
     }
@@ -1193,7 +1256,8 @@ public sealed partial class PlayerPage : Page
 
     private async Task<bool> TryNextEpisodeAsync(bool auto)
     {
-        if (_launch?.Seasons == null || _launch.Season == null) return false;
+        if (_tearingDown || _loadingEpisode ||
+            _launch?.Seasons == null || _launch.Season == null) return false;
 
         var seasonIdx = _launch.Seasons.ToList().FindIndex(s => s.SeasonId == _launch.Season!.SeasonId);
         var episodes = _launch.Season.Episodes;
@@ -1216,24 +1280,20 @@ public sealed partial class PlayerPage : Page
         if (nextEpisode == null) return false;
 
         SavePosition(final: true);
+        _loadingEpisode = true;
         _launch = _launch with { Season = nextSeason, Episode = nextEpisode };
         UpdateEpisodeText();
-        _loadingEpisode = true;
-        try
-        {
-            await LoadVideoAsync(seekToSaved: true);
-        }
-        finally
-        {
-            _loadingEpisode = false;
-        }
+        await LoadVideoAsync(seekToSaved: true);
+        // _loadingEpisode is cleared after mpv confirms MediaOpened, never
+        // when an async network response merely finishes resolving.
 
         return true;
     }
 
     private async Task<bool> TryPrevEpisodeAsync()
     {
-        if (_launch?.Seasons == null || _launch.Season == null) return false;
+        if (_tearingDown || _loadingEpisode ||
+            _launch?.Seasons == null || _launch.Season == null) return false;
 
         var seasonIdx = _launch.Seasons.ToList().FindIndex(s => s.SeasonId == _launch.Season!.SeasonId);
         var episodes = _launch.Season.Episodes;
@@ -1256,17 +1316,12 @@ public sealed partial class PlayerPage : Page
         if (prevEpisode == null) return false;
 
         SavePosition(final: true);
+        _loadingEpisode = true;
         _launch = _launch with { Season = prevSeason, Episode = prevEpisode };
         UpdateEpisodeText();
-        _loadingEpisode = true;
-        try
-        {
-            await LoadVideoAsync(seekToSaved: true);
-        }
-        finally
-        {
-            _loadingEpisode = false;
-        }
+        await LoadVideoAsync(seekToSaved: true);
+        // _loadingEpisode is cleared after mpv confirms MediaOpened, never
+        // when an async network response merely finishes resolving.
 
         return true;
     }
@@ -1282,6 +1337,7 @@ public sealed partial class PlayerPage : Page
         {
             EpisodeChip.Visibility = Visibility.Collapsed;
         }
+        UpdateEpisodeDrawerSelection();
         ApplyHeaderLayout();
     }
 
@@ -1313,15 +1369,21 @@ public sealed partial class PlayerPage : Page
 
     private void SeekSlider_PointerCanceled(object sender, PointerRoutedEventArgs e) => _seeking = false;
 
-    private void SeekSlider_PointerCaptureLost(object sender, PointerRoutedEventArgs e) => DoSeekFromSlider();
+    private void SeekSlider_PointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        if (_seeking) DoSeekFromSlider(); // PointerReleased already completed a drag.
+    }
 
     private void DoSeekFromSlider()
     {
+        if (!_seeking) return;
         try
         {
             if (_player?.PlaybackSession.NaturalDuration.TotalMilliseconds is double total && total > 0)
             {
                 var target = Math.Clamp(total * SeekSlider.Value / 1000.0, 0, total);
+                _seekRequestedMs = (long)target;
+                _seekRequestedUntilUtc = DateTime.UtcNow.AddSeconds(3);
                 _player.PlaybackSession.Position = TimeSpan.FromMilliseconds(target);
                 CurrentTimeText.Text = FormatTime((long)target);
                 _ignoreStallUntil = DateTime.UtcNow.AddSeconds(5);
@@ -1339,32 +1401,42 @@ public sealed partial class PlayerPage : Page
 
     private void SeekBySeconds(int seconds)
     {
-        if (_player == null) return;
+        if (_player == null || !_player.IsLoaded) return;
         try
         {
             var session = _player.PlaybackSession;
+            var now = DateTime.UtcNow;
             var totalMs = session.NaturalDuration.TotalMilliseconds;
-            var targetMs = session.Position.TotalMilliseconds + seconds * 1000L;
-            targetMs = totalMs > 0 ? Math.Clamp(targetMs, 0, totalMs) : Math.Max(0, targetMs);
+            // Repeated arrow presses accumulate against the requested position
+            // while mpv is still seeking. Reading time-pos every time used to
+            // cancel the preceding jump on slow network/CDN sources.
+            var baseMs = _seekRequestedUntilUtc > now
+                ? _seekRequestedMs : (long)session.Position.TotalMilliseconds;
+            var targetMs = baseMs + seconds * 1000L;
+            targetMs = (long)(totalMs > 0
+                ? Math.Clamp(targetMs, 0, totalMs) : Math.Max(0, targetMs));
+            _seekRequestedMs = targetMs;
+            _seekRequestedUntilUtc = now.AddSeconds(3);
             session.Position = TimeSpan.FromMilliseconds(targetMs);
-            _ignoreStallUntil = DateTime.UtcNow.AddSeconds(5);
-            ReturnFocus();
+            CurrentTimeText.Text = FormatTime(targetMs);
+            _ignoreStallUntil = now.AddSeconds(5);
+            Log.Info($"[PlayerSeek] delta={seconds} targetMs={targetMs}");
         }
         catch (Exception ex)
         {
-            App.TryLog(ex);
+            Log.Error("[PlayerSeek] Failed", ex);
         }
     }
 
     private void SeekBackInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        SeekBySeconds(-10);
+        SeekBySeconds(-SettingsService.Instance.SeekBackSeconds);
         args.Handled = true;
     }
 
     private void SeekForwardInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        SeekBySeconds(10);
+        SeekBySeconds(SettingsService.Instance.SeekForwardSeconds);
         args.Handled = true;
     }
 
@@ -1524,6 +1596,7 @@ public sealed partial class PlayerPage : Page
             if (length <= 0) return;
 
             PersistPosition(_launch, time, length, _quality);
+            Log.Info($"[PlaybackHistory] saved title={_launch.Details.Id} voice={_launch.Voice.TranslatorId} season={_launch.Season?.SeasonId ?? "0"} episode={_launch.Episode?.EpisodeId ?? "0"} timeMs={time} durationMs={length}");
 
             // Local files never touch the server.
             if (_launch.LocalFile == null && RezkaService.Instance.IsLoggedIn && (DateTime.UtcNow - _lastSiteSave).TotalSeconds > 25)
@@ -1558,14 +1631,27 @@ public sealed partial class PlayerPage : Page
 
     private void RootGrid_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
+        var point = e.GetCurrentPoint(RootGrid).Position;
+        var moved = !_lastRealPointerPoint.HasValue ||
+            Math.Abs(point.X - _lastRealPointerPoint.Value.X) >= 1.5 ||
+            Math.Abs(point.Y - _lastRealPointerPoint.Value.Y) >= 1.5;
         _pointerInsidePlayer = true;
+        // WinUI can raise redundant PointerMoved during video composition or
+        // overlay hit-testing. Do not restart the 3s idle timer for those.
+        if (!moved) return;
+        _lastRealPointerPoint = point;
         ShowControls();
     }
 
     private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
+        var entering = !_pointerInsidePlayer;
         _pointerInsidePlayer = true;
-        ShowControls();
+        if (entering)
+        {
+            _lastRealPointerPoint = e.GetCurrentPoint(RootGrid).Position;
+            ShowControls();
+        }
     }
 
     private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
@@ -1574,6 +1660,7 @@ public sealed partial class PlayerPage : Page
         if (point.X < 0 || point.Y < 0 || point.X >= RootGrid.ActualWidth || point.Y >= RootGrid.ActualHeight)
         {
             _pointerInsidePlayer = false;
+            _lastRealPointerPoint = null;
             ShowSystemCursor();
         }
     }
@@ -1622,13 +1709,13 @@ public sealed partial class PlayerPage : Page
         }
         ShowSystemCursor();
         _hideTimer.Stop();
-        if (!IsPlaying()) return;
+        if (!IsPlaying() || _episodeDrawerOpen) return;
         _hideTimer.Start();
     }
 
     private void HideControls()
     {
-        if (!IsPlaying()) return;
+        if (!IsPlaying() || _episodeDrawerOpen || _seeking || _tearingDown) return;
         _hideTimer.Stop();
         FadeElement(TopBar, show: false);
         FadeElement(BottomBar, show: false);
@@ -1643,28 +1730,12 @@ public sealed partial class PlayerPage : Page
     internal void RestoreCursorOnDeactivate()
     {
         _pointerInsidePlayer = false;
+        _lastRealPointerPoint = null;
+        _hideTimer.Stop();
         ShowSystemCursor();
     }
     private bool _cursorHidden;
     private bool _pointerInsidePlayer;
-    private int _cursorHideCalls;
-    [System.Runtime.InteropServices.DllImport("user32.dll", EntryPoint = "ShowCursor")]
-    private static extern int SetCursorVisible([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)] bool visible);
-
-    private void HideSystemCursor()
-    {
-        if (_cursorHidden || !_pointerInsidePlayer) return;
-        // Balance exactly the calls we make; pointer movement must never grow
-        // the Win32 display counter and prevent subsequent hiding.
-        do { _cursorHideCalls++; } while (SetCursorVisible(false) >= 0);
-        _cursorHidden = true;
-    }
-
-    private void ShowSystemCursor()
-    {
-        while (_cursorHideCalls > 0) { SetCursorVisible(true); _cursorHideCalls--; }
-        _cursorHidden = false;
-    }
 
     private void ToggleFullscreen()
     {
@@ -1776,12 +1847,12 @@ public sealed partial class PlayerPage : Page
                 e.Handled = true;
                 break;
             case VirtualKey.Left:
-                SeekBySeconds(-10);
+                SeekBySeconds(-SettingsService.Instance.SeekBackSeconds);
                 e.Handled = true;
                 break;
 
             case VirtualKey.Right:
-                SeekBySeconds(10);
+                SeekBySeconds(SettingsService.Instance.SeekForwardSeconds);
                 e.Handled = true;
                 break;
             case VirtualKey.Up:
@@ -1823,6 +1894,7 @@ public sealed partial class PlayerPage : Page
 
     private void ShowStatus(string message, bool showMirrorButton = false)
     {
+        _loadingEpisode = false;
         LoadingPanel.Visibility = Visibility.Visible;
         LoadingRing.Visibility = Visibility.Collapsed;
         StatusText.Text = message;

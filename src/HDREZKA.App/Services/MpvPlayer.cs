@@ -220,13 +220,48 @@ internal sealed unsafe class MpvPlayer : IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return; _disposed = true;
-        _timer.Stop(); _timer.Tick -= OnTick; _panel.SizeChanged -= OnSizeChanged; _panel.CompositionScaleChanged -= OnScaleChanged;
-        if (_handle != IntPtr.Zero) MpvNative.mpv_wakeup(_handle);
-        _eventThread?.Join();
-        if (_render != IntPtr.Zero) { MpvNative.mpv_render_context_set_update_callback(_render, null, IntPtr.Zero); MpvNative.mpv_render_context_free(_render); _render = IntPtr.Zero; }
-        if (_handle != IntPtr.Zero) { MpvNative.mpv_terminate_destroy(_handle); _handle = IntPtr.Zero; }
-        _surface?.Dispose(); _surface = null;
+        if (_disposed) return;
+        _disposed = true;
+        _timer.Stop();
+        _timer.Tick -= OnTick;
+        _panel.SizeChanged -= OnSizeChanged;
+        _panel.CompositionScaleChanged -= OnScaleChanged;
+
+        // Release the WinUI/D3D swapchain on its owning UI thread, but never
+        // Join() the mpv network/event thread there: blocked CDN calls could
+        // otherwise freeze the entire player window and prevent closing.
+        var handle = _handle;
+        if (handle != IntPtr.Zero) MpvNative.mpv_wakeup(handle);
+        if (_render != IntPtr.Zero)
+        {
+            MpvNative.mpv_render_context_set_update_callback(_render, null, IntPtr.Zero);
+            MpvNative.mpv_render_context_free(_render);
+            _render = IntPtr.Zero;
+        }
+        _surface?.Dispose();
+        _surface = null;
+
+        var eventThread = _eventThread;
+        if (handle != IntPtr.Zero)
+        {
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    // Do not destroy a handle until mpv_wait_event finishes.
+                    // If that native call stays stuck, leaking this one handle
+                    // is safer than a crash/use-after-free on window shutdown.
+                    if (eventThread != null && !eventThread.Join(TimeSpan.FromSeconds(12)))
+                    {
+                        Log.Warn("[Player] Timed out waiting for native event thread during shutdown");
+                        return;
+                    }
+                    MpvNative.mpv_terminate_destroy(handle);
+                    _handle = IntPtr.Zero;
+                }
+                catch (Exception ex) { Log.Warn("[Player] Background mpv shutdown: " + ex.Message); }
+            });
+        }
         GC.KeepAlive(_update);
     }
 }

@@ -31,6 +31,11 @@ public sealed partial class SettingsPage : Page
 
         var settings = SettingsService.Instance;
         OpeningSkipBox.Value = settings.OpeningSkipSeconds;
+        SeekBackBox.Value = settings.SeekBackSeconds;
+        SeekForwardBox.Value = settings.SeekForwardSeconds;
+        DefaultSpeedBox.Value = settings.DefaultSpeed;
+        RememberSpeedCheck.IsChecked = settings.RememberPlayerSpeed;
+        SeekThumbnailsCheck.IsChecked = settings.EnableSeekThumbnails;
         MirrorBox.Text = settings.Mirror;
 
         LanguageBox.Items.Clear();
@@ -69,6 +74,56 @@ public sealed partial class SettingsPage : Page
     private void OnLanguageChanged()
     {
         DispatcherQueue.TryEnqueue(ApplyLocalization);
+    }
+
+    private static void AdjustSetting(NumberBox box, double delta, double minimum, double maximum)
+    {
+        var original = double.IsFinite(box.Value) ? box.Value : minimum;
+        box.Value = Math.Clamp(Math.Round((original + delta) * 100) / 100.0, minimum, maximum);
+    }
+
+    private void SeekBackDecrease_Click(object sender, RoutedEventArgs e) => AdjustSetting(SeekBackBox, -5, 1, 120);
+    private void SeekBackIncrease_Click(object sender, RoutedEventArgs e) => AdjustSetting(SeekBackBox, 5, 1, 120);
+    private void SeekForwardDecrease_Click(object sender, RoutedEventArgs e) => AdjustSetting(SeekForwardBox, -5, 1, 120);
+    private void SeekForwardIncrease_Click(object sender, RoutedEventArgs e) => AdjustSetting(SeekForwardBox, 5, 1, 120);
+    private void DefaultSpeedDecrease_Click(object sender, RoutedEventArgs e) => AdjustSetting(DefaultSpeedBox, -0.25, 0.5, 3.0);
+    private void DefaultSpeedIncrease_Click(object sender, RoutedEventArgs e) => AdjustSetting(DefaultSpeedBox, 0.25, 0.5, 3.0);
+    private void OpeningSkipDecrease_Click(object sender, RoutedEventArgs e) => AdjustSetting(OpeningSkipBox, -5, 1, 600);
+    private void OpeningSkipIncrease_Click(object sender, RoutedEventArgs e) => AdjustSetting(OpeningSkipBox, 5, 1, 600);
+
+    private void SeekBackBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        if (!_initialized || !double.IsFinite(args.NewValue)) return;
+        SettingsService.Instance.SeekBackSeconds = (int)Math.Clamp(Math.Round(args.NewValue), 1, 120);
+        SettingsService.Instance.Save();
+    }
+
+    private void SeekForwardBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        if (!_initialized || !double.IsFinite(args.NewValue)) return;
+        SettingsService.Instance.SeekForwardSeconds = (int)Math.Clamp(Math.Round(args.NewValue), 1, 120);
+        SettingsService.Instance.Save();
+    }
+
+    private void DefaultSpeedBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        if (!_initialized || !double.IsFinite(args.NewValue)) return;
+        SettingsService.Instance.DefaultSpeed = Math.Clamp(args.NewValue, 0.5, 3.0);
+        SettingsService.Instance.Save();
+    }
+
+    private void SeekThumbnailsCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_initialized) return;
+        SettingsService.Instance.EnableSeekThumbnails = SeekThumbnailsCheck.IsChecked == true;
+        SettingsService.Instance.Save();
+    }
+
+    private void RememberSpeedCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_initialized) return;
+        SettingsService.Instance.RememberPlayerSpeed = RememberSpeedCheck.IsChecked == true;
+        SettingsService.Instance.Save();
     }
 
     private void OpeningSkipBox_ValueChanged(NumberBox sender, NumberBoxValueChangedEventArgs args)
