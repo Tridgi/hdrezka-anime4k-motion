@@ -79,6 +79,9 @@ public sealed partial class PlayerPage : Page
     /// new episode's key and it "starts at the end".
     /// </summary>
     private bool _loadingEpisode;
+    private CancellationTokenSource? _episodeRequestCts;
+    private int _episodeRequestGeneration;
+    private Windows.Foundation.Point? _lastRealPointerPoint;
 
     /// <summary>Last known duration (for seek preview while dragging).</summary>
     private long _lastTotalMs;
@@ -164,7 +167,11 @@ public sealed partial class PlayerPage : Page
 
     private void TeardownPlayback()
     {
+        if (_tearingDown) return; // PlayerWindow.Closed and navigation can both call Shutdown.
         _tearingDown = true;
+        Interlocked.Increment(ref _episodeRequestGeneration);
+        _episodeRequestCts?.Cancel();
+        _episodeRequestCts = null;
         ResetSeekPreview();
         UpdateDisplayRequest(false);
         UninstallCursorHandler();
@@ -434,7 +441,12 @@ public sealed partial class PlayerPage : Page
 
     private async Task LoadVideoAsync(bool seekToSaved, string? qualityOverride = null)
     {
-        if (_launch == null) return;
+        if (_launch == null || _tearingDown) return;
+        var launchSnapshot = _launch;
+        _episodeRequestCts?.Cancel();
+        var requestCts = new CancellationTokenSource();
+        _episodeRequestCts = requestCts;
+        var requestGeneration = Interlocked.Increment(ref _episodeRequestGeneration);
 
         try { SetupPlayer(); }
         catch (Exception ex) { App.TryLog(ex); ShowStatus("Не удалось запустить видеодвижок: " + ex.Message); return; }
@@ -449,14 +461,18 @@ public sealed partial class PlayerPage : Page
         try
         {
             // Offline file: no site requests at all.
-            if (!string.IsNullOrEmpty(_launch.LocalFile) && File.Exists(_launch.LocalFile))
+            if (!string.IsNullOrEmpty(launchSnapshot.LocalFile) && File.Exists(launchSnapshot.LocalFile))
             {
-                await LoadLocalFileAsync(_launch.LocalFile, seekToSaved);
+                await LoadLocalFileAsync(launchSnapshot.LocalFile, seekToSaved);
                 return;
             }
 
-            _video = await RezkaService.Instance.Client.GetMovieVideoAsync(
-                _launch.Voice, _launch.Season, _launch.Episode, _launch.Details.Favs);
+            var fetchedVideo = await RezkaService.Instance.Client.GetMovieVideoAsync(
+                launchSnapshot.Voice, launchSnapshot.Season, launchSnapshot.Episode,
+                launchSnapshot.Details.Favs, requestCts.Token);
+            if (_tearingDown || requestCts.IsCancellationRequested ||
+                requestGeneration != _episodeRequestGeneration) return;
+            _video = fetchedVideo;
 
             Log.Info($"[Player] Got video: tracks={_video.Videos.Count} subs={_video.Subtitles.Count}");
 
@@ -482,6 +498,10 @@ public sealed partial class PlayerPage : Page
             _pendingSeekMs = seekToSaved ? GetSavedPositionMs() : CurrentPositionMs();
             Log.Info($"[Player] Candidates={_candidates.Count} first={_candidates[0].Quality} {_candidates[0].Url}");
             await OpenCurrentCandidateAsync();
+        }
+        catch (OperationCanceledException) when (requestCts.IsCancellationRequested || _tearingDown)
+        {
+            // Obsolete episode request; a newer one owns the UI.
         }
         catch (RezkaException ex)
         {
@@ -512,7 +532,8 @@ public sealed partial class PlayerPage : Page
         }
         finally
         {
-            _switching = false;
+            if (requestGeneration == _episodeRequestGeneration) _switching = false;
+            requestCts.Dispose();
         }
     }
 
@@ -592,7 +613,6 @@ public sealed partial class PlayerPage : Page
             var source = url;
             if (_tearingDown || _player == null) return;
 
-            if (_currentSource != source) ResetSeekPreview();
             _currentSource = source;
             _mediaOpened = false;
             _quality = quality;
@@ -642,7 +662,6 @@ public sealed partial class PlayerPage : Page
         _pendingSeekMs = seekToSaved ? GetSavedPositionMs() : 0;
 
         var source = path;
-        if (_currentSource != source) ResetSeekPreview();
         _currentSource = source;
         _mediaOpened = false;
         var gen = ++_loadGen;
@@ -863,6 +882,7 @@ public sealed partial class PlayerPage : Page
                     _launch.Season?.SeasonId, _launch.Episode?.EpisodeId);
             }
             _loadingEpisode = false;
+            InitializeSeekPreview();
             if (_pendingSeekMs > 0)
             {
                 var seek = _pendingSeekMs;
@@ -1146,6 +1166,7 @@ public sealed partial class PlayerPage : Page
         _bufferStart = null;
         DispatcherQueue.TryEnqueue(async () =>
         {
+            if (_tearingDown || _loadingEpisode || !ReferenceEquals(sender, _player)) return;
             // Финальная позиция + отметка «просмотрено»: раньше из-за
             // приоритета && в SavePosition досмотренная серия не отмечалась.
             SavePosition(final: true);
@@ -1230,7 +1251,8 @@ public sealed partial class PlayerPage : Page
 
     private async Task<bool> TryNextEpisodeAsync(bool auto)
     {
-        if (_launch?.Seasons == null || _launch.Season == null) return false;
+        if (_tearingDown || _loadingEpisode ||
+            _launch?.Seasons == null || _launch.Season == null) return false;
 
         var seasonIdx = _launch.Seasons.ToList().FindIndex(s => s.SeasonId == _launch.Season!.SeasonId);
         var episodes = _launch.Season.Episodes;
@@ -1265,7 +1287,8 @@ public sealed partial class PlayerPage : Page
 
     private async Task<bool> TryPrevEpisodeAsync()
     {
-        if (_launch?.Seasons == null || _launch.Season == null) return false;
+        if (_tearingDown || _loadingEpisode ||
+            _launch?.Seasons == null || _launch.Season == null) return false;
 
         var seasonIdx = _launch.Seasons.ToList().FindIndex(s => s.SeasonId == _launch.Season!.SeasonId);
         var episodes = _launch.Season.Episodes;
@@ -1603,14 +1626,27 @@ public sealed partial class PlayerPage : Page
 
     private void RootGrid_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
+        var point = e.GetCurrentPoint(RootGrid).Position;
+        var moved = !_lastRealPointerPoint.HasValue ||
+            Math.Abs(point.X - _lastRealPointerPoint.Value.X) >= 1.5 ||
+            Math.Abs(point.Y - _lastRealPointerPoint.Value.Y) >= 1.5;
         _pointerInsidePlayer = true;
+        // WinUI can raise redundant PointerMoved during video composition or
+        // overlay hit-testing. Do not restart the 3s idle timer for those.
+        if (!moved) return;
+        _lastRealPointerPoint = point;
         ShowControls();
     }
 
     private void RootGrid_PointerEntered(object sender, PointerRoutedEventArgs e)
     {
+        var entering = !_pointerInsidePlayer;
         _pointerInsidePlayer = true;
-        ShowControls();
+        if (entering)
+        {
+            _lastRealPointerPoint = e.GetCurrentPoint(RootGrid).Position;
+            ShowControls();
+        }
     }
 
     private void RootGrid_PointerExited(object sender, PointerRoutedEventArgs e)
@@ -1619,6 +1655,7 @@ public sealed partial class PlayerPage : Page
         if (point.X < 0 || point.Y < 0 || point.X >= RootGrid.ActualWidth || point.Y >= RootGrid.ActualHeight)
         {
             _pointerInsidePlayer = false;
+            _lastRealPointerPoint = null;
             ShowSystemCursor();
         }
     }
@@ -1673,7 +1710,7 @@ public sealed partial class PlayerPage : Page
 
     private void HideControls()
     {
-        if (!IsPlaying() || _episodeDrawerOpen) return;
+        if (!IsPlaying() || _episodeDrawerOpen || _seeking || _tearingDown) return;
         _hideTimer.Stop();
         FadeElement(TopBar, show: false);
         FadeElement(BottomBar, show: false);
@@ -1688,6 +1725,8 @@ public sealed partial class PlayerPage : Page
     internal void RestoreCursorOnDeactivate()
     {
         _pointerInsidePlayer = false;
+        _lastRealPointerPoint = null;
+        _hideTimer.Stop();
         ShowSystemCursor();
     }
     private bool _cursorHidden;
