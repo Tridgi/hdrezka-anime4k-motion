@@ -105,7 +105,7 @@
                                 <FontIcon Glyph="&#xE72B;" FontSize="13"/>
                             </Button>
                             <NumberBox x:Name="SeekBackBox" Width="106" Height="36"
-                                       HorizontalAlignment="Left" TextAlignment="Center"
+                                       HorizontalAlignment="Left"
                                        Minimum="1" Maximum="120" SmallChange="5" SpinButtonPlacementMode="Hidden"
                                        ValueChanged="SeekBackBox_ValueChanged"/>
                             <Button Click="SeekBackIncrease_Click" Width="42" Height="36"
@@ -124,7 +124,7 @@
                                 <FontIcon Glyph="&#xE72B;" FontSize="13"/>
                             </Button>
                             <NumberBox x:Name="SeekForwardBox" Width="106" Height="36"
-                                       HorizontalAlignment="Left" TextAlignment="Center"
+                                       HorizontalAlignment="Left"
                                        Minimum="1" Maximum="120" SmallChange="5" SpinButtonPlacementMode="Hidden"
                                        ValueChanged="SeekForwardBox_ValueChanged"/>
                             <Button Click="SeekForwardIncrease_Click" Width="42" Height="36"
@@ -145,7 +145,7 @@
                                 <FontIcon Glyph="&#xE72B;" FontSize="13"/>
                             </Button>
                             <NumberBox x:Name="DefaultSpeedBox" Width="106" Height="36"
-                                       HorizontalAlignment="Left" TextAlignment="Center"
+                                       HorizontalAlignment="Left"
                                        Minimum="0.5" Maximum="3" SmallChange="0.25" LargeChange="0.5"
                                        SpinButtonPlacementMode="Hidden" ValueChanged="DefaultSpeedBox_ValueChanged"/>
                             <Button Click="DefaultSpeedIncrease_Click" Width="42" Height="36"
@@ -178,7 +178,7 @@
                                 <FontIcon Glyph="&#xE72B;" FontSize="13"/>
                             </Button>
                             <NumberBox x:Name="OpeningSkipBox" Width="106" Height="36"
-                                       HorizontalAlignment="Left" TextAlignment="Center"
+                                       HorizontalAlignment="Left"
                                        Minimum="1" Maximum="600" SmallChange="5" LargeChange="30"
                                        SpinButtonPlacementMode="Hidden" ValueChanged="OpeningSkipBox_ValueChanged"/>
                             <Button Click="OpeningSkipIncrease_Click" Width="42" Height="36"
