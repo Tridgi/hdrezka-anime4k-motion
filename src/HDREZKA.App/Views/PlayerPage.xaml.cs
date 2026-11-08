@@ -535,6 +535,9 @@ public sealed partial class PlayerPage : Page
         finally
         {
             if (requestGeneration == _episodeRequestGeneration) _switching = false;
+            // Never leave a disposed CTS in the field: later episode clicks
+            // must be able to cancel/replace it without ObjectDisposedException.
+            if (ReferenceEquals(_episodeRequestCts, requestCts)) _episodeRequestCts = null;
             requestCts.Dispose();
         }
     }
