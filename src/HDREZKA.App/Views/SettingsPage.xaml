@@ -85,41 +85,109 @@
                     <CheckBox x:Name="ShowPlaybackStatsCheck" Content="Показывать статистику воспроизведения"
                               Margin="0,12,0,0" Checked="ShowPlaybackStatsCheck_Changed"
                               Unchecked="ShowPlaybackStatsCheck_Changed"/>
-                    <TextBlock Text="Отрисовка кадров, пропуски, разрешение и режимы обработки.
-                                    Статистику также можно переключать кнопкой ⓘ в плеере."
+                    <TextBlock Text="Отрисовка кадров, пропуски и режимы обработки. Статистика доступна также по кнопке ⓘ в плеере."
                                FontSize="12" TextWrapping="Wrap" MaxWidth="640"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <TextBlock Text="Управление плеером" FontWeight="SemiBold" Margin="0,16,0,4"/>
-                    <TextBlock Text="Шаг перемотки стрелками клавиатуры (← и →) задаётся отдельно."
-                               FontSize="12" TextWrapping="Wrap"
+                    <TextBlock Text="Управление плеером" FontWeight="SemiBold" Margin="0,18,0,4"/>
+                    <TextBlock Text="Стрелки ← и → перематывают видео; ↑ и ↓ регулируют громкость."
+                               FontSize="12" TextWrapping="Wrap" MaxWidth="620"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <StackPanel Orientation="Horizontal" Spacing="16">
-                        <NumberBox x:Name="SeekBackBox" Header="Назад, сек." Width="158"
-                                   Minimum="1" Maximum="120" SmallChange="5" SpinButtonPlacementMode="Inline"
-                                   ValueChanged="SeekBackBox_ValueChanged"/>
-                        <NumberBox x:Name="SeekForwardBox" Header="Вперёд, сек." Width="158"
-                                   Minimum="1" Maximum="120" SmallChange="5" SpinButtonPlacementMode="Inline"
-                                   ValueChanged="SeekForwardBox_ValueChanged"/>
+
+                    <!-- Single consistent left edge for all values; WinUI's stock
+                         up/down NumberBox spinners are hidden. Explicit left/right
+                         arrow buttons work at any window width. -->
+                    <StackPanel Spacing="7" Margin="0,10,0,0" HorizontalAlignment="Left">
+                        <TextBlock Text="Перемотка назад, секунд" FontWeight="Medium"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Left">
+                            <Button Click="SeekBackDecrease_Click" Width="42" Height="36"
+                                    CornerRadius="8" Background="#292D36" BorderBrush="#33FFFFFF" BorderThickness="1"
+                                    ToolTipService.ToolTip="Уменьшить шаг перемотки назад">
+                                <FontIcon Glyph="&#xE72B;" FontSize="13"/>
+                            </Button>
+                            <NumberBox x:Name="SeekBackBox" Width="106" Height="36"
+                                       HorizontalAlignment="Left" TextAlignment="Center"
+                                       Minimum="1" Maximum="120" SmallChange="5" SpinButtonPlacementMode="Hidden"
+                                       ValueChanged="SeekBackBox_ValueChanged"/>
+                            <Button Click="SeekBackIncrease_Click" Width="42" Height="36"
+                                    CornerRadius="8" Background="#292D36" BorderBrush="#33FFFFFF" BorderThickness="1"
+                                    ToolTipService.ToolTip="Увеличить шаг перемотки назад">
+                                <FontIcon Glyph="&#xE72A;" FontSize="13"/>
+                            </Button>
+                        </StackPanel>
                     </StackPanel>
-                    <TextBlock Text="Скорость воспроизведения" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                    <NumberBox x:Name="DefaultSpeedBox" Header="По умолчанию, ×" Width="178"
-                               Minimum="0.5" Maximum="3" SmallChange="0.25" LargeChange="0.5"
-                               SpinButtonPlacementMode="Inline" ValueChanged="DefaultSpeedBox_ValueChanged"/>
+                    <StackPanel Spacing="7" Margin="0,10,0,0" HorizontalAlignment="Left">
+                        <TextBlock Text="Перемотка вперёд, секунд" FontWeight="Medium"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Left">
+                            <Button Click="SeekForwardDecrease_Click" Width="42" Height="36"
+                                    CornerRadius="8" Background="#292D36" BorderBrush="#33FFFFFF" BorderThickness="1"
+                                    ToolTipService.ToolTip="Уменьшить шаг перемотки вперёд">
+                                <FontIcon Glyph="&#xE72B;" FontSize="13"/>
+                            </Button>
+                            <NumberBox x:Name="SeekForwardBox" Width="106" Height="36"
+                                       HorizontalAlignment="Left" TextAlignment="Center"
+                                       Minimum="1" Maximum="120" SmallChange="5" SpinButtonPlacementMode="Hidden"
+                                       ValueChanged="SeekForwardBox_ValueChanged"/>
+                            <Button Click="SeekForwardIncrease_Click" Width="42" Height="36"
+                                    CornerRadius="8" Background="#292D36" BorderBrush="#33FFFFFF" BorderThickness="1"
+                                    ToolTipService.ToolTip="Увеличить шаг перемотки вперёд">
+                                <FontIcon Glyph="&#xE72A;" FontSize="13"/>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Text="Скорость воспроизведения" FontWeight="SemiBold" Margin="0,20,0,0"/>
+                    <StackPanel Spacing="7" Margin="0,4,0,0" HorizontalAlignment="Left">
+                        <TextBlock Text="Скорость по умолчанию, ×" FontWeight="Medium"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Left">
+                            <Button Click="DefaultSpeedDecrease_Click" Width="42" Height="36"
+                                    CornerRadius="8" Background="#292D36" BorderBrush="#33FFFFFF" BorderThickness="1"
+                                    ToolTipService.ToolTip="Уменьшить скорость">
+                                <FontIcon Glyph="&#xE72B;" FontSize="13"/>
+                            </Button>
+                            <NumberBox x:Name="DefaultSpeedBox" Width="106" Height="36"
+                                       HorizontalAlignment="Left" TextAlignment="Center"
+                                       Minimum="0.5" Maximum="3" SmallChange="0.25" LargeChange="0.5"
+                                       SpinButtonPlacementMode="Hidden" ValueChanged="DefaultSpeedBox_ValueChanged"/>
+                            <Button Click="DefaultSpeedIncrease_Click" Width="42" Height="36"
+                                    CornerRadius="8" Background="#292D36" BorderBrush="#33FFFFFF" BorderThickness="1"
+                                    ToolTipService.ToolTip="Увеличить скорость">
+                                <FontIcon Glyph="&#xE72A;" FontSize="13"/>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
                     <CheckBox x:Name="RememberSpeedCheck" Content="Запоминать скорость, выбранную в плеере"
-                              Checked="RememberSpeedCheck_Changed" Unchecked="RememberSpeedCheck_Changed"/>
-                    <TextBlock Text="Если выключено, каждый новый запуск плеера использует скорость по умолчанию."
-                               FontSize="12" TextWrapping="Wrap"
+                              Margin="0,10,0,0" Checked="RememberSpeedCheck_Changed" Unchecked="RememberSpeedCheck_Changed"/>
+                    <TextBlock Text="Если выключено, новое видео запускается со скоростью по умолчанию."
+                               FontSize="12" TextWrapping="Wrap" MaxWidth="620"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <CheckBox x:Name="SeekThumbnailsCheck"
-                              Content="Предпросмотр кадров при наведении на шкалу времени (экспериментально)"
+                              Content="Быстрый предпросмотр кадров при перемотке (экспериментально)"
+                              Margin="0,8,0,0"
                               Checked="SeekThumbnailsCheck_Changed" Unchecked="SeekThumbnailsCheck_Changed"/>
-                    <TextBlock Text="Использует второй низкоразрешённый декодер. Если поток не поддерживает быстрый поиск, показывается только время. Можно отключить на слабых ПК."
-                               FontSize="12" TextWrapping="Wrap"
+                    <TextBlock Text="Кадры готовятся отдельно из самого низкого доступного качества. Если CDN не допускает быстрый поиск, остаётся подсказка времени."
+                               FontSize="12" TextWrapping="Wrap" MaxWidth="620"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <TextBlock Text="Пропуск опенинга" FontWeight="SemiBold" Margin="0,12,0,0"/>
-                    <NumberBox x:Name="OpeningSkipBox" Header="Перемотка вперёд, секунд" Minimum="1" Maximum="600"
-                               SmallChange="5" LargeChange="30" SpinButtonPlacementMode="Inline"
-                               Width="240" HorizontalAlignment="Left" ValueChanged="OpeningSkipBox_ValueChanged"/>
+
+                    <TextBlock Text="Пропуск опенинга" FontWeight="SemiBold" Margin="0,20,0,0"/>
+                    <StackPanel Spacing="7" Margin="0,4,0,0" HorizontalAlignment="Left">
+                        <TextBlock Text="Продолжительность пропуска, секунд" FontWeight="Medium"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Left">
+                            <Button Click="OpeningSkipDecrease_Click" Width="42" Height="36"
+                                    CornerRadius="8" Background="#292D36" BorderBrush="#33FFFFFF" BorderThickness="1"
+                                    ToolTipService.ToolTip="Уменьшить время пропуска">
+                                <FontIcon Glyph="&#xE72B;" FontSize="13"/>
+                            </Button>
+                            <NumberBox x:Name="OpeningSkipBox" Width="106" Height="36"
+                                       HorizontalAlignment="Left" TextAlignment="Center"
+                                       Minimum="1" Maximum="600" SmallChange="5" LargeChange="30"
+                                       SpinButtonPlacementMode="Hidden" ValueChanged="OpeningSkipBox_ValueChanged"/>
+                            <Button Click="OpeningSkipIncrease_Click" Width="42" Height="36"
+                                    CornerRadius="8" Background="#292D36" BorderBrush="#33FFFFFF" BorderThickness="1"
+                                    ToolTipService.ToolTip="Увеличить время пропуска">
+                                <FontIcon Glyph="&#xE72A;" FontSize="13"/>
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
                     <TextBlock Text="По умолчанию 85 секунд (1:25). Кнопка находится в нижней панели плеера."
                                FontSize="12" TextWrapping="Wrap" MaxWidth="640" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                 </StackPanel>
